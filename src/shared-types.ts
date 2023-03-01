@@ -2,12 +2,15 @@ import { Driver } from "./driver.js";
 
 export type Config = {
     url: string;
+    jwt?: string;
 };
 
 /**
  * A SQL query result set row.
  */
+// TODO: we actually return an Array, not a Record
 export type Row = Record<string, SqlValue>;
+// TODO: change `{ base64: string }` to `ArrayBuffer`
 export type SqlValue = string | number | boolean | { base64: string } | null;
 export type Params = SqlValue[] | Record<string, SqlValue>;
 export type BoundStatement = { q: string; params: Params };
@@ -67,4 +70,6 @@ export class Client {
     async transaction(stmts: string[] | BoundStatement[]): Promise<ResultSet[]> {
         return await this.driver.transaction(stmts);
     }
+
+    // TODO: add a `close()` method
 }

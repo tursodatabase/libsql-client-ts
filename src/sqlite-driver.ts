@@ -6,6 +6,7 @@ export class SqliteDriver implements Driver {
     private db: Database;
 
     constructor(url: string) {
+        // TODO: fix the `url.substring()` call, it's almost certainly not correct
         this.db = new DatabaseConstructor(url.substring(5));
     }
 

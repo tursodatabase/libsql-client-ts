@@ -1,6 +1,6 @@
 import { fetch as crossFetch } from "cross-fetch";
 import { ResultSet, BoundStatement, Params } from "../shared-types.js";
-import { Driver } from "./../driver.js";
+import { Driver } from "../driver.js";
 import { Base64 } from "js-base64";
 
 export class HttpDriver implements Driver {
@@ -47,6 +47,7 @@ export class HttpDriver implements Driver {
         const compatibleFetch = typeof fetch === "function" ? fetch : crossFetch;
         const response = await compatibleFetch(this.url, reqParams);
         if (response.status === 200) {
+            // TODO: we ignore the result of executing the BEGIN and COMMIT statements
             const results = await response.json();
             validateTopLevelResults(results, statements.statements.length);
             const resultSets: ResultSet[] = [];
