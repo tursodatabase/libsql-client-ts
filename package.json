@@ -1,6 +1,6 @@
 {
     "name": "@libsql/client",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "keywords": [
         "libsql",
         "database",
@@ -13,8 +13,7 @@
     "description": "libSQL driver for TypeScript and JavaScript",
     "repository": {
         "type": "git",
-        "url": "https://github.com/libsql/sqld.git",
-        "directory": "packages/js/libsql-client"
+        "url": "https://github.com/libsql/libsql-client-ts"
     },
     "authors": [
         "Jan Plhak <jp@chiselstrike.com>",
