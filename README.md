@@ -1,4 +1,4 @@
-# libSQL driver for TypeScript and JavaScript
+# libSQL client API for TypeScript and JavaScript
 
 ## Getting Started
 
@@ -33,8 +33,3 @@ console.log(rs);
 * SQLite JavaScript API
 * SQLite-backed local-only backend
 * SQL over HTTP with `fetch()`
-
-## Roadmap
-
-* Read replica mode
-* Cloudflare D1 API compatibility?
