@@ -1,6 +1,7 @@
 # libSQL client API for TypeScript and JavaScript
 
 [![Node.js CI](https://github.com/libsql/libsql-client-ts/actions/workflows/node-ci.yaml/badge.svg)](https://github.com/libsql/libsql-client-ts/actions/workflows/node-ci.yaml)
+[![License](https://img.shields.io/badge/license-MIT-blue)](https://github.com/libsql/libsql-client-ts/blob/main/LICENSE)
 
 ## Getting Started
 
