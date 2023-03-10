@@ -1,5 +1,7 @@
 # libSQL client API for TypeScript and JavaScript
 
+[![Node.js CI](https://github.com/libsql/libsql-client-ts/actions/workflows/node-ci.yaml/badge.svg)](https://github.com/libsql/libsql-client-ts/actions/workflows/node-ci.yaml)
+
 ## Getting Started
 
 To get started, you need `sqld` running somewhere. Then:
