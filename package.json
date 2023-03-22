@@ -1,6 +1,6 @@
 {
     "name": "@libsql/client",
-    "version": "0.0.7",
+    "version": "0.1.0-pre",
     "keywords": [
         "libsql",
         "database",
@@ -17,25 +17,59 @@
     },
     "authors": [
         "Jan Plhak <jp@chiselstrike.com>",
-        "Pekka Enberg <penberg@chiselstrike.com>"
+        "Pekka Enberg <penberg@chiselstrike.com>",
+        "Jan Špaček <honza@chiselstrike.com>"
     ],
     "license": "MIT",
+
     "type": "module",
     "main": "lib-cjs/index.js",
     "types": "lib-esm/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./lib-esm/index.d.ts",
+            "import": "./lib-esm/index.js",
+            "require": "./lib-cjs/index.js"
+        },
+        "./http": {
+            "types": "./lib-esm/http.d.ts",
+            "import": "./lib-esm/http.js",
+            "require": "./lib-cjs/http.js"
+        },
+        "./hrana": {
+            "types": "./lib-esm/hrana.d.ts",
+            "import": "./lib-esm/hrana.js",
+            "require": "./lib-cjs/hrana.js"
+        },
+        "./sqlite3": {
+            "types": "./lib-esm/sqlite3.d.ts",
+            "import": "./lib-esm/sqlite3.js",
+            "require": "./lib-cjs/sqlite3.js"
+        }
+    },
+    "typesVersions": {
+        "*": {
+            "http": ["./lib-esm/http.d.ts"],
+            "hrana": ["./lib-esm/hrana.d.ts"],
+            "sqlite3": ["./lib-esm/sqlite3.d.ts"]
+        }
+    },
+    "files": [
+        "lib-cjs/**",
+        "lib-esm/**"
+    ],
+
     "scripts": {
         "prebuild": "rm -rf ./lib-cjs ./lib-esm",
         "build": "npm run build:cjs && npm run build:esm",
         "build:cjs": "tsc -p tsconfig.build-cjs.json",
         "build:esm": "tsc -p tsconfig.build-esm.json",
         "postbuild": "cp package-cjs.json ./lib-cjs/package.json",
-        "test": "jest --config jestconfig.json",
-        "prettier-format": "prettier --config .prettierrc 'src/**/*.ts' --write"
+        "test": "jest",
+        "prettier-format": "prettier --config .prettierrc 'src/**/*.ts' --write",
+        "typecheck": "tsc --noEmit"
     },
-    "files": [
-        "lib-cjs/**",
-        "lib-esm/**"
-    ],
+
     "devDependencies": {
         "@types/better-sqlite3": "^7.6.3",
         "@types/jest": "^29.2.5",
@@ -45,27 +79,9 @@
         "typescript": "^4.9.4"
     },
     "dependencies": {
+        "@libsql/hrana-client": "^0.3.0",
         "better-sqlite3": "^8.0.1",
         "cross-fetch": "^3.1.5",
         "js-base64": "^3.7.5"
-    },
-    "exports": {
-        ".": {
-            "types": "./lib-esm/index.d.ts",
-            "import": "./lib-esm/index.js",
-            "require": "./lib-cjs/index.js"
-        },
-        "./http": {
-            "types": "./lib-esm/http/index.d.ts",
-            "import": "./lib-esm/http/index.js",
-            "require": "./lib-cjs/http/index.js"
-        }
-    },
-    "typesVersions": {
-        "*": {
-            "http": [
-                "./lib-esm/http/index.d.ts"
-            ]
-        }
     }
 }
