@@ -1,11 +1,11 @@
-import { connect } from "@libsql/client"
+import { createClient } from "@libsql/client"
 
 async function example() {
   const url = process.env.DB_URL ?? "file::memory:";
   const config = {
     url
   };
-  const db = connect(config);
+  const db = createClient(config);
   await db.transaction([
     "CREATE TABLE IF NOT EXISTS users (email TEXT)",
     "INSERT INTO users (email) VALUES ('alice@example.com')",
