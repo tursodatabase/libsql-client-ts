@@ -8,13 +8,22 @@ export class HttpDriver implements Driver {
     private authHeader: string | undefined;
 
     constructor(url: URL) {
+        for (const [key, value] of url.searchParams.entries()) {
+            if (key === "jwt") {
+                this.authHeader = `Bearer ${value}`;
+            } else {
+                throw new TypeError(`Unknown URL query argument ${JSON.stringify(key)}`);
+            }
+        }
+        var protocol = url.protocol;
+        if (protocol == "libsql:") {
+            protocol = "https:";
+        }
         if (url.username !== "" || url.password !== "") {
             const encodedCreds = Base64.encode(`${url.username}:${url.password}`);
             this.authHeader = `Basic ${encodedCreds}`;
-            url.username = "";
-            url.password = "";
         }
-        this.url = url;
+        this.url = new URL(`${protocol}//${url.host}${url.pathname}`);
     }
 
     async execute(stmt: string, params?: Params): Promise<ResultSet> {
