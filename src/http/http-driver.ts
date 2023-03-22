@@ -7,13 +7,19 @@ export class HttpDriver implements Driver {
     private url: URL;
     private authHeader: string | undefined;
 
-    constructor(url: URL) {
+    constructor(url: URL, authToken?: string) {
         for (const [key, value] of url.searchParams.entries()) {
             if (key === "jwt") {
-                this.authHeader = `Bearer ${value}`;
+                if (authToken) {
+                    throw new TypeError(`Cannot specify both auth token in config and URL query argument`);
+                }
+                authToken = value;
             } else {
                 throw new TypeError(`Unknown URL query argument ${JSON.stringify(key)}`);
             }
+        }
+        if (authToken) {
+            this.authHeader = `Bearer ${authToken}`;
         }
         var protocol = url.protocol;
         if (protocol == "libsql:") {

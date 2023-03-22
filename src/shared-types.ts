@@ -2,6 +2,7 @@ import { Driver } from "./driver.js";
 
 export type Config = {
     url: string;
+    authToken?: string;
 };
 
 /**
