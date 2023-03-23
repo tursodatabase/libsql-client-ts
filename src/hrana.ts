@@ -14,7 +14,7 @@ export function createClient(config: Config): HranaClient {
     } else if (url.protocol === "libsqls:") {
         url.protocol = "wss:";
     }
-    return new HranaClient(hrana.open(url, expandedConfig.jwt));
+    return new HranaClient(hrana.open(url, expandedConfig.authToken));
 }
 
 export class HranaClient implements Client {

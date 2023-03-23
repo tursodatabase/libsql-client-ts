@@ -1,6 +1,6 @@
 export interface Config {
     url: string | URL;
-    jwt?: string;
+    authToken?: string;
     transactions?: boolean;
 }
 

@@ -3,18 +3,18 @@ import { LibsqlError } from "./api.js";
 
 export interface ExpandedConfig extends Config {
     url: URL;
-    jwt: string | undefined;
+    authToken: string | undefined;
     transactions: boolean;
 }
 
 export function expandConfig(config: Config): ExpandedConfig {
     const url = config.url instanceof URL ? config.url : new URL(config.url);
 
-    let jwt = config.jwt;
+    let authToken = config.authToken;
     let transactions = config.transactions ?? false;
     for (const [key, value] of url.searchParams.entries()) {
-        if (key === "jwt") {
-            jwt = value ? value : undefined;
+        if (key === "authToken") {
+            authToken = value ? value : undefined;
         } else if (key === "transactions") {
             transactions = urlParamToBoolean(key, value);
         } else {
@@ -29,7 +29,7 @@ export function expandConfig(config: Config): ExpandedConfig {
         url.searchParams.delete(key);
     }
 
-    return {url, jwt, transactions};
+    return {url, authToken, transactions};
 }
 
 function urlParamToBoolean(key: string, value: string): boolean {

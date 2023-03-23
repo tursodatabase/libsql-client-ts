@@ -6,8 +6,8 @@ import { LibsqlError, createClient } from "..";
 import { ExpandedConfig, expandConfig } from "../config.js";
 
 const config = expandConfig({
-    url: process.env.URL ?? "libsql://localhost",
-    jwt: process.env.JWT,
+    url: process.env.URL ?? "libsql://localhost:8080",
+    authToken: process.env.AUTH_TOKEN,
     transactions: process.env.TRANSACTIONS !== undefined,
 });
 
@@ -331,7 +331,7 @@ describe("batch()", () => {
     }));
 });
 
-describe("transaction()", () => {
+(config.transactions ? describe : describe.skip)("transaction()", () => {
     test("query multiple rows", withClient(async (c) => {
         const txn = await c.transaction();
 
