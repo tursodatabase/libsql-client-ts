@@ -1,7 +1,7 @@
 import type { Config } from "./api.js";
 import { LibsqlError } from "./api.js";
 
-interface ExpandedConfig extends Config {
+export interface ExpandedConfig extends Config {
     url: URL;
     jwt: string | undefined;
     transactions: boolean;

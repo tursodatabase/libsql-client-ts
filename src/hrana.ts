@@ -31,6 +31,8 @@ export class HranaClient implements Client {
             const hranaStmt = stmtToHrana(stmt);
             const hranaRows = await stream.query(hranaStmt);
             return resultSetFromHrana(hranaRows);
+        } catch (e) {
+            throw mapError(e);
         } finally {
             stream.close();
         }
@@ -76,6 +78,8 @@ export class HranaClient implements Client {
             await commitPromise;
 
             return resultSets;
+        } catch (e) {
+            throw mapError(e);
         } finally {
             stream.close();
         }
@@ -88,12 +92,16 @@ export class HranaClient implements Client {
             return new HranaTransaction(stream);
         } catch (e) {
             stream.close();
-            throw e;
+            throw mapError(e);
         }
     }
 
     close(): void {
         this.client.close();
+    }
+
+    get closed(): boolean {
+        return this.client.closed;
     }
 }
 
@@ -113,7 +121,8 @@ export class HranaTransaction implements Transaction {
             );
         }
         const hranaStmt = stmtToHrana(stmt);
-        const hranaRows = await this.stream.query(hranaStmt);
+        const hranaRows = await this.stream.query(hranaStmt)
+            .catch(e => { throw mapError(e); });
         return resultSetFromHrana(hranaRows);
     }
 
@@ -121,7 +130,8 @@ export class HranaTransaction implements Transaction {
         if (this.stream.closed) {
             return;
         }
-        const promise = this.stream.run("ROLLBACK");
+        const promise = this.stream.run("ROLLBACK")
+            .catch(e => { throw mapError(e); });
         this.stream.close();
         await promise;
     }
@@ -133,7 +143,8 @@ export class HranaTransaction implements Transaction {
                 "TRANSACTION_ENDED",
             );
         }
-        const promise = this.stream.run("COMMIT");
+        const promise = this.stream.run("COMMIT")
+            .catch(e => { throw mapError(e); });
         this.stream.close();
         await promise;
     }
@@ -170,4 +181,12 @@ function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
         rows: hranaRows.rows,
         rowsAffected: hranaRows.affectedRowCount,
     };
+}
+
+function mapError(e: unknown): unknown {
+    if (e instanceof hrana.ClientError) {
+        // TODO: Hrana needs to support error codes
+        return new LibsqlError(e.message, undefined, e);
+    }
+    return e;
 }

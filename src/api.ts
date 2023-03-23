@@ -9,6 +9,7 @@ export interface Client {
     batch(stmts: Array<InStatement>): Promise<Array<ResultSet>>;
     transaction(): Promise<Transaction>;
     close(): void;
+    closed: boolean;
 }
 
 export interface Transaction {
@@ -16,6 +17,7 @@ export interface Transaction {
     rollback(): Promise<void>;
     commit(): Promise<void>;
     close(): void;
+    closed: boolean;
 }
 
 export interface ResultSet {
@@ -47,9 +49,9 @@ export type InStatement = { sql: string, args: InArgs } | string;
 export type InArgs = Array<InValue> | Record<string, InValue>;
 
 export class LibsqlError extends Error {
-    code: ErrorCode;
+    code: ErrorCode | undefined;
     
-    constructor(message: string, code: ErrorCode, cause?: Error) {
+    constructor(message: string, code: ErrorCode | undefined, cause?: Error) {
         super(message, { cause });
         this.code = code;
     }
