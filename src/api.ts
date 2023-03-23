@@ -63,5 +63,7 @@ export type ErrorCode =
     | "URL_PARAM_NOT_SUPPORTED"
     | "URL_PARAM_INVALID_VALUE"
     | "SERVER_ERROR"
-    | "TRANSACTION_ENDED"
+    | "TRANSACTION_CLOSED"
+    | "CLIENT_CLOSED"
+    | "TRANSACTIONS_DISABLED"
     | string;

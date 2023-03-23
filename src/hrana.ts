@@ -117,7 +117,7 @@ export class HranaTransaction implements Transaction {
         if (this.stream.closed) {
             throw new LibsqlError(
                 "Cannot execute a statement, the transaction has already ended",
-                "TRANSACTION_ENDED",
+                "TRANSACTION_CLOSED",
             );
         }
         const hranaStmt = stmtToHrana(stmt);
@@ -140,7 +140,7 @@ export class HranaTransaction implements Transaction {
         if (this.stream.closed) {
             throw new LibsqlError(
                 "Cannot commit the transaction, because it has already ended",
-                "TRANSACTION_ENDED",
+                "TRANSACTION_CLOSED",
             );
         }
         const promise = this.stream.run("COMMIT")

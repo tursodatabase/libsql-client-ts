@@ -189,6 +189,14 @@ describe("arguments", () => {
 
     test("?NNN arguments", withClient(async (c) => {
         const rs = await c.execute({
+            sql: "SELECT ?2, ?3, ?1",
+            args: ["one", "two", "three"],
+        });
+        expect(Array.from(rs.rows[0])).toStrictEqual(["two", "three", "one"]);
+    }));
+
+    test("?NNN arguments with holes", withClient(async (c) => {
+        const rs = await c.execute({
             sql: "SELECT ?3, ?1",
             args: ["one", "two", "three"],
         });
@@ -220,7 +228,7 @@ describe("arguments", () => {
             expect(Array.from(rs.rows[0])).toStrictEqual(["two", "one", "twoone"]);
         }));
 
-        test(`${sign}AAAA arguments and ?N arguments`, withClient(async (c) => {
+        test(`${sign}AAAA arguments and ?NNN arguments`, withClient(async (c) => {
             const rs = await c.execute({
                 sql: `SELECT ${sign}b, ${sign}a, ?1`,
                 args: {"a": "one", [`${sign}b`]: "two"},
@@ -268,10 +276,10 @@ describe("batch()", () => {
         ]);
 
         expect(rss.length).toStrictEqual(7);
-        expect(rss[3].rows).toStrictEqual([
+        expect(rss[3].rows).toEqual([
             {a: 1, b: "one"},
         ]);
-        expect(rss[5].rows).toStrictEqual([
+        expect(rss[5].rows).toEqual([
             {a: 1, b: "one"},
             {a: 2, b: "two"},
         ]);
@@ -296,9 +304,9 @@ describe("batch()", () => {
                     "SELECT SUM(a) FROM t2",
                 ]);
 
-                const sum1 = rss[2].rows[0][0];
-                const sum2 = rss[2].rows[0][0];
-                expect(sum2).toStrictEqual(sum1);
+                const sum1 = rss[2].rows[0][0] as number;
+                const sum2 = rss[3].rows[0][0] as number;
+                expect(sum2).toStrictEqual(sum1 * 10);
             })());
         }
         await Promise.all(promises);
@@ -361,7 +369,7 @@ describe("batch()", () => {
 
         const rs = await c.execute("SELECT COUNT(*) FROM t");
         expect(rs.rows[0][0]).toStrictEqual(2);
-        await expect(txn.execute("SELECT 1")).rejects.toBeLibsqlError("TRANSACTION_ENDED");
+        await expect(txn.execute("SELECT 1")).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
     }));
 
     test("rollback()", withClient(async (c) => {
@@ -379,7 +387,7 @@ describe("batch()", () => {
 
         const rs = await c.execute("SELECT COUNT(*) FROM t");
         expect(rs.rows[0][0]).toStrictEqual(0);
-        await expect(txn.execute("SELECT 1")).rejects.toBeLibsqlError("TRANSACTION_ENDED");
+        await expect(txn.execute("SELECT 1")).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
     }));
 
     test("close()", withClient(async (c) => {
@@ -396,7 +404,7 @@ describe("batch()", () => {
 
         const rs = await c.execute("SELECT COUNT(*) FROM t");
         expect(rs.rows[0][0]).toStrictEqual(0);
-        await expect(txn.execute("SELECT 1")).rejects.toBeLibsqlError("TRANSACTION_ENDED");
+        await expect(txn.execute("SELECT 1")).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
     }));
 
     test("error does not rollback", withClient(async (c) => {
@@ -414,3 +422,7 @@ describe("batch()", () => {
         expect(rs.rows[0][0]).toStrictEqual(1);
     }));
 });
+
+(!config.transactions ? test : test.skip)("disabled transaction()", withClient(async (c) => {
+    await expect(c.transaction()).rejects.toBeLibsqlError("TRANSACTIONS_DISABLED");
+}));
