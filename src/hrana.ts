@@ -14,15 +14,19 @@ export function createClient(config: Config): HranaClient {
     } else if (url.protocol === "libsqls:") {
         url.protocol = "wss:";
     }
-    return new HranaClient(hrana.open(url, expandedConfig.authToken));
+
+    const client = hrana.open(url, expandedConfig.authToken);
+    return new HranaClient(client, expandedConfig.transactions);
 }
 
 export class HranaClient implements Client {
     client: hrana.Client;
+    #transactions: boolean;
 
     /** @private */
-    constructor(client: hrana.Client) {
+    constructor(client: hrana.Client, transactions: boolean) {
         this.client = client;
+        this.#transactions = transactions;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
@@ -32,7 +36,7 @@ export class HranaClient implements Client {
             const hranaRows = await stream.query(hranaStmt);
             return resultSetFromHrana(hranaRows);
         } catch (e) {
-            throw mapError(e);
+            throw mapHranaError(e);
         } finally {
             stream.close();
         }
@@ -79,20 +83,27 @@ export class HranaClient implements Client {
 
             return resultSets;
         } catch (e) {
-            throw mapError(e);
+            throw mapHranaError(e);
         } finally {
             stream.close();
         }
     }
 
     async transaction(): Promise<HranaTransaction> {
+        if (!this.#transactions) {
+            throw new LibsqlError(
+                "Transactions are disabled. Please set `transactions` to true in the config",
+                "TRANSACTIONS_DISABLED",
+            );
+        }
+        
         const stream = this.client.openStream();
         try {
             await stream.run("BEGIN");
             return new HranaTransaction(stream);
         } catch (e) {
             stream.close();
-            throw mapError(e);
+            throw mapHranaError(e);
         }
     }
 
@@ -122,7 +133,7 @@ export class HranaTransaction implements Transaction {
         }
         const hranaStmt = stmtToHrana(stmt);
         const hranaRows = await this.stream.query(hranaStmt)
-            .catch(e => { throw mapError(e); });
+            .catch(e => { throw mapHranaError(e); });
         return resultSetFromHrana(hranaRows);
     }
 
@@ -131,7 +142,7 @@ export class HranaTransaction implements Transaction {
             return;
         }
         const promise = this.stream.run("ROLLBACK")
-            .catch(e => { throw mapError(e); });
+            .catch(e => { throw mapHranaError(e); });
         this.stream.close();
         await promise;
     }
@@ -144,7 +155,7 @@ export class HranaTransaction implements Transaction {
             );
         }
         const promise = this.stream.run("COMMIT")
-            .catch(e => { throw mapError(e); });
+            .catch(e => { throw mapHranaError(e); });
         this.stream.close();
         await promise;
     }
@@ -158,7 +169,7 @@ export class HranaTransaction implements Transaction {
     }
 }
 
-function stmtToHrana(stmt: InStatement): hrana.Stmt {
+export function stmtToHrana(stmt: InStatement): hrana.Stmt {
     if (typeof stmt === "string") {
         return new hrana.Stmt(stmt);
     }
@@ -175,7 +186,7 @@ function stmtToHrana(stmt: InStatement): hrana.Stmt {
     return hranaStmt;
 }
 
-function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
+export function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
     return {
         columns: hranaRows.columnNames.map(c => c ?? ""),
         rows: hranaRows.rows,
@@ -183,7 +194,7 @@ function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
     };
 }
 
-function mapError(e: unknown): unknown {
+export function mapHranaError(e: unknown): unknown {
     if (e instanceof hrana.ClientError) {
         // TODO: Hrana needs to support error codes
         return new LibsqlError(e.message, undefined, e);

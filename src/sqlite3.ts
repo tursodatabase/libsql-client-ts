@@ -70,7 +70,7 @@ export class Sqlite3Client implements Client {
     async transaction(): Promise<Transaction> {
         if (!this.#transactions) {
             throw new LibsqlError(
-                "Transactions have been disabled. Please set `transactions` to true in the config",
+                "Transactions are disabled. Please set `transactions` to true in the config",
                 "TRANSACTIONS_DISABLED",
             );
         }
@@ -92,7 +92,7 @@ export class Sqlite3Client implements Client {
 
     #checkNotClosed(): void {
         if (this.closed) {
-            throw new LibsqlError("The client has closed", "CLIENT_CLOSED");
+            throw new LibsqlError("The client was closed", "CLIENT_CLOSED");
         }
     }
 }

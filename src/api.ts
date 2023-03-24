@@ -52,6 +52,9 @@ export class LibsqlError extends Error {
     code: ErrorCode | undefined;
     
     constructor(message: string, code: ErrorCode | undefined, cause?: Error) {
+        if (code !== undefined) {
+            message = `${code}: ${message}`;
+        }
         super(message, { cause });
         this.code = code;
     }
@@ -66,4 +69,5 @@ export type ErrorCode =
     | "TRANSACTION_CLOSED"
     | "CLIENT_CLOSED"
     | "TRANSACTIONS_DISABLED"
+    | "TRANSACTIONS_NOT_SUPPORTED"
     | string;
