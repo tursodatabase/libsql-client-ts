@@ -37,8 +37,8 @@ export class HttpClient implements Client {
         try {
             const hranaStmt = stmtToHrana(stmt);
             const protoStmt = hrana.raw.stmtToProto(hranaStmt, true);
-            const response = await this.#send<ExecuteReq, ExecuteResp>(
-                "POST", "v1/execute", {stmt: protoStmt});
+            const request = {"stmt": protoStmt};
+            const response = await this.#send<ExecuteReq, ExecuteResp>("POST", "v1/execute", request);
             const protoStmtResult = response["result"];
             const hranaRows = hrana.raw.rowsResultFromProto(protoStmtResult);
             return resultSetFromHrana(hranaRows);
@@ -47,8 +47,65 @@ export class HttpClient implements Client {
         }
     }
 
-    batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
-        throw new LibsqlError("Batches are not yet implemented", "NOT_IMPLEMENTED");
+    async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
+        try {
+            const protoSteps: Array<hrana.proto.BatchStep> = [];
+
+            protoSteps.push({
+                "stmt": {"sql": "BEGIN", "want_rows": false},
+            });
+            const beginStepIdx = protoSteps.length - 1;
+
+            let lastStepIdx = beginStepIdx;
+            for (const stmt of stmts) {
+                const hranaStmt = stmtToHrana(stmt);
+                protoSteps.push({
+                    "condition": {"type": "ok", "step": lastStepIdx},
+                    "stmt": hrana.raw.stmtToProto(hranaStmt, true),
+                });
+                lastStepIdx = protoSteps.length - 1;
+            }
+
+            protoSteps.push({
+                "condition": {"type": "ok", "step": lastStepIdx},
+                "stmt": {"sql": "COMMIT", "want_rows": false},
+            });
+            const commitStepIdx = protoSteps.length - 1;
+
+            protoSteps.push({
+                "condition": {
+                    "type": "not",
+                    "cond": {"type": "ok", "step": commitStepIdx},
+                },
+                "stmt": {"sql": "ROLLBACK", "want_rows": false},
+            });
+
+            const protoBatch = {"steps": protoSteps};
+            const request = {"batch": protoBatch};
+            const response = await this.#send<BatchReq, BatchResp>("POST", "v1/batch", request);
+            const protoBatchResult = response["result"];
+
+            for (let stepIdx = beginStepIdx; stepIdx <= commitStepIdx; ++stepIdx) {
+                const protoError = protoBatchResult["step_errors"][stepIdx];
+                if (protoError !== null) {
+                    throw hrana.raw.errorFromProto(protoError);
+                }
+            }
+
+            const resultSets = [];
+            for (let i = 0; i < stmts.length; ++i) {
+                const stepIdx = beginStepIdx + 1 + i;
+                const protoStmtResult = protoBatchResult["step_results"][stepIdx];
+                if (protoStmtResult === null) {
+                    throw new LibsqlError("Server did not return a result", "SERVER_ERROR");
+                }
+                const hranaRows = hrana.raw.rowsResultFromProto(protoStmtResult);
+                resultSets.push(resultSetFromHrana(hranaRows));
+            }
+            return resultSets;
+        } catch (e) {
+            throw mapHranaError(e);
+        }
     }
 
     async transaction(): Promise<never> {
@@ -108,7 +165,13 @@ export class HttpClient implements Client {
 type ExecuteReq = {
     "stmt": hrana.proto.Stmt,
 }
-
 type ExecuteResp = {
     "result": hrana.proto.StmtResult,
+}
+
+type BatchReq = {
+    "batch": hrana.proto.Batch,
+}
+type BatchResp = {
+    "result": hrana.proto.BatchResult,
 }
