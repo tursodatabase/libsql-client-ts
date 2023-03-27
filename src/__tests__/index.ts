@@ -32,8 +32,8 @@ const toBeLibsqlError: MatcherFunction<[code?: string, message?: RegExp]> =
             const parts = [];
             parts.push("expected ");
             parts.push(this.utils.printReceived(actual));
-            parts.push(pass ? " to be " : " not to be ");
-            parts.push("instance of LibsqlError");
+            parts.push(pass ? " not to be " : " to be ");
+            parts.push("an instance of LibsqlError");
             if (code !== undefined) {
                 parts.push(" with error code ");
                 parts.push(this.utils.printExpected(code));

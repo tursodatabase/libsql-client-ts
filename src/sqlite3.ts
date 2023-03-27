@@ -152,7 +152,8 @@ function executeStmt(db: Database.Database, stmt: InStatement): ResultSet {
         } else {
             args = {};
             for (const name in stmt.args) {
-                const argName = name[0] === "@" || name[0] === "$" || name[0] === ":" ? name.substr(1) : name;
+                const argName = (name[0] === "@" || name[0] === "$" || name[0] === ":")
+                    ? name.substring(1) : name;
                 args[argName] = valueToSql(stmt.args[name]);
             }
         }

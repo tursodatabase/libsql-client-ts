@@ -46,3 +46,19 @@ function urlParamToBoolean(key: string, value: string): boolean {
             );
     }
 }
+
+export function mapLibsqlUrl(url: URL, scheme: string): URL {
+    if (url.protocol === "libsql:") {
+        return setProtocol(url, `${scheme}:`);
+    } else if (url.protocol === "libsqls:") {
+        return setProtocol(url, `${scheme}s:`);
+    } else {
+        return url;
+    }
+}
+
+function setProtocol(url: URL, targetProtocol: string): URL {
+    // we can't use the `protocol` setter, because the specification forbids changing a non-special scheme
+    // ("libsql") to special scheme ("http").
+    return new URL(targetProtocol + url.toString().substring(url.protocol.length));
+}

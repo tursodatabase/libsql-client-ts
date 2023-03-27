@@ -3,14 +3,15 @@ import { fetch } from "cross-fetch";
 
 import type { Config, Client } from "./api.js";
 import { InStatement, ResultSet, LibsqlError } from "./api.js";
-import { expandConfig } from "./config.js";
+import { expandConfig, mapLibsqlUrl } from "./config.js";
 import { stmtToHrana, resultSetFromHrana, mapHranaError } from "./hrana.js";
 
 export * from "./api.js";
 
 export function createClient(config: Config): Client {
     const expandedConfig = expandConfig(config);
-    const url = expandedConfig.url;
+    const url = mapLibsqlUrl(expandedConfig.url, "http");
+
     if (expandedConfig.transactions) {
         throw new LibsqlError(
             "The HTTP client does not support transactions. " +
