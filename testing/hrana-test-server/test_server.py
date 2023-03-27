@@ -14,12 +14,24 @@ logger = logging.getLogger("test_server")
 
 def main():
     logging.basicConfig(level=logging.INFO)
+
     app = aiohttp.web.Application()
     app.add_routes([
         aiohttp.web.get("/", handle_get_index),
-        #aiohttp.web.post("/v1/execute", handle_post_execute),
-        #aiohttp.web.post("/v1/batch", handle_post_batch),
+        aiohttp.web.post("/v1/execute", handle_post_execute),
+        aiohttp.web.post("/v1/batch", handle_post_batch),
     ])
+
+    http_db_fd, http_db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_http_")
+    os.close(http_db_fd)
+    app["http_db_file"] = http_db_file
+    app["http_db_sema"] = asyncio.Semaphore(8)
+    logger.info(f"Using db {http_db_file!r} for HTTP requests")
+
+    async def on_shutdown(app):
+        os.unlink(app["http_db_file"])
+    app.on_shutdown.append(on_shutdown)
+
     aiohttp.web.run_app(app, host="localhost", port=8080)
 
 async def handle_get_index(req):
@@ -46,7 +58,7 @@ async def handle_websocket(ws):
         msg_str = json.dumps(msg)
         await ws.send_str(msg_str)
 
-    db_fd, db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_client_test_")
+    db_fd, db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_ws_")
     os.close(db_fd)
     logger.info(f"Accepted WebSocket using db {db_file!r}")
 
@@ -108,6 +120,31 @@ async def handle_websocket(ws):
         for stream in streams.values():
             stream.conn.close()
         os.unlink(db_file)
+
+async def handle_post_execute(req):
+    req_body = await req.json()
+    conn = await asyncio.to_thread(lambda: sqlite3.connect(req.app["http_db_file"],
+        check_same_thread=False, isolation_level=None))
+    try:
+        result = await asyncio.to_thread(lambda: execute_stmt(conn, req_body["stmt"]))
+        return aiohttp.web.json_response({"result": result})
+    except ResponseError as e:
+        return aiohttp.web.json_response({"message": str(e)}, status=400)
+    finally:
+        conn.close()
+
+async def handle_post_batch(req):
+    req_body = await req.json()
+    async with req.app["http_db_sema"]:
+        conn = await asyncio.to_thread(lambda: sqlite3.connect(req.app["http_db_file"],
+            check_same_thread=False, isolation_level=None))
+        try:
+            result = await execute_batch(conn, req_body["batch"])
+            return aiohttp.web.json_response({"result": result})
+        except ResponseError as e:
+            return aiohttp.web.json_response({"message": str(e)}, status=400)
+        finally:
+            conn.close()
 
 def execute_stmt(conn, stmt):
     args = stmt.get("args", [])
