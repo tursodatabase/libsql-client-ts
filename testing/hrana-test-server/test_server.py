@@ -12,7 +12,7 @@ import aiohttp.web
 
 logger = logging.getLogger("test_server")
 
-def main():
+async def main(command):
     logging.basicConfig(level=logging.INFO)
 
     app = aiohttp.web.Application()
@@ -32,7 +32,20 @@ def main():
         os.unlink(app["http_db_file"])
     app.on_shutdown.append(on_shutdown)
 
-    aiohttp.web.run_app(app, host="localhost", port=8080)
+    runner = aiohttp.web.AppRunner(app)
+    await runner.setup()
+    site = aiohttp.web.TCPSite(runner, "localhost", 8080)
+    await site.start()
+
+    if len(command) > 0:
+        proc = await asyncio.create_subprocess_exec(*command)
+        code = await proc.wait()
+    else:
+        while True:
+            await asyncio.sleep(10)
+
+    await runner.cleanup()
+    return code
 
 async def handle_get_index(req):
     ws = aiohttp.web.WebSocketResponse(protocols=("hrana1",))
@@ -263,4 +276,7 @@ class ResponseError(RuntimeError):
     pass
 
 if __name__ == "__main__":
-    main()
+    try:
+        sys.exit(asyncio.run(main(sys.argv[1:])))
+    except KeyboardInterrupt:
+        print()
