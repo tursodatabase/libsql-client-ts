@@ -293,8 +293,9 @@ describe("batch()", () => {
             "CREATE TABLE t2 (a)",
         ]);
 
+        const n = 100;
         const promises = [];
-        for (let i = 0; i < 100; ++i) {
+        for (let i = 0; i < n; ++i) {
             const ii = i;
             promises.push((async () => {
                 const rss = await c.batch([
@@ -312,9 +313,9 @@ describe("batch()", () => {
         await Promise.all(promises);
 
         const rs1 = await c.execute("SELECT SUM(a) FROM t1");
-        expect(rs1.rows[0][0]).toStrictEqual(100*99/2);
+        expect(rs1.rows[0][0]).toStrictEqual(n*(n-1)/2);
         const rs2 = await c.execute("SELECT SUM(a) FROM t2");
-        expect(rs2.rows[0][0]).toStrictEqual(100*99/2*10);
+        expect(rs2.rows[0][0]).toStrictEqual(n*(n-1)/2*10);
     }));
 
     test("error in batch", withClient(async (c) => {
