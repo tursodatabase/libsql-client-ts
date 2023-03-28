@@ -8,20 +8,17 @@ export * from "./api.js";
 
 export function createClient(config: Config): HranaClient {
     const expandedConfig = expandConfig(config);
-    const url = mapLibsqlUrl(expandedConfig.url, "ws");
-
+    const url = mapLibsqlUrl(expandedConfig.url, "wss:");
     const client = hrana.open(url, expandedConfig.authToken);
-    return new HranaClient(client, expandedConfig.transactions);
+    return new HranaClient(client);
 }
 
 export class HranaClient implements Client {
     client: hrana.Client;
-    #transactions: boolean;
 
     /** @private */
-    constructor(client: hrana.Client, transactions: boolean) {
+    constructor(client: hrana.Client) {
         this.client = client;
-        this.#transactions = transactions;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
@@ -85,13 +82,6 @@ export class HranaClient implements Client {
     }
 
     async transaction(): Promise<HranaTransaction> {
-        if (!this.#transactions) {
-            throw new LibsqlError(
-                "Transactions are disabled. Please set `transactions` to true in the config",
-                "TRANSACTIONS_DISABLED",
-            );
-        }
-        
         const stream = this.client.openStream();
         try {
             await stream.run("BEGIN");

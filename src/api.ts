@@ -68,6 +68,5 @@ export type ErrorCode =
     | "SERVER_ERROR"
     | "TRANSACTION_CLOSED"
     | "CLIENT_CLOSED"
-    | "TRANSACTIONS_DISABLED"
     | "TRANSACTIONS_NOT_SUPPORTED"
     | string;

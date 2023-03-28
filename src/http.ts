@@ -10,15 +10,7 @@ export * from "./api.js";
 
 export function createClient(config: Config): Client {
     const expandedConfig = expandConfig(config);
-    const url = mapLibsqlUrl(expandedConfig.url, "http");
-
-    if (expandedConfig.transactions) {
-        throw new LibsqlError(
-            "The HTTP client does not support transactions. " +
-            "Please use a libsql:// or libsqls:// URL to allow the client to connect using a WebSocket.",
-            "TRANSACTIONS_NOT_SUPPORTED",
-        );
-    }
+    const url = mapLibsqlUrl(expandedConfig.url, "https:");
     return new HttpClient(url, expandedConfig.authToken);
 }
 
@@ -111,10 +103,9 @@ export class HttpClient implements Client {
 
     async transaction(): Promise<never> {
         throw new LibsqlError(
-            "Transactions are disabled and the HTTP client does not support them. " +
-            "Please set `transactions` to true in the config and make sure that you use " +
-            "libsql:// or libsqls:// in the URL, so that the client connects using a WebSocket.",
-            "TRANSACTIONS_DISABLED",
+            "The HTTP client does not support transactions. " +
+            "Please use a libsql:, ws: or wss: URL, so that the client connects using a WebSocket.",
+            "TRANSACTIONS_NOT_SUPPORTED",
         );
     }
 

@@ -8,8 +8,9 @@ import { ExpandedConfig, expandConfig } from "../config.js";
 const config = expandConfig({
     url: process.env.URL ?? "libsql://localhost:8080",
     authToken: process.env.AUTH_TOKEN,
-    transactions: process.env.TRANSACTIONS !== undefined,
 });
+
+const transactions = config.url.protocol !== "http:" && config.url.protocol !== "https:";
 
 function withClient(f: (c: libsql.Client) => Promise<void>): () => Promise<void> {
     return async () => {
@@ -67,11 +68,6 @@ describe("createClient()", () => {
     test("URL param not supported", () => {
         expect(() => createClient({url: "ws://localhost?foo=bar"}))
             .toThrow(expect.toBeLibsqlError("URL_PARAM_NOT_SUPPORTED", /"foo"/));
-    });
-
-    test("URL param with invalid value", () => {
-        expect(() => createClient({url: "libsql://localhost?transactions=ofcourse"}))
-            .toThrow(expect.toBeLibsqlError("URL_PARAM_INVALID_VALUE", /"ofcourse"/));
     });
 });
 
@@ -340,7 +336,7 @@ describe("batch()", () => {
     }));
 });
 
-(config.transactions ? describe : describe.skip)("transaction()", () => {
+(transactions ? describe : describe.skip)("transaction()", () => {
     test("query multiple rows", withClient(async (c) => {
         const txn = await c.transaction();
 
@@ -424,6 +420,6 @@ describe("batch()", () => {
     }));
 });
 
-(!config.transactions ? test : test.skip)("disabled transaction()", withClient(async (c) => {
-    await expect(c.transaction()).rejects.toBeLibsqlError("TRANSACTIONS_DISABLED");
+(!transactions ? test : test.skip)("transaction() not supported", withClient(async (c) => {
+    await expect(c.transaction()).rejects.toBeLibsqlError("TRANSACTIONS_NOT_SUPPORTED");
 }));

@@ -39,11 +39,10 @@ jobs:
       run: "python hrana-test-server/test_server.py npm test"
       env:
         "URL": "ws://localhost:8080"
-    # this test fails on CI due to timeouts
-  # - name: "Test HTTP"
-  #   run: "python hrana-test-server/test_server.py npm test"
-  #   env:
-  #     "URL": "http://localhost:8080"
+    - name: "Test HTTP"
+      run: "python hrana-test-server/test_server.py npm test"
+      env:
+        "URL": "http://localhost:8080"
     - name: "Test local file"
       run: "python hrana-test-server/test_server.py npm test"
       env:

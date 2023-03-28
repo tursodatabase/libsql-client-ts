@@ -27,21 +27,19 @@ export function createClient(config: Config): Client {
         db.close();
     }
 
-    return new Sqlite3Client(path, options, expandedConfig.transactions);
+    return new Sqlite3Client(path, options);
 }
 
 export class Sqlite3Client implements Client {
     path: string;
     options: Database.Options;
     closed: boolean;
-    #transactions: boolean;
 
     /** @private */
-    constructor(path: string, options: Database.Options, transactions: boolean) {
+    constructor(path: string, options: Database.Options) {
         this.path = path;
         this.options = options;
         this.closed = false;
-        this.#transactions = transactions;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
@@ -68,13 +66,6 @@ export class Sqlite3Client implements Client {
     }
 
     async transaction(): Promise<Transaction> {
-        if (!this.#transactions) {
-            throw new LibsqlError(
-                "Transactions are disabled. Please set `transactions` to true in the config",
-                "TRANSACTIONS_DISABLED",
-            );
-        }
-        
         this.#checkNotClosed();
         const db = new Database(this.path, this.options);
         try {

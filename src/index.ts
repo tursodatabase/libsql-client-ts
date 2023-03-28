@@ -12,16 +12,10 @@ export function createClient(config: Config): Client {
     const url = expandedConfig.url;
     if (url.protocol === "http:" || url.protocol === "https:") {
         return createHttpClient(expandedConfig);
-    } else if (url.protocol === "ws:" || url.protocol === "wss:") {
+    } else if (url.protocol === "ws:" || url.protocol === "wss:" || url.protocol === "libsql:") {
         return createHranaClient(expandedConfig);
     } else if (url.protocol === "file:") {
         return createSqlite3Client(expandedConfig);
-    } else if (url.protocol === "libsql:" || url.protocol === "libsqls:") {
-        if (expandedConfig.transactions) {
-            return createHranaClient(expandedConfig);
-        } else {
-            return createHttpClient(expandedConfig);
-        }
     } else {
         throw new LibsqlError(
             `URL scheme ${JSON.stringify(url.protocol)} is not supported`,
