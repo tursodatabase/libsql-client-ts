@@ -132,7 +132,7 @@ export class HttpClient implements Client {
                 const respBody = await resp.json();
                 if ("message" in respBody) {
                     // TODO: use the error code from the server, once implemented
-                    throw new LibsqlError(respBody["message"], undefined);
+                    throw new LibsqlError(respBody["message"], "UNKNOWN");
                 }
             } else if (respType === "text/plain") {
                 const respBody = await resp.text();

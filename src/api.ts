@@ -49,9 +49,9 @@ export type InStatement = { sql: string, args: InArgs } | string;
 export type InArgs = Array<InValue> | Record<string, InValue>;
 
 export class LibsqlError extends Error {
-    code: ErrorCode | undefined;
+    code: ErrorCode;
     
-    constructor(message: string, code: ErrorCode | undefined, cause?: Error) {
+    constructor(message: string, code: ErrorCode, cause?: Error) {
         if (code !== undefined) {
             message = `${code}: ${message}`;
         }
@@ -61,6 +61,7 @@ export class LibsqlError extends Error {
 }
 
 export type ErrorCode =
+    | "UNKNOWN"
     | "NOT_IMPLEMENTED"
     | "URL_SCHEME_NOT_SUPPORTED"
     | "URL_PARAM_NOT_SUPPORTED"
