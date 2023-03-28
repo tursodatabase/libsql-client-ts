@@ -1,15 +1,25 @@
-import { Config, Client } from "./shared-types.js";
-import { HttpDriver } from "./http/http-driver.js";
-import { SqliteDriver } from "./sqlite-driver.js";
+import type { Config, Client } from "./api.js";
+import { LibsqlError } from "./api.js";
+import { expandConfig } from "./config.js";
+import { createClient as createHranaClient } from "./hrana.js";
+import { createClient as createHttpClient } from "./http.js";
+import { createClient as createSqlite3Client } from "./sqlite3.js";
+
+export * from "./api.js";
 
 export function createClient(config: Config): Client {
-    const rawUrl = config.url;
-    const url = new URL(rawUrl);
-    if (url.protocol == "libsql:" || url.protocol == "http:" || url.protocol == "https:") {
-        return new Client(new HttpDriver(url, config.authToken));
+    const expandedConfig = expandConfig(config);
+    const url = expandedConfig.url;
+    if (url.protocol === "http:" || url.protocol === "https:") {
+        return createHttpClient(expandedConfig);
+    } else if (url.protocol === "ws:" || url.protocol === "wss:" || url.protocol === "libsql:") {
+        return createHranaClient(expandedConfig);
+    } else if (url.protocol === "file:") {
+        return createSqlite3Client(expandedConfig);
     } else {
-        return new Client(new SqliteDriver(rawUrl));
+        throw new LibsqlError(
+            `URL scheme ${JSON.stringify(url.protocol)} is not supported`,
+            "URL_SCHEME_NOT_SUPPORTED",
+        );
     }
 }
-
-export * from "./shared-types.js";

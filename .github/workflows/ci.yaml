@@ -1,0 +1,49 @@
+name: "CI"
+on: [push, pull_request]
+
+jobs:
+  "node-test":
+    name: "Build and test on Node.js"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        "node-version": ["16.x", "18.x"]
+    steps:
+    - name: "Checkout this repo"
+      uses: actions/checkout@v3
+    - name: "Setup Node.js ${{ matrix.node-version }}"
+      uses: actions/setup-node@v3
+      with:
+        node-version: "${{ matrix.node-version }}"
+        cache: "npm"
+    - name: "Install npm dependencies"
+      run: "npm ci"
+
+    - name: "Checkout hrana-test-server"
+      uses: actions/checkout@v3
+      with:
+        repository: "libsql/hrana-test-server"
+        path: "hrana-test-server"
+    - name: "Setup Python"
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        cache: "pip"
+    - name: "Install pip dependencies"
+      run: "pip install -r hrana-test-server/requirements.txt"
+
+    - name: "Build"
+      run: "npm run build"
+
+    - name: "Test WebSocket"
+      run: "python hrana-test-server/test_server.py npm test"
+      env:
+        "URL": "ws://localhost:8080"
+    - name: "Test HTTP"
+      run: "python hrana-test-server/test_server.py npm test"
+      env:
+        "URL": "http://localhost:8080"
+    - name: "Test local file"
+      run: "python hrana-test-server/test_server.py npm test"
+      env:
+        "URL": "file:///tmp/test.db"

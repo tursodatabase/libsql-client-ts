@@ -2,3 +2,4 @@ node_modules
 /lib-esm
 /lib-cjs
 *.tsbuildinfo
+Session.vim
