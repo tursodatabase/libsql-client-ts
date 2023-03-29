@@ -78,7 +78,7 @@
         "typescript": "^4.9.4"
     },
     "dependencies": {
-        "@libsql/hrana-client": "^0.3.0",
+        "@libsql/hrana-client": "^0.3.2",
         "better-sqlite3": "^8.0.1",
         "cross-fetch": "^3.1.5",
         "js-base64": "^3.7.5"

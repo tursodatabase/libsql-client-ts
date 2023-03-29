@@ -60,14 +60,4 @@ export class LibsqlError extends Error {
     }
 }
 
-export type ErrorCode =
-    | "UNKNOWN"
-    | "NOT_IMPLEMENTED"
-    | "URL_SCHEME_NOT_SUPPORTED"
-    | "URL_PARAM_NOT_SUPPORTED"
-    | "URL_PARAM_INVALID_VALUE"
-    | "SERVER_ERROR"
-    | "TRANSACTION_CLOSED"
-    | "CLIENT_CLOSED"
-    | "TRANSACTIONS_NOT_SUPPORTED"
-    | string;
+export type ErrorCode = string;
