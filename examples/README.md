@@ -11,7 +11,7 @@ npm i && npm run build
 First, run the example with local SQLite:
 
 ```console
-DB_URL="file:example.db" npm run start
+URL="file:/tmp/example.db" npm run start
 ```
 
 Then, start up a `sqld` server:
@@ -23,5 +23,5 @@ cargo run -- --http-listen-addr 127.0.0.1:8080
 and now run the example against the server:
 
 ```console
-DB_URL="http://127.0.0.1:8080" npm run start
+URL="http://127.0.0.1:8080" npm run start
 ```
