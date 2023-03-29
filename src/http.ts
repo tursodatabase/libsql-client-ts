@@ -1,5 +1,5 @@
 import * as hrana from "@libsql/hrana-client";
-import { fetch } from "cross-fetch";
+import { fetch as crossFetch } from "cross-fetch";
 
 import type { Config, Client } from "./api.js";
 import { InStatement, ResultSet, LibsqlError } from "./api.js";
@@ -120,7 +120,8 @@ export class HttpClient implements Client {
             headers["authorization"] = `Bearer ${this.#authToken}`;
         }
 
-        const resp = await fetch(url, {
+        const compatFetch = fetch ?? crossFetch;
+        const resp = await compatFetch(url, {
             method,
             headers,
             body: JSON.stringify(reqBody),
