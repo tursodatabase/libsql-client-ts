@@ -25,6 +25,7 @@ async def main(command):
     http_db_fd, http_db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_http_")
     os.close(http_db_fd)
     app["http_db_file"] = http_db_file
+    app["http_db_conns"] = []
     app["http_db_sema"] = asyncio.Semaphore(8)
     logger.info(f"Using db {http_db_file!r} for HTTP requests")
 
@@ -136,28 +137,39 @@ async def handle_websocket(ws):
 
 async def handle_post_execute(req):
     req_body = await req.json()
-    conn = await asyncio.to_thread(lambda: sqlite3.connect(req.app["http_db_file"],
-        check_same_thread=False, isolation_level=None))
-    try:
-        result = await asyncio.to_thread(lambda: execute_stmt(conn, req_body["stmt"]))
-        return aiohttp.web.json_response({"result": result})
-    except ResponseError as e:
-        return aiohttp.web.json_response({"message": str(e)}, status=400)
-    finally:
-        conn.close()
+    async with req.app["http_db_sema"]:
+        conn = await acquire_http_conn(req.app)
+        try:
+            result = await asyncio.to_thread(lambda: execute_stmt(conn, req_body["stmt"]))
+            return aiohttp.web.json_response({"result": result})
+        except ResponseError as e:
+            return aiohttp.web.json_response({"message": str(e)}, status=400)
+        finally:
+            release_http_conn(req.app, conn)
 
 async def handle_post_batch(req):
     req_body = await req.json()
     async with req.app["http_db_sema"]:
-        conn = await asyncio.to_thread(lambda: sqlite3.connect(req.app["http_db_file"],
-            check_same_thread=False, isolation_level=None))
+        conn = await acquire_http_conn(req.app)
         try:
             result = await execute_batch(conn, req_body["batch"])
             return aiohttp.web.json_response({"result": result})
         except ResponseError as e:
             return aiohttp.web.json_response({"message": str(e)}, status=400)
         finally:
-            conn.close()
+            release_http_conn(req.app, conn)
+
+async def acquire_http_conn(app):
+    if len(app["http_db_conns"]) > 0:
+        return app["http_db_conns"].pop()
+    return await asyncio.to_thread(lambda: sqlite3.connect(app["http_db_file"],
+        check_same_thread=False, isolation_level=None))
+
+def release_http_conn(app, conn):
+    if not conn.in_transaction:
+        app["http_db_conns"].append(conn)
+    else:
+        conn.close()
 
 def execute_stmt(conn, stmt):
     args = stmt.get("args", [])
