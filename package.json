@@ -45,13 +45,19 @@
             "types": "./lib-esm/sqlite3.d.ts",
             "import": "./lib-esm/sqlite3.js",
             "require": "./lib-cjs/sqlite3.js"
+        },
+        "./web": {
+            "types": "./lib-esm/web.d.ts",
+            "import": "./lib-esm/web.js",
+            "require": "./lib-cjs/web.js"
         }
     },
     "typesVersions": {
         "*": {
             "http": ["./lib-esm/http.d.ts"],
             "hrana": ["./lib-esm/hrana.d.ts"],
-            "sqlite3": ["./lib-esm/sqlite3.d.ts"]
+            "sqlite3": ["./lib-esm/sqlite3.d.ts"],
+            "web": ["./lib-esm/web.d.ts"]
         }
     },
     "files": [
