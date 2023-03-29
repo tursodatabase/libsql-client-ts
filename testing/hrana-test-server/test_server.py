@@ -83,6 +83,7 @@ async def handle_websocket(ws):
         if req["type"] == "open_stream":
             conn = await asyncio.to_thread(lambda: sqlite3.connect(db_file,
                 check_same_thread=False, isolation_level=None))
+            conn.execute("PRAGMA journal_mode = WAL")
             streams[int(req["stream_id"])] = Stream(conn)
             return {"type": "open_stream"}
         elif req["type"] == "close_stream":
@@ -162,8 +163,10 @@ async def handle_post_batch(req):
 async def acquire_http_conn(app):
     if len(app["http_db_conns"]) > 0:
         return app["http_db_conns"].pop()
-    return await asyncio.to_thread(lambda: sqlite3.connect(app["http_db_file"],
+    conn = await asyncio.to_thread(lambda: sqlite3.connect(app["http_db_file"],
         check_same_thread=False, isolation_level=None))
+    conn.execute("PRAGMA journal_mode = WAL")
+    return conn
 
 def release_http_conn(app, conn):
     if not conn.in_transaction:
