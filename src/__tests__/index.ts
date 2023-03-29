@@ -10,7 +10,8 @@ const config = expandConfig({
     authToken: process.env.AUTH_TOKEN,
 });
 
-const transactions = config.url.protocol !== "http:" && config.url.protocol !== "https:";
+const isHttp = config.url.protocol === "http:" || config.url.protocol === "https:";
+const isFile = config.url.protocol === "file:";
 
 function withClient(f: (c: libsql.Client) => Promise<void>): () => Promise<void> {
     return async () => {
@@ -183,7 +184,7 @@ describe("arguments", () => {
         expect(Array.from(rs.rows[0])).toStrictEqual(["one", "two"]);
     }));
 
-    test("?NNN arguments", withClient(async (c) => {
+    (!isFile ? test : test.skip)("?NNN arguments", withClient(async (c) => {
         const rs = await c.execute({
             sql: "SELECT ?2, ?3, ?1",
             args: ["one", "two", "three"],
@@ -191,7 +192,7 @@ describe("arguments", () => {
         expect(Array.from(rs.rows[0])).toStrictEqual(["two", "three", "one"]);
     }));
 
-    test("?NNN arguments with holes", withClient(async (c) => {
+    (!isFile ? test : test.skip)("?NNN arguments with holes", withClient(async (c) => {
         const rs = await c.execute({
             sql: "SELECT ?3, ?1",
             args: ["one", "two", "three"],
@@ -199,7 +200,7 @@ describe("arguments", () => {
         expect(Array.from(rs.rows[0])).toStrictEqual(["three", "one"]);
     }));
 
-    test("?NNN and ? arguments", withClient(async (c) => {
+    (!isFile ? test : test.skip)("?NNN and ? arguments", withClient(async (c) => {
         const rs = await c.execute({
             sql: "SELECT ?2, ?, ?3",
             args: ["one", "two", "three"],
@@ -336,7 +337,7 @@ describe("batch()", () => {
     }));
 });
 
-(transactions ? describe : describe.skip)("transaction()", () => {
+(!isHttp ? describe : describe.skip)("transaction()", () => {
     test("query multiple rows", withClient(async (c) => {
         const txn = await c.transaction();
 
@@ -420,6 +421,6 @@ describe("batch()", () => {
     }));
 });
 
-(!transactions ? test : test.skip)("transaction() not supported", withClient(async (c) => {
+(isHttp ? test : test.skip)("transaction() not supported", withClient(async (c) => {
     await expect(c.transaction()).rejects.toBeLibsqlError("TRANSACTIONS_NOT_SUPPORTED");
 }));

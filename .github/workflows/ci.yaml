@@ -44,6 +44,6 @@ jobs:
       env:
         "URL": "http://localhost:8080"
     - name: "Test local file"
-      run: "python hrana-test-server/test_server.py npm test"
+      run: "npm test"
       env:
         "URL": "file:///tmp/test.db"
