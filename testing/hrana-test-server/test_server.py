@@ -24,13 +24,13 @@ async def main(command):
 
     http_db_fd, http_db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_http_")
     os.close(http_db_fd)
-    app["http_db_file"] = http_db_file
-    app["http_db_conns"] = []
-    app["http_db_sema"] = asyncio.Semaphore(8)
+    app["http_db_conn"] = connect(http_db_file)
+    app["http_db_lock"] = asyncio.Lock()
     logger.info(f"Using db {http_db_file!r} for HTTP requests")
 
     async def on_shutdown(app):
-        os.unlink(app["http_db_file"])
+        app["http_db_conn"].close()
+        os.unlink(http_db_file)
     app.on_shutdown.append(on_shutdown)
 
     runner = aiohttp.web.AppRunner(app)
@@ -81,9 +81,7 @@ async def handle_websocket(ws):
 
     async def handle_request(req):
         if req["type"] == "open_stream":
-            conn = await asyncio.to_thread(lambda: sqlite3.connect(db_file,
-                check_same_thread=False, isolation_level=None))
-            conn.execute("PRAGMA journal_mode = WAL")
+            conn = await asyncio.to_thread(lambda: connect(db_file))
             streams[int(req["stream_id"])] = Stream(conn)
             return {"type": "open_stream"}
         elif req["type"] == "close_stream":
@@ -138,41 +136,36 @@ async def handle_websocket(ws):
 
 async def handle_post_execute(req):
     req_body = await req.json()
-    async with req.app["http_db_sema"]:
-        conn = await acquire_http_conn(req.app)
+    async with req.app["http_db_lock"]:
+        conn = req.app["http_db_conn"]
         try:
             result = await asyncio.to_thread(lambda: execute_stmt(conn, req_body["stmt"]))
             return aiohttp.web.json_response({"result": result})
         except ResponseError as e:
             return aiohttp.web.json_response({"message": str(e)}, status=400)
         finally:
-            release_http_conn(req.app, conn)
+            cleanup_conn(conn)
 
 async def handle_post_batch(req):
     req_body = await req.json()
-    async with req.app["http_db_sema"]:
-        conn = await acquire_http_conn(req.app)
+    async with req.app["http_db_lock"]:
+        conn = req.app["http_db_conn"]
         try:
             result = await execute_batch(conn, req_body["batch"])
             return aiohttp.web.json_response({"result": result})
         except ResponseError as e:
             return aiohttp.web.json_response({"message": str(e)}, status=400)
         finally:
-            release_http_conn(req.app, conn)
+            cleanup_conn(conn)
 
-async def acquire_http_conn(app):
-    if len(app["http_db_conns"]) > 0:
-        return app["http_db_conns"].pop()
-    conn = await asyncio.to_thread(lambda: sqlite3.connect(app["http_db_file"],
-        check_same_thread=False, isolation_level=None))
+def connect(db_file):
+    conn = sqlite3.connect(db_file, check_same_thread=False, isolation_level=None, timeout=0)
     conn.execute("PRAGMA journal_mode = WAL")
     return conn
 
-def release_http_conn(app, conn):
-    if not conn.in_transaction:
-        app["http_db_conns"].append(conn)
-    else:
-        conn.close()
+def cleanup_conn(conn):
+    if conn.in_transaction:
+        conn.execute("ROLLBACK")
 
 def execute_stmt(conn, stmt):
     args = stmt.get("args", [])
