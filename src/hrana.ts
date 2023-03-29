@@ -181,8 +181,15 @@ export function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
 
 export function mapHranaError(e: unknown): unknown {
     if (e instanceof hrana.ClientError) {
-        // TODO: Hrana needs to support error codes
-        return new LibsqlError(e.message, "UNKNOWN", e);
+        let code = "UNKNOWN";
+        if (e instanceof hrana.ResponseError && e.code !== undefined) {
+            code = e.code;
+        } else if (e instanceof hrana.ProtoError) {
+            code = "HRANA_PROTO_ERROR";
+        } else if (e instanceof hrana.ClosedError) {
+            code = "HRANA_CLOSED_ERROR";
+        }
+        return new LibsqlError(e.message, code, e);
     }
     return e;
 }
