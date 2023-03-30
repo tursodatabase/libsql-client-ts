@@ -3,13 +3,18 @@ import { Buffer } from "node:buffer";
 
 import type { Config, Client, Transaction, ResultSet, Row, Value, InValue, InStatement } from "./api.js";
 import { LibsqlError } from "./api.js";
+import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
 
 export * from "./api.js";
 
 export function createClient(config: Config): Client {
-    const expandedConfig = expandConfig(config);
-    const url = expandedConfig.url;
+    return _createClient(expandConfig(config));
+}
+
+/** @private */
+export function _createClient(config: ExpandedConfig): Client {
+    const url = config.url;
     if (url.protocol !== "file:") {
         throw new LibsqlError(
             `URL scheme ${JSON.stringify(url.protocol)} is not supported by the sqlite3 client`,

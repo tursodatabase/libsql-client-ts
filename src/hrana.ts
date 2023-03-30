@@ -2,14 +2,19 @@ import * as hrana from "@libsql/hrana-client";
 
 import type { Config, Client, Transaction, ResultSet, InStatement } from "./api.js";
 import { LibsqlError } from "./api.js";
+import type { ExpandedConfig } from "./config.js";
 import { expandConfig, mapLibsqlUrl } from "./config.js";
 
 export * from "./api.js";
 
 export function createClient(config: Config): HranaClient {
-    const expandedConfig = expandConfig(config);
-    const url = mapLibsqlUrl(expandedConfig.url, "wss:");
-    const client = hrana.open(url, expandedConfig.authToken);
+    return _createClient(expandConfig(config));
+}
+
+/** @private */
+export function _createClient(config: ExpandedConfig): HranaClient {
+    const url = mapLibsqlUrl(config.url, "wss:");
+    const client = hrana.open(url, config.authToken);
     return new HranaClient(client);
 }
 
