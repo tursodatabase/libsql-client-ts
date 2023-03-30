@@ -1,13 +1,13 @@
 import type { Config } from "./api.js";
 import { LibsqlError } from "./api.js";
 
-export interface ExpandedConfig extends Config {
+export interface ExpandedConfig {
     url: URL;
     authToken: string | undefined;
 }
 
 export function expandConfig(config: Config): ExpandedConfig {
-    const url = config.url instanceof URL ? config.url : new URL(config.url);
+    const url = new URL(config.url);
 
     let authToken = config.authToken;
     for (const [key, value] of url.searchParams.entries()) {

@@ -3,15 +3,20 @@ import { fetch } from "@libsql/isomorphic-fetch";
 
 import type { Config, Client } from "./api.js";
 import { InStatement, ResultSet, LibsqlError } from "./api.js";
+import type { ExpandedConfig } from "./config.js";
 import { expandConfig, mapLibsqlUrl } from "./config.js";
 import { stmtToHrana, resultSetFromHrana, mapHranaError } from "./hrana.js";
 
 export * from "./api.js";
 
 export function createClient(config: Config): Client {
-    const expandedConfig = expandConfig(config);
-    const url = mapLibsqlUrl(expandedConfig.url, "https:");
-    return new HttpClient(url, expandedConfig.authToken);
+    return _createClient(expandConfig(config));
+}
+
+/** @private */
+export function _createClient(config: ExpandedConfig): Client {
+    const url = mapLibsqlUrl(config.url, "https:");
+    return new HttpClient(url, config.authToken);
 }
 
 export class HttpClient implements Client {

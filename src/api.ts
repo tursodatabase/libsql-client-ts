@@ -1,5 +1,5 @@
 export interface Config {
-    url: string | URL;
+    url: string;
     authToken?: string;
 }
 
