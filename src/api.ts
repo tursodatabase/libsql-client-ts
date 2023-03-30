@@ -1,7 +1,6 @@
 export interface Config {
     url: string | URL;
     authToken?: string;
-    transactions?: boolean;
 }
 
 export interface Client {
