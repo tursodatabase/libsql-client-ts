@@ -3,15 +3,14 @@ import type { MatcherFunction } from "expect";
 
 import type * as libsql from "..";
 import { LibsqlError, createClient } from "..";
-import { ExpandedConfig, expandConfig } from "../config.js";
 
-const config = expandConfig({
+const config = {
     url: process.env.URL ?? "ws://localhost:8080",
     authToken: process.env.AUTH_TOKEN,
-});
+};
 
-const isHttp = config.url.protocol === "http:" || config.url.protocol === "https:";
-const isFile = config.url.protocol === "file:";
+const isHttp = config.url.startsWith("http:") || config.url.startsWith("https:");
+const isFile = config.url.startsWith("file:");
 
 function withClient(f: (c: libsql.Client) => Promise<void>): () => Promise<void> {
     return async () => {
