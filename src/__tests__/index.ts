@@ -6,7 +6,7 @@ import { LibsqlError, createClient } from "..";
 import { ExpandedConfig, expandConfig } from "../config.js";
 
 const config = expandConfig({
-    url: process.env.URL ?? "libsql://localhost:8080",
+    url: process.env.URL ?? "ws://localhost:8080",
     authToken: process.env.AUTH_TOKEN,
 });
 

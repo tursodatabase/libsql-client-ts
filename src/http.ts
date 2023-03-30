@@ -1,5 +1,5 @@
 import * as hrana from "@libsql/hrana-client";
-import { fetch } from "cross-fetch";
+import { fetch } from "@libsql/isomorphic-fetch";
 
 import type { Config, Client } from "./api.js";
 import { InStatement, ResultSet, LibsqlError } from "./api.js";
