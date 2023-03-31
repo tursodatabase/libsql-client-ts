@@ -24,14 +24,21 @@ You can also connect to a local SQLite database with:
 import { createClient } from "@libsql/client"
 
 const config = {
-  url: "file:/tmp/example.db"
+  url: "file:local.db"
 };
 const db = createClient(config);
 const rs = await db.execute("SELECT * FROM users");
 console.log(rs);
 ```
 
-## Features
+## Supported URLs
 
-* Connect to `sqld` (with HTTP or WebSockets)
-* Connect to a local SQLite database
+The client can connect to the database using different methods depending on the scheme (protocol) of the passed URL:
+
+* `file:` connects to a local SQLite database (using `better-sqlite3`)
+  * `file:/absolute/path` or `file:///absolute/path` is an absolute path on local filesystem
+  * `file:relative/path` is a relative path on local filesystem
+  * (`file://path` is not a valid URL)
+* `ws:` or `wss:` connect to `sqld` using WebSockets (the Hrana protocol).
+* `http:` or `https:` connect to `sqld` using HTTP. The `transaction()` API is not available in this case.
+* `libsql:` is equivalent to `wss:`.

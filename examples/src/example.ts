@@ -1,7 +1,7 @@
 import { createClient } from "@libsql/client"
 
 async function example() {
-  const url = process.env.URL ?? "file:/tmp/test.db";
+  const url = process.env.URL ?? "file:local.db";
   const config = {
     url
   };

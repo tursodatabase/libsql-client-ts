@@ -11,7 +11,7 @@ npm i && npm run build
 First, run the example with local SQLite:
 
 ```console
-URL="file:/tmp/example.db" npm run start
+URL="file:local.db" npm run start
 ```
 
 Then, start up a `sqld` server:
