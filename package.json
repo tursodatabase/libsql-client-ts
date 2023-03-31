@@ -66,6 +66,7 @@
     ],
 
     "scripts": {
+        "prepublishOnly": "npm run build",
         "prebuild": "rm -rf ./lib-cjs ./lib-esm",
         "build": "npm run build:cjs && npm run build:esm",
         "build:cjs": "tsc -p tsconfig.build-cjs.json",
