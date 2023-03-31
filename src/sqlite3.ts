@@ -14,15 +14,32 @@ export function createClient(config: Config): Client {
 
 /** @private */
 export function _createClient(config: ExpandedConfig): Client {
-    const url = config.url;
-    if (url.protocol !== "file:") {
+    if (config.scheme !== "file") {
         throw new LibsqlError(
-            `URL scheme ${JSON.stringify(url.protocol)} is not supported by the sqlite3 client`,
+            `URL scheme ${JSON.stringify(config.scheme)} is not supported by the local sqlite3 client`,
             "URL_SCHEME_NOT_SUPPORTED",
         );
     }
 
-    const path = url.pathname;
+    const authority = config.authority;
+    if (authority !== undefined) {
+        const host = authority.host.toLowerCase();
+        if (host !== "" && host !== "localhost") {
+            throw new LibsqlError(
+                `Invalid host in file URL: ${JSON.stringify(authority.host)}`,
+                "URL_INVALID",
+            );
+        }
+
+        if (authority.port !== undefined) {
+            throw new LibsqlError("File URL cannot have port", "URL_INVALID");
+        }
+        if (authority.userinfo !== undefined) {
+            throw new LibsqlError("File URL cannot have username and password", "URL_INVALID");
+        }
+    }
+
+    const path = config.path;
     const options = {};
 
     const db = new Database(path, options);

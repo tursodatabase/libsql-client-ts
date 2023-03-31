@@ -13,14 +13,15 @@ export function createClient(config: Config): Client {
 
 /** @private */
 export function _createClient(config: ExpandedConfig): Client {
-    const url = config.url;
-    if (url.protocol === "http:" || url.protocol === "https:") {
-        return _createHttpClient(config);
-    } else if (url.protocol === "ws:" || url.protocol === "wss:" || url.protocol === "libsql:") {
+    const scheme = config.scheme.toLowerCase();
+    if (scheme === "libsql" || scheme === "wss" || scheme === "ws") {
         return _createHranaClient(config);
+    } else if (scheme === "https" || scheme === "http") {
+        return _createHttpClient(config);
     } else {
         throw new LibsqlError(
-            `URL scheme ${JSON.stringify(url.protocol)} is not supported`,
+            'The client that uses Web standard APIs supports only "libsql", "wss", "ws", "https" and "http" URLs, ' +
+                `got ${JSON.stringify(config.scheme)}`,
             "URL_SCHEME_NOT_SUPPORTED",
         );
     }

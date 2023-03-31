@@ -5,7 +5,7 @@
 
 import { LibsqlError } from "./api.js";
 
-interface Uri {
+export interface Uri {
     scheme: string;
     authority: Authority | undefined;
     path: string;
@@ -13,32 +13,32 @@ interface Uri {
     fragment: string | undefined;
 }
 
-interface HierPart {
+export interface HierPart {
     authority: Authority | undefined;
     path: string;
 }
 
-interface Authority {
+export interface Authority {
     host: string;
     port: number | undefined;
     userinfo: Userinfo | undefined;
 }
 
-interface Userinfo {
+export interface Userinfo {
     username: string;
     password: string | undefined;
 }
 
-interface Query {
+export interface Query {
     pairs: Array<KeyValue>,
 }
 
-interface KeyValue {
+export interface KeyValue {
     key: string;
     value: string;
 }
 
-export function parse(text: string): Uri {
+export function parseUri(text: string): Uri {
     const match = URI_RE.exec(text);
     if (match === null) {
         throw new LibsqlError("The URL is not in a valid format", "URL_INVALID");
@@ -53,7 +53,7 @@ export function parse(text: string): Uri {
         ? parseQuery(groups["query"]) : undefined;
     const fragment = groups["fragment"] !== undefined
         ? percentDecode(groups["fragment"]) : undefined;
-    return { scheme, authority, path, query, fragment };
+    return {scheme, authority, path, query, fragment};
 }
 
 const URI_RE = (() => {
@@ -72,7 +72,7 @@ function parseAuthority(text: string): Authority {
     }
 
     const groups = match.groups!;
-    const host = percentDecode(groups["host"]);
+    const host = percentDecode(groups["host_br"] ?? groups["host"]);
     const port = groups["port"] 
         ? parseInt(groups["port"], 10) 
         : undefined;
@@ -83,14 +83,14 @@ function parseAuthority(text: string): Authority {
                 ? percentDecode(groups["password"]) : undefined,
         }
         : undefined;
-    return { host, port, userinfo };
+    return {host, port, userinfo};
 }
 
 const AUTHORITY_RE = (() => {
     const USERINFO = '(?<username>[^:]*)(:(?<password>.*))?';
-    const HOST = '(?<host>[^:]*|(\\[.*\\]))';
+    const HOST = '((?<host>[^:\\[\\]]*)|(\\[(?<host_br>[^\\[\\]]*)\\]))';
     const PORT = '(?<port>[0-9]*)';
-    return new RegExp(`^(${USERINFO}@)?${HOST}(:${PORT})?$`);
+    return new RegExp(`^(${USERINFO}@)?${HOST}(:${PORT})?$`, "su");
 })();
 
 // Query string is parsed as application/x-www-form-urlencoded according to the Web URL standard:
@@ -119,7 +119,7 @@ function parseQuery(text: string): Query {
             value: percentDecode(value.replaceAll("+", " ")),
         });
     }
-    return { pairs };
+    return {pairs};
 }
 
 function percentDecode(text: string): string {
@@ -131,4 +131,46 @@ function percentDecode(text: string): string {
         }
         throw e;
     }
+}
+
+export function encodeBaseUrl(scheme: string, authority: Authority | undefined, path: string): URL {
+    if (authority === undefined) {
+        throw new LibsqlError(
+            `URL with scheme ${JSON.stringify(scheme)} requires authority (the "//" part)`,
+            "URL_INVALID",
+        );
+    }
+
+    const schemeText = `${scheme}:`;
+
+    const hostText = encodeHost(authority.host);
+    const portText = encodePort(authority.port);
+    const userinfoText = encodeUserinfo(authority.userinfo);
+    const authorityText = `//${userinfoText}${hostText}${portText}`;
+
+    let pathText = path.split("/").map(encodeURIComponent).join("/");
+    if (pathText !== "" && !pathText.startsWith("/")) {
+        pathText = "/" + pathText;
+    }
+
+    return new URL(`${schemeText}${authorityText}${pathText}`);
+}
+
+function encodeHost(host: string): string {
+    return host.includes(":") ? `[${encodeURI(host)}]` : encodeURI(host);
+}
+
+function encodePort(port: number | undefined): string {
+    return port !== undefined ? `:${port}` : "";
+}
+
+function encodeUserinfo(userinfo: Userinfo | undefined): string {
+    if (userinfo === undefined) {
+        return "";
+    }
+
+    const usernameText = encodeURIComponent(userinfo.username);
+    const passwordText = userinfo.password !== undefined
+        ? `:${encodeURIComponent(userinfo.password)}` : "";
+    return `${usernameText}${passwordText}@`;
 }

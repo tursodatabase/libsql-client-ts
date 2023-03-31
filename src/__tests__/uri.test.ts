@@ -3,9 +3,9 @@ import type { MatcherFunction } from "expect";
 
 import "./helpers.js";
 
-import { parse } from "../uri.js";
+import { parseUri, encodeBaseUrl } from "../uri.js";
 
-describe("URI parse", () => {
+describe("parseUri()", () => {
     test("authority and path", () => {
         const cases = [
             {text: "file://localhost", path: ""},
@@ -14,7 +14,7 @@ describe("URI parse", () => {
             {text: "file://localhost/k%C5%AF%C5%88", path: "/kůň"},
         ];
         for (const {text, path} of cases) {
-            expect(parse(text)).toEqual({
+            expect(parseUri(text)).toEqual({
                 scheme: "file",
                 authority: {host: "localhost"},
                 path,
@@ -29,7 +29,7 @@ describe("URI parse", () => {
             {text: "file:///k%C5%AF%C5%88", path: "/kůň"},
         ];
         for (const {text, path} of cases) {
-            expect(parse(text)).toEqual({
+            expect(parseUri(text)).toEqual({
                 scheme: "file",
                 authority: {host: ""},
                 path,
@@ -46,7 +46,7 @@ describe("URI parse", () => {
             {text: "file:k%C5%AF%C5%88", path: "kůň"},
         ];
         for (const {text, path} of cases) {
-            expect(parse(text)).toEqual({
+            expect(parseUri(text)).toEqual({
                 scheme: "file",
                 path,
             });
@@ -59,7 +59,7 @@ describe("URI parse", () => {
             {text: "domain.name", host: "domain.name"},
             {text: "some$weird.%20!name", host: "some$weird. !name"},
             {text: "1.20.255.99", host: "1.20.255.99"},
-            {text: "[2001:4860:4802:32::a]", host: "[2001:4860:4802:32::a]"},
+            {text: "[2001:4860:4802:32::a]", host: "2001:4860:4802:32::a"},
             {text: "%61", host: "a"},
             {text: "100%2e100%2e100%2e100", host: "100.100.100.100"},
             {text: "k%C5%AF%C5%88", host: "kůň"},
@@ -85,7 +85,7 @@ describe("URI parse", () => {
             for (const {text: portText, port} of ports) {
                 for (const {text: userText, userinfo} of userinfos) {
                     const text = `http://${userText}${hostText}${portText}`;
-                    expect(parse(text)).toEqual({
+                    expect(parseUri(text)).toEqual({
                         scheme: "http",
                         authority: {host, port, userinfo},
                         path: "",
@@ -156,7 +156,7 @@ describe("URI parse", () => {
         ];
         for (const {text: queryText, pairs} of cases) {
             const text = `file:${queryText}`;
-            expect(parse(text)).toEqual({
+            expect(parseUri(text)).toEqual({
                 scheme: "file",
                 path: "",
                 query: {pairs},
@@ -174,7 +174,7 @@ describe("URI parse", () => {
         ];
         for (const {text: fragmentText, fragment} of cases) {
             const text = `file:${fragmentText}`;
-            expect(parse(text)).toEqual({
+            expect(parseUri(text)).toEqual({
                 scheme: "file",
                 path: "",
                 fragment,
@@ -193,7 +193,87 @@ describe("URI parse", () => {
         ];
 
         for (const {text, message} of cases) {
-            expect(() => parse(text)).toThrow(expect.toBeLibsqlError("URL_INVALID", message));
+            expect(() => parseUri(text)).toThrow(expect.toBeLibsqlError("URL_INVALID", message));
         }
     });
+});
+
+test("encodeBaseUrl()", () => {
+    const cases = [
+        {
+            scheme: "http",
+            host: "localhost",
+            path: "",
+            url: "http://localhost",
+        },
+        {
+            scheme: "http",
+            host: "localhost",
+            path: "/",
+            url: "http://localhost/",
+        },
+        {
+            scheme: "http",
+            host: "localhost",
+            port: 8080,
+            path: "",
+            url: "http://localhost:8080",
+        },
+        {
+            scheme: "http",
+            host: "localhost",
+            path: "/foo/bar",
+            url: "http://localhost/foo/bar",
+        },
+        {
+            scheme: "http",
+            host: "localhost",
+            path: "foo/bar",
+            url: "http://localhost/foo/bar",
+        },
+        {
+            scheme: "http",
+            host: "some.long.domain.name",
+            path: "",
+            url: "http://some.long.domain.name",
+        },
+        {
+            scheme: "http",
+            host: "1.2.3.4",
+            path: "",
+            url: "http://1.2.3.4",
+        },
+        {
+            scheme: "http",
+            host: "2001:4860:4802:32::a",
+            path: "",
+            url: "http://[2001:4860:4802:32::a]",
+        },
+        {
+            scheme: "http",
+            host: "localhost",
+            userinfo: {username: "alice", password: undefined},
+            path: "",
+            url: "http://alice@localhost",
+        },
+        {
+            scheme: "http",
+            host: "localhost",
+            userinfo: {username: "alice", password: "secr:t"},
+            path: "",
+            url: "http://alice:secr%3At@localhost",
+        },
+        {
+            scheme: "https",
+            host: "localhost",
+            userinfo: {username: "alice", password: "secret"},
+            port: 8080,
+            path: "/some/path",
+            url: "https://alice:secret@localhost:8080/some/path",
+        },
+    ];
+
+    for (const {scheme, host, port, userinfo, path, url} of cases) {
+        expect(encodeBaseUrl(scheme, {host, port, userinfo}, path)).toStrictEqual(new URL(url));
+    }
 });

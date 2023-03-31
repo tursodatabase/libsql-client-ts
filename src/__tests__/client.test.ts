@@ -28,7 +28,7 @@ function withClient(f: (c: libsql.Client) => Promise<void>): () => Promise<void>
 describe("createClient()", () => {
     test("URL scheme not supported", () => {
         expect(() => createClient({url: "ftp://localhost"}))
-            .toThrow(expect.toBeLibsqlError("URL_SCHEME_NOT_SUPPORTED", /"ftp:"/));
+            .toThrow(expect.toBeLibsqlError("URL_SCHEME_NOT_SUPPORTED", /"ftp"/));
     });
 
     test("URL param not supported", () => {
