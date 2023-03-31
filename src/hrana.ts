@@ -3,7 +3,8 @@ import * as hrana from "@libsql/hrana-client";
 import type { Config, Client, Transaction, ResultSet, InStatement } from "./api.js";
 import { LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
-import { expandConfig, mapLibsqlUrl } from "./config.js";
+import { expandConfig } from "./config.js";
+import { encodeBaseUrl } from "./uri.js";
 
 export * from "./api.js";
 
@@ -13,7 +14,18 @@ export function createClient(config: Config): HranaClient {
 
 /** @private */
 export function _createClient(config: ExpandedConfig): HranaClient {
-    const url = mapLibsqlUrl(config.url, "wss:");
+    let scheme = config.scheme.toLowerCase();
+    if (scheme === "libsql") {
+        scheme = "wss";
+    }
+    if (scheme !== "wss" && scheme !== "ws") {
+        throw new LibsqlError(
+            'The WebSocket (Hrana) client supports only "libsql", "wss" and "ws" URLs, ' +
+                `got ${JSON.stringify(config.scheme)}`,
+            "URL_SCHEME_NOT_SUPPORTED",
+        );
+    }
+    const url = encodeBaseUrl(scheme, config.authority, config.path);
     const client = hrana.open(url, config.authToken);
     return new HranaClient(client);
 }

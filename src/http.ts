@@ -4,8 +4,9 @@ import { fetch } from "@libsql/isomorphic-fetch";
 import type { Config, Client } from "./api.js";
 import { InStatement, ResultSet, LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
-import { expandConfig, mapLibsqlUrl } from "./config.js";
+import { expandConfig } from "./config.js";
 import { stmtToHrana, resultSetFromHrana, mapHranaError } from "./hrana.js";
+import { encodeBaseUrl } from "./uri.js";
 
 export * from "./api.js";
 
@@ -15,7 +16,19 @@ export function createClient(config: Config): Client {
 
 /** @private */
 export function _createClient(config: ExpandedConfig): Client {
-    const url = mapLibsqlUrl(config.url, "https:");
+    let scheme = config.scheme.toLowerCase();
+    if (scheme === "libsql") {
+        scheme = "https";
+    }
+    if (scheme !== "https" && scheme !== "http") {
+        throw new LibsqlError(
+            'The HTTP client supports only "libsql", "https" and "http" URLs, ' +
+                `got ${JSON.stringify(config.scheme)}`,
+            "URL_SCHEME_NOT_SUPPORTED",
+        );
+    }
+
+    const url = encodeBaseUrl(scheme, config.authority, config.path);
     return new HttpClient(url, config.authToken);
 }
 

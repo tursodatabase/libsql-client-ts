@@ -1,16 +1,20 @@
 import type { Config } from "./api.js";
 import { LibsqlError } from "./api.js";
+import type { Authority } from "./uri.js";
+import { parseUri } from "./uri.js";
 
 export interface ExpandedConfig {
-    url: URL;
+    scheme: string;
+    authority: Authority | undefined;
+    path: string;
     authToken: string | undefined;
 }
 
 export function expandConfig(config: Config): ExpandedConfig {
-    const url = new URL(config.url);
+    const uri = parseUri(config.url);
 
     let authToken = config.authToken;
-    for (const [key, value] of url.searchParams.entries()) {
+    for (const {key, value} of uri.query?.pairs ?? []) {
         if (key === "authToken") {
             authToken = value ? value : undefined;
         } else {
@@ -21,19 +25,17 @@ export function expandConfig(config: Config): ExpandedConfig {
         }
     }
 
-    for (const key of Array.from(url.searchParams.keys())) {
-        url.searchParams.delete(key);
+    if (uri.fragment !== undefined) {
+        throw new LibsqlError(
+            `Unsupported URL fragment: ${JSON.stringify("#" + uri.fragment)}`,
+            "URL_INVALID",
+        );
     }
 
-    return {url, authToken};
-}
-
-export function mapLibsqlUrl(url: URL, protocol: string): URL {
-    if (url.protocol === "libsql:") {
-        // we can't use the `URL.protocol` setter, because the specification forbids changing a non-special
-        // scheme ("libsql") to special scheme ("https").
-        return new URL(protocol + url.toString().substring(url.protocol.length));
-    } else {
-        return url;
-    }
+    return {
+        scheme: uri.scheme,
+        authority: uri.authority,
+        path: uri.path,
+        authToken,
+    };
 }
