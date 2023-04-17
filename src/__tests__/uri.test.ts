@@ -186,6 +186,7 @@ describe("parseUri()", () => {
         const cases = [
             {text: "", message: /format/},
             {text: "foo", message: /format/},
+            {text: "foo.bar.com", message: /format/},
             {text: "h$$p://localhost", message: /format/},
             {text: "h%74%74p://localhost", message: /format/},
             {text: "http://localhost:%38%38", message: /authority/},

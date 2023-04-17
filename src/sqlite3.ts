@@ -147,7 +147,7 @@ export class Sqlite3Transaction implements Transaction {
 
     #checkNotClosed(): void {
         if (!this.database.open) {
-            throw new LibsqlError("The client was closed", "TRANSACTION_CLOSED");
+            throw new LibsqlError("The transaction was closed", "TRANSACTION_CLOSED");
         }
     }
 }

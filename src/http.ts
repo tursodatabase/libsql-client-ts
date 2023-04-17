@@ -132,6 +132,10 @@ export class HttpClient implements Client {
     }
 
     async #send<Req, Resp>(method: string, path: string, reqBody: Req): Promise<Resp> {
+        if (this.closed) {
+            throw new LibsqlError("The client was closed", "CLIENT_CLOSED");
+        }
+
         const url = new URL(path, this.#url);
         const headers: Record<string, string> = {};
         if (this.#authToken !== undefined) {
@@ -163,12 +167,6 @@ export class HttpClient implements Client {
         }
 
         return await resp.json() as Resp;
-    }
-
-    #checkNotClosed(): void {
-        if (this.closed) {
-            throw new LibsqlError("The client was closed", "CLIENT_CLOSED");
-        }
     }
 }
 

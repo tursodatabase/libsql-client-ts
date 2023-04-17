@@ -127,7 +127,7 @@ function percentDecode(text: string): string {
         return decodeURIComponent(text);
     } catch (e) {
         if (e instanceof URIError) {
-            throw new LibsqlError("URL component has invalid percent encoding", "URL_INVALID", e);
+            throw new LibsqlError(`URL component has invalid percent encoding: ${e}`, "URL_INVALID", e);
         }
         throw e;
     }
