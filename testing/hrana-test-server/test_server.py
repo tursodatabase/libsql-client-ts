@@ -118,12 +118,17 @@ async def handle_websocket(ws):
         else:
             raise RuntimeError(f"Unknown msg: {msg!r}")
 
-
-    hello_msg = await recv_msg()
-    assert hello_msg.get("type") == "hello"
-    await send_msg({"type": "hello_ok"})
-
     try:
+        hello_msg = await recv_msg()
+        if hello_msg is None:
+            return
+        assert hello_msg.get("type") == "hello"
+        await send_msg({"type": "hello_ok"})
+
+        jwt = hello_msg.get("jwt")
+        if jwt is not None:
+            logger.info(f"Authenticated with JWT: {jwt[:20]}...")
+
         while True:
             msg = await recv_msg()
             if msg is None:
@@ -188,6 +193,11 @@ def execute_stmt(conn, stmt):
         cursor = conn.execute(stmt["sql"], sql_args)
     except sqlite3.OperationalError as e:
         raise ResponseError(str(e))
+    except OverflowError as e:
+        raise ResponseError(str(e))
+    except sqlite3.Warning as e:
+        raise ResponseError(str(e))
+
     cols = [{"name": name} for name, *_ in cursor.description or []]
 
     rows = []
