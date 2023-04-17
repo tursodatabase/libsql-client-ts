@@ -52,7 +52,10 @@ async def handle_get_index(req):
     ws = aiohttp.web.WebSocketResponse(protocols=("hrana1",))
     if ws.can_prepare(req):
         await ws.prepare(req)
-        await handle_websocket(ws)
+        try:
+            await handle_websocket(ws)
+        finally:
+            await ws.close()
         return ws
 
     return aiohttp.web.Response(text="This is a Hrana test server")
@@ -191,7 +194,7 @@ def execute_stmt(conn, stmt):
 
     try:
         cursor = conn.execute(stmt["sql"], sql_args)
-    except sqlite3.OperationalError as e:
+    except sqlite3.Error as e:
         raise ResponseError(str(e))
     except OverflowError as e:
         raise ResponseError(str(e))
