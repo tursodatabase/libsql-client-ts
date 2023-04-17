@@ -81,17 +81,17 @@ async def handle_websocket(ws):
 
     async def handle_request(req):
         if req["type"] == "open_stream":
-            conn = await asyncio.to_thread(lambda: connect(db_file))
+            conn = await to_thread(lambda: connect(db_file))
             streams[int(req["stream_id"])] = Stream(conn)
             return {"type": "open_stream"}
         elif req["type"] == "close_stream":
             stream = streams.pop(int(req["stream_id"]), None)
             if stream is not None:
-                await asyncio.to_thread(lambda: stream.conn.close())
+                await to_thread(lambda: stream.conn.close())
             return {"type": "close_stream"}
         elif req["type"] == "execute":
             stream = streams[int(req["stream_id"])]
-            result = await asyncio.to_thread(lambda: execute_stmt(stream.conn, req["stmt"]))
+            result = await to_thread(lambda: execute_stmt(stream.conn, req["stmt"]))
             return {"type": "execute", "result": result}
         elif req["type"] == "batch":
             stream = streams[int(req["stream_id"])]
@@ -144,7 +144,7 @@ async def handle_post_execute(req):
     async with req.app["http_db_lock"]:
         conn = req.app["http_db_conn"]
         try:
-            result = await asyncio.to_thread(lambda: execute_stmt(conn, req_body["stmt"]))
+            result = await to_thread(lambda: execute_stmt(conn, req_body["stmt"]))
             return aiohttp.web.json_response({"result": result})
         except ResponseError as e:
             return aiohttp.web.json_response({"message": str(e)}, status=400)
@@ -236,7 +236,7 @@ async def execute_batch(conn, batch):
         step_error = None
         if enabled:
             try:
-                step_result = await asyncio.to_thread(lambda: execute_stmt(conn, step["stmt"]))
+                step_result = await to_thread(lambda: execute_stmt(conn, step["stmt"]))
             except ResponseError as e:
                 step_error = {"message": str(e)}
 
@@ -292,6 +292,9 @@ def value_from_sqlite(value):
 
 class ResponseError(RuntimeError):
     pass
+
+async def to_thread(func):
+    return await asyncio.get_running_loop().run_in_executor(None, func)
 
 if __name__ == "__main__":
     try:
