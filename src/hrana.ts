@@ -193,6 +193,8 @@ export function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
         columns: hranaRows.columnNames.map(c => c ?? ""),
         rows: hranaRows.rows,
         rowsAffected: hranaRows.affectedRowCount,
+        lastInsertRowid: hranaRows.lastInsertRowid !== undefined
+            ? BigInt(hranaRows.lastInsertRowid) : undefined,
     };
 }
 

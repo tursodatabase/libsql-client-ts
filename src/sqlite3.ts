@@ -186,11 +186,15 @@ function executeStmt(db: Database.Database, stmt: InStatement): ResultSet {
         if (returnsData) {
             const columns = Array.from(sqlStmt.columns().map(col => col.name));
             const rows = sqlStmt.all(args).map(sqlRow => rowFromSql(sqlRow, columns));
-            const rowsAffected = 0; // TODO: can we get this info from better-sqlite3?
-            return { columns, rows, rowsAffected };
+            // TODO: can we get this info from better-sqlite3?
+            const rowsAffected = 0;
+            const lastInsertRowid = undefined;
+            return { columns, rows, rowsAffected, lastInsertRowid };
         } else {
             const info = sqlStmt.run(args);
-            return { columns: [], rows: [], rowsAffected: info.changes };
+            const rowsAffected = info.changes;
+            const lastInsertRowid = BigInt(info.lastInsertRowid);
+            return { columns: [], rows: [], rowsAffected, lastInsertRowid };
         }
     } catch (e) {
         if (e instanceof Database.SqliteError) {

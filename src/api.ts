@@ -23,6 +23,7 @@ export interface ResultSet {
     columns: Array<string>;
     rows: Array<Row>;
     rowsAffected: number;
+    lastInsertRowid: bigint | undefined;
 }
 
 export interface Row {
