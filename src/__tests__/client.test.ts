@@ -89,6 +89,21 @@ describe("execute()", () => {
         const rs = await c.execute("DELETE FROM t WHERE a >= 3");
         expect(rs.rowsAffected).toStrictEqual(3);
     }));
+
+    test("lastInsertRowid with INSERT", withClient(async (c) => {
+        await c.batch([
+            "DROP TABLE IF EXISTS t",
+            "CREATE TABLE t (a)",
+            "INSERT INTO t VALUES ('one'), ('two')",
+        ]);
+        const insertRs = await c.execute("INSERT INTO t VALUES ('three')");
+        expect(insertRs.lastInsertRowid).not.toBeUndefined();
+        const selectRs = await c.execute({
+            sql: "SELECT a FROM t WHERE ROWID = ?",
+            args: [insertRs.lastInsertRowid!],
+        });
+        expect(Array.from(selectRs.rows[0])).toStrictEqual(["three"]);
+    }));
 });
 
 describe("values", () => {
