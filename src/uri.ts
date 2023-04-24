@@ -68,7 +68,7 @@ const URI_RE = (() => {
 function parseAuthority(text: string): Authority {
     const match = AUTHORITY_RE.exec(text);
     if (match === null) {
-        throw new LibsqlError("The authority part of the URL is not valid", "URL_INVALID");
+        throw new LibsqlError("The authority part of the URL is not in a valid format", "URL_INVALID");
     }
 
     const groups = match.groups!;
@@ -136,7 +136,7 @@ function percentDecode(text: string): string {
 export function encodeBaseUrl(scheme: string, authority: Authority | undefined, path: string): URL {
     if (authority === undefined) {
         throw new LibsqlError(
-            `URL with scheme ${JSON.stringify(scheme)} requires authority (the "//" part)`,
+            `URL with scheme ${JSON.stringify(scheme + ":")} requires authority (the "//" part)`,
             "URL_INVALID",
         );
     }
