@@ -26,7 +26,13 @@ export function _createClient(config: ExpandedConfig): HranaClient {
         );
     }
     const url = encodeBaseUrl(scheme, config.authority, config.path);
-    const client = hrana.open(url, config.authToken);
+    
+    let client: hrana.Client;
+    try {
+      client = hrana.open(url, config.authToken);
+    } catch (e) {
+      throw new LibsqlError('The WebSocket (Hrana) client failed to open, try using "https" URL if your platform does not support web sockets', "HRANA_WEBSOCKET_ERROR");
+    }
     return new HranaClient(client);
 }
 
