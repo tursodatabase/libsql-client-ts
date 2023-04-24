@@ -14,11 +14,13 @@ This is the source repository of the JavaScript & TypeScript SDK for libSQL. You
 npm install @libsql/client
 ```
 
+This step is not required if using the Deno style import shown below.
+
 ## Create a database client object
 
 ### Importing
 
-There are multiple ways to import the module. For Node.js and other environments where want to use a local SQLite [file URL](#local-sqlite-file-urls), as well as network access to `sqld`:
+There are multiple ways to import the module. For Node.js and other environments where you need to use a local SQLite [file URL](#local-sqlite-file-urls), as well as network access to `sqld`:
 
 ```typescript
 import { createClient } from "@libsql/client";
@@ -40,7 +42,14 @@ For environments that only support HTTP, including Vercel Edge Functions:
 import { createClient } from "@libsql/client/http";
 ```
 
-In all three cases, the client API is the same, with the exception that [HTTP URLs](#http-urls) don't support interactive transactions.
+For Deno:
+
+```typescript
+// replace [version] with the client version
+import { createClient } from "https://esm.sh/@libsql/client@[version]/web";
+```
+
+In each case, the client API is the same, with the exception that [HTTP URLs](#http-urls) don't support interactive transactions.
 
 ### Local SQLite files
 
@@ -71,7 +80,10 @@ const rs = await db.execute("SELECT * FROM users");
 console.log(rs);
 ```
 
-`authToken` in the config object is a token that your sqld instance recognizes to allow client access. For Turso databases, [a token is obtained using the Turso CLI][turso-cli-token].
+If you are querying a `sqld` instance on your local machine, use the `ws:` URL it provides.
+
+`authToken` in the config object is a token that your sqld instance recognizes to allow client access. For Turso databases, [a token is obtained using the Turso CLI][turso-cli-token]. No token is required by default when running `sqld` on its own.
+
 
 ## Supported URLs
 
@@ -86,12 +98,13 @@ A `file:` URL connects to a local SQLite database (using [better-sqlite3]).
 - `file:relative/path` is a relative path on local filesystem.
 - `file://path` is not a valid URL.
 
-### libSQL sql instances
+### libSQL sqld instances
 
 #### WebSocket URLs
 
 `ws:`, `wss:`, or `libsql:` URLs use a stateful WebSocket to connect to `sqld`.
 
+- `libsql:` always uses `wss:` internally (using TLS at the transport layer).
 - WebSockets are implemented using the Hrana protocol implemented by [hrana-client-ts].
 - WebSockets are supported in Node.js and browser.
 - If you are running in a cloud or edge hosted environments, you should check to see if WebSockets are supported. If not, change the URL to use an [HTTP URL](#http-urls).
