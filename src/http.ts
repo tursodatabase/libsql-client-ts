@@ -5,6 +5,7 @@ import type { Config, Client } from "./api.js";
 import { InStatement, ResultSet, LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
+import { supportedUrlLink } from "./help.js";
 import { stmtToHrana, resultSetFromHrana, mapHranaError } from "./hrana.js";
 import { encodeBaseUrl } from "./uri.js";
 
@@ -23,7 +24,7 @@ export function _createClient(config: ExpandedConfig): Client {
     if (scheme !== "https" && scheme !== "http") {
         throw new LibsqlError(
             'The HTTP client supports only "libsql", "https" and "http" URLs, ' +
-                `got ${JSON.stringify(config.scheme)}`,
+                `got ${JSON.stringify(config.scheme)}. For more information, please read ${supportedUrlLink}`,
             "URL_SCHEME_NOT_SUPPORTED",
         );
     }
@@ -108,7 +109,10 @@ export class HttpClient implements Client {
                 const stepIdx = beginStepIdx + 1 + i;
                 const protoStmtResult = protoBatchResult["step_results"][stepIdx];
                 if (protoStmtResult === null) {
-                    throw new LibsqlError("Server did not return a result", "SERVER_ERROR");
+                    throw new LibsqlError(
+                        "Server did not return a result for statement in a batch",
+                        "SERVER_ERROR",
+                    );
                 }
                 const hranaRows = hrana.raw.rowsResultFromProto(protoStmtResult);
                 resultSets.push(resultSetFromHrana(hranaRows));
@@ -121,8 +125,9 @@ export class HttpClient implements Client {
 
     async transaction(): Promise<never> {
         throw new LibsqlError(
-            "The HTTP client does not support transactions. " +
-            "Please use a libsql:, ws: or wss: URL, so that the client connects using a WebSocket.",
+            "The HTTP client does not support interactive transactions. " +
+            'Please use a "libsql:", "ws:" or "wss:" URL to connect to the server over a WebSocket. ' +
+            `For more information, please read ${supportedUrlLink}`,
             "TRANSACTIONS_NOT_SUPPORTED",
         );
     }
@@ -133,7 +138,7 @@ export class HttpClient implements Client {
 
     async #send<Req, Resp>(method: string, path: string, reqBody: Req): Promise<Resp> {
         if (this.closed) {
-            throw new LibsqlError("The client was closed", "CLIENT_CLOSED");
+            throw new LibsqlError("The client is closed", "CLIENT_CLOSED");
         }
 
         const url = new URL(path, this.#url);

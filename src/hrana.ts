@@ -4,6 +4,7 @@ import type { Config, Client, Transaction, ResultSet, InStatement } from "./api.
 import { LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
+import { supportedUrlLink } from "./help.js";
 import { encodeBaseUrl } from "./uri.js";
 
 export * from "./api.js";
@@ -20,8 +21,8 @@ export function _createClient(config: ExpandedConfig): HranaClient {
     }
     if (scheme !== "wss" && scheme !== "ws") {
         throw new LibsqlError(
-            'The WebSocket (Hrana) client supports only "libsql", "wss" and "ws" URLs, ' +
-                `got ${JSON.stringify(config.scheme)}`,
+            'The WebSocket (Hrana) client supports only "libsql:", "wss:" and "ws:" URLs, ' +
+                `got ${JSON.stringify(config.scheme + ":")}. For more information, please read ${supportedUrlLink}`,
             "URL_SCHEME_NOT_SUPPORTED",
         );
     }
@@ -33,9 +34,12 @@ export function _createClient(config: ExpandedConfig): HranaClient {
     } catch (e) {
         if (e instanceof hrana.WebSocketUnsupportedError) {
             const suggestedScheme = scheme === "wss" ? "https" : "http";
+            const suggestedUrl = encodeBaseUrl(suggestedScheme, config.authority, config.path);
             throw new LibsqlError(
-                `This environment does not support WebSockets, please use a "${suggestedScheme}://" URL ` +
-                    "to switch to the HTTP client",
+                "This environment does not support WebSockets, please switch to the HTTP client by using " +
+                    `a "${suggestedScheme}:" URL (${JSON.stringify(suggestedUrl)}). ` +
+                    "Note that the HTTP client does not support interactive transactions. " +
+                    `For more information, please read ${supportedUrlLink}`,
                 "WEBSOCKETS_NOT_SUPPORTED",
             );
         }
@@ -99,7 +103,10 @@ export class HranaClient implements Client {
             for (const stmtPromise of stmtPromises) {
                 const hranaRows = await stmtPromise;
                 if (hranaRows === undefined) {
-                    throw new LibsqlError("Server did not return a result", "SERVER_ERROR");
+                    throw new LibsqlError(
+                        "Server did not return a result for statement in a batch",
+                        "SERVER_ERROR",
+                    );
                 }
                 resultSets.push(resultSetFromHrana(hranaRows));
             }
@@ -144,7 +151,7 @@ export class HranaTransaction implements Transaction {
     async execute(stmt: InStatement): Promise<ResultSet> {
         if (this.stream.closed) {
             throw new LibsqlError(
-                "Cannot execute a statement, the transaction has already ended",
+                "Cannot execute a statement because the transaction is closed",
                 "TRANSACTION_CLOSED",
             );
         }
@@ -167,7 +174,7 @@ export class HranaTransaction implements Transaction {
     async commit(): Promise<void> {
         if (this.stream.closed) {
             throw new LibsqlError(
-                "Cannot commit the transaction, because it has already ended",
+                "Cannot commit the transaction because it is already closed",
                 "TRANSACTION_CLOSED",
             );
         }

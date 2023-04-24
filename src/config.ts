@@ -27,7 +27,7 @@ export function expandConfig(config: Config): ExpandedConfig {
 
     if (uri.fragment !== undefined) {
         throw new LibsqlError(
-            `Unsupported URL fragment: ${JSON.stringify("#" + uri.fragment)}`,
+            `URL fragments are not supported: ${JSON.stringify("#" + uri.fragment)}`,
             "URL_INVALID",
         );
     }

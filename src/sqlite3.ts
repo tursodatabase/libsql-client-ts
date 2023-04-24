@@ -5,6 +5,7 @@ import type { Config, Client, Transaction, ResultSet, Row, Value, InValue, InSta
 import { LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
+import { supportedUrlLink } from "./help.js";
 
 export * from "./api.js";
 
@@ -16,7 +17,8 @@ export function createClient(config: Config): Client {
 export function _createClient(config: ExpandedConfig): Client {
     if (config.scheme !== "file") {
         throw new LibsqlError(
-            `URL scheme ${JSON.stringify(config.scheme)} is not supported by the local sqlite3 client`,
+            `URL scheme ${JSON.stringify(config.scheme + ":")} is not supported by the local sqlite3 client. ` +
+                `For more information, please read ${supportedUrlLink}`,
             "URL_SCHEME_NOT_SUPPORTED",
         );
     }
@@ -26,13 +28,16 @@ export function _createClient(config: ExpandedConfig): Client {
         const host = authority.host.toLowerCase();
         if (host !== "" && host !== "localhost") {
             throw new LibsqlError(
-                `Invalid host in file URL: ${JSON.stringify(authority.host)}`,
+                `Invalid host in file URL: ${JSON.stringify(authority.host)}. ` +
+                    'A "file:" URL with an absolute path should start with one slash ("file:/absolute/path.db") ' +
+                    'or with three slashes ("file:///absolute/path.db"). ' +
+                    `For more information, please read ${supportedUrlLink}`,
                 "URL_INVALID",
             );
         }
 
         if (authority.port !== undefined) {
-            throw new LibsqlError("File URL cannot have port", "URL_INVALID");
+            throw new LibsqlError("File URL cannot have a port", "URL_INVALID");
         }
         if (authority.userinfo !== undefined) {
             throw new LibsqlError("File URL cannot have username and password", "URL_INVALID");
@@ -105,7 +110,7 @@ export class Sqlite3Client implements Client {
 
     #checkNotClosed(): void {
         if (this.closed) {
-            throw new LibsqlError("The client was closed", "CLIENT_CLOSED");
+            throw new LibsqlError("The client is closed", "CLIENT_CLOSED");
         }
     }
 }
@@ -147,7 +152,7 @@ export class Sqlite3Transaction implements Transaction {
 
     #checkNotClosed(): void {
         if (!this.database.open) {
-            throw new LibsqlError("The transaction was closed", "TRANSACTION_CLOSED");
+            throw new LibsqlError("The transaction is closed", "TRANSACTION_CLOSED");
         }
     }
 }

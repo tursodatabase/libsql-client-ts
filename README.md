@@ -44,11 +44,15 @@ console.log(rs);
 The client can connect to the database using different methods depending on the scheme (protocol) of the passed URL:
 
 * `file:` connects to a local SQLite database (using `better-sqlite3`)
-  * `file:/absolute/path` or `file:///absolute/path` is an absolute path on local filesystem
-  * `file:relative/path` is a relative path on local filesystem
-  * (`file://path` is not a valid URL)
+  * This is only supported on Node.js, it will not work in the browser or with most edge function providers.
+  * `file:/absolute/path` or `file:///absolute/path` is an absolute path on local filesystem.
+  * `file:relative/path` is a relative path on local filesystem.
+  * (`file://path` is not a valid URL.)
 * `ws:` or `wss:` connect to `sqld` using WebSockets (the Hrana protocol).
-* `http:` or `https:` connect to `sqld` using HTTP. The `transaction()` API is not available in this case.
+  * WebSockets are supported in Node.js, in the browser and with most edge function providers.
+* `http:` or `https:` connect to `sqld` using HTTP.
+  * This is supported in Node.js and in every environment that supports the `fetch()` API.
+  * The `transaction()` API is not available over HTTP.
 * `libsql:` is equivalent to `wss:`.
 
 ## License

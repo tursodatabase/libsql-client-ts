@@ -2,6 +2,7 @@ import type { Config, Client } from "./api.js";
 import { LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
+import { supportedUrlLink } from "./help.js";
 import { _createClient as _createHranaClient } from "./hrana.js";
 import { _createClient as _createHttpClient } from "./http.js";
 
@@ -20,8 +21,8 @@ export function _createClient(config: ExpandedConfig): Client {
         return _createHttpClient(config);
     } else {
         throw new LibsqlError(
-            'The client that uses Web standard APIs supports only "libsql", "wss", "ws", "https" and "http" URLs, ' +
-                `got ${JSON.stringify(config.scheme)}`,
+            'The client that uses Web standard APIs supports only "libsql:", "wss:", "ws:", "https:" and "http:" URLs, ' +
+                `got ${JSON.stringify(config.scheme + ":")}. For more information, please read ${supportedUrlLink}`,
             "URL_SCHEME_NOT_SUPPORTED",
         );
     }
