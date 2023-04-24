@@ -26,7 +26,22 @@ export function _createClient(config: ExpandedConfig): HranaClient {
         );
     }
     const url = encodeBaseUrl(scheme, config.authority, config.path);
-    const client = hrana.open(url, config.authToken);
+
+    let client: hrana.Client;
+    try {
+        client = hrana.open(url, config.authToken);
+    } catch (e) {
+        if (e instanceof hrana.WebSocketUnsupportedError) {
+            const suggestedScheme = scheme === "wss" ? "https" : "http";
+            throw new LibsqlError(
+                `This environment does not support WebSockets, please use a "${suggestedScheme}://" URL ` +
+                    "to switch to the HTTP client",
+                "WEBSOCKETS_NOT_SUPPORTED",
+            );
+        }
+        throw e;
+    }
+
     return new HranaClient(client);
 }
 
