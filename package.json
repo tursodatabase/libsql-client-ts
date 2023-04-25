@@ -16,9 +16,9 @@
         "url": "https://github.com/libsql/libsql-client-ts"
     },
     "authors": [
-        "Jan Plhak <jp@chiselstrike.com>",
+        "Jan Špaček <honza@chiselstrike.com>",
         "Pekka Enberg <penberg@chiselstrike.com>",
-        "Jan Špaček <honza@chiselstrike.com>"
+        "Jan Plhak <jp@chiselstrike.com>"
     ],
     "license": "MIT",
 
