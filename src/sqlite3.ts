@@ -83,9 +83,9 @@ export class Sqlite3Client implements Client {
         this.#checkNotClosed();
         const db = new Database(this.path, this.options);
         try {
-            executeStmt(db, "BEGIN");
+            if (stmts.length > 1) executeStmt(db, "BEGIN");
             const resultSets = stmts.map(stmt => executeStmt(db, stmt));
-            executeStmt(db, "COMMIT");
+            if (stmts.length > 1) executeStmt(db, "COMMIT");
             return resultSets;
         } finally {
             db.close();
