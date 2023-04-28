@@ -46,19 +46,25 @@ export function _createClient(config: ExpandedConfig): HranaClient {
         throw e;
     }
 
-    return new HranaClient(client);
+    return new HranaClient(client, url, config.authToken);
 }
 
 export class HranaClient implements Client {
-    client: hrana.Client;
+    #client: hrana.Client;
+    #url: URL;
+    #authToken: string | undefined;
+    closed: boolean;
 
     /** @private */
-    constructor(client: hrana.Client) {
-        this.client = client;
+    constructor(client: hrana.Client, url: URL, authToken: string | undefined) {
+        this.#client = client;
+        this.#url = url;
+        this.#authToken = authToken;
+        this.closed = false;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
-        const stream = this.client.openStream();
+        const stream = this.#openStream();
         try {
             const hranaStmt = stmtToHrana(stmt);
             const hranaRows = await stream.query(hranaStmt);
@@ -71,7 +77,7 @@ export class HranaClient implements Client {
     }
 
     async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
-        const stream = this.client.openStream();
+        const stream = this.#openStream();
         try {
             const batch = stream.batch();
             
@@ -121,7 +127,7 @@ export class HranaClient implements Client {
     }
 
     async transaction(): Promise<HranaTransaction> {
-        const stream = this.client.openStream();
+        const stream = this.#openStream();
         try {
             await stream.run("BEGIN");
             return new HranaTransaction(stream);
@@ -131,12 +137,25 @@ export class HranaClient implements Client {
         }
     }
 
-    close(): void {
-        this.client.close();
+    #openStream(): hrana.Stream {
+        if (this.closed) {
+            throw new LibsqlError("The client is closed", "CLIENT_CLOSED");
+        }
+
+        if (this.#client.closed) {
+            try {
+                this.#client = hrana.open(this.#url, this.#authToken);
+            } catch (e) {
+                throw mapHranaError(e);
+            }
+        }
+
+        return this.#client.openStream();
     }
 
-    get closed(): boolean {
-        return this.client.closed;
+    close(): void {
+        this.#client.close();
+        this.closed = true;
     }
 }
 
@@ -229,6 +248,8 @@ export function mapHranaError(e: unknown): unknown {
             code = "HRANA_PROTO_ERROR";
         } else if (e instanceof hrana.ClosedError) {
             code = "HRANA_CLOSED_ERROR";
+        } else if (e instanceof hrana.WebSocketError) {
+            code = "HRANA_WEBSOCKET_ERROR";
         }
         return new LibsqlError(e.message, code, e);
     }

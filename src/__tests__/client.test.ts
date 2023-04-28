@@ -11,6 +11,7 @@ const config = {
     authToken: process.env.AUTH_TOKEN,
 };
 
+const isWs = config.url.startsWith("ws:") || config.url.startsWith("wss:") || config.url.startsWith("libsql:");
 const isHttp = config.url.startsWith("http:") || config.url.startsWith("https:");
 const isFile = config.url.startsWith("file:");
 
@@ -399,6 +400,37 @@ describe("batch()", () => {
         const rs = await c.execute("SELECT COUNT(*) FROM t");
         expect(rs.rows[0][0]).toStrictEqual(1);
     }));
+});
+
+(isWs ? describe : describe.skip)("network errors", () => {
+    const testCases = [
+        {title: "WebSocket close", sql: ".close_ws"},
+        {title: "TCP close", sql: ".close_tcp"},
+    ];
+
+    for (const {title, sql} of testCases) {
+        test(`${title} in execute()`, withClient(async (c) => {
+            await expect(c.execute(sql)).rejects.toBeLibsqlError("HRANA_WEBSOCKET_ERROR");
+
+            expect((await c.execute("SELECT 42")).rows[0][0]).toStrictEqual(42);
+        }));
+
+        test(`${title} in transaction()`, withClient(async (c) => {
+            const txn = await c.transaction();
+            await expect(txn.execute(sql)).rejects.toBeLibsqlError("HRANA_WEBSOCKET_ERROR");
+            await expect(txn.commit()).rejects.toBeLibsqlError("HRANA_CLOSED_ERROR");
+            txn.close();
+
+            expect((await c.execute("SELECT 42")).rows[0][0]).toStrictEqual(42);
+        }));
+
+        test(`${title} in batch()`, withClient(async (c) => {
+            await expect(c.batch(["SELECT 42", sql, "SELECT 24"]))
+                .rejects.toBeLibsqlError("HRANA_WEBSOCKET_ERROR");
+
+            expect((await c.execute("SELECT 42")).rows[0][0]).toStrictEqual(42);
+        }));
+    }
 });
 
 (isHttp ? test : test.skip)("transaction() not supported", withClient(async (c) => {
