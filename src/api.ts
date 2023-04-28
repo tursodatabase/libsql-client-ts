@@ -57,6 +57,7 @@ export class LibsqlError extends Error {
         }
         super(message, { cause });
         this.code = code;
+        this.name = "LibsqlError";
     }
 }
 
