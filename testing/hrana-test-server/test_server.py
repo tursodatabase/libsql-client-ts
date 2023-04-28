@@ -137,6 +137,10 @@ async def handle_websocket(ws):
             if msg is None:
                 break
             await handle_msg(msg)
+    except CloseWebSocket:
+        await ws.close()
+    except CloseTcpSocket:
+        ws._writer.transport.close()
     finally:
         for stream in streams.values():
             stream.conn.close()
@@ -175,7 +179,18 @@ def cleanup_conn(conn):
     if conn.in_transaction:
         conn.execute("ROLLBACK")
 
+class CloseWebSocket(BaseException):
+    pass
+
+class CloseTcpSocket(BaseException):
+    pass
+
 def execute_stmt(conn, stmt):
+    if stmt["sql"] == ".close_ws":
+        raise CloseWebSocket()
+    elif stmt["sql"] == ".close_tcp":
+        raise CloseTcpSocket()
+
     args = stmt.get("args", [])
     named_args = stmt.get("named_args", [])
     if len(named_args) == 0:
