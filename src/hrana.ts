@@ -50,61 +50,59 @@ export function _createClient(config: ExpandedConfig): HranaClient {
     return new HranaClient(client, url, config.authToken);
 }
 
-const sqlCacheCapacity = 100;
+interface ConnState {
+    client: hrana.Client;
+    useSqlCache: boolean | undefined;
+    sqlCache: Lru<string, hrana.Sql>;
+}
+
+interface StreamState extends ConnState {
+    stream: hrana.Stream;
+}
 
 export class HranaClient implements Client {
     #url: URL;
     #authToken: string | undefined;
+    #connState: ConnState;
     closed: boolean;
-
-    #client: hrana.Client;
-    #sqlCache: Lru<string, hrana.Sql>;
 
     /** @private */
     constructor(client: hrana.Client, url: URL, authToken: string | undefined) {
         this.#url = url;
         this.#authToken = authToken;
+        this.#connState = {
+            client,
+            useSqlCache: undefined,
+            sqlCache: new Lru(),
+        };
         this.closed = false;
-
-        this.#client = client;
-        this.#sqlCache = new Lru();
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
-        const useSqlCache = await this._useSqlCache();
-        const stream = this.#openStream();
+        const state = await this.#openStream();
         try {
-            const hranaStmt = stmtToHrana(stmt);
-            if (useSqlCache) {
-                this._applySqlCache(hranaStmt);
-            }
-
-            const hranaRows = await stream.query(hranaStmt);
-            this._evictSqlCache();
+            const hranaStmt = applySqlCache(state, stmtToHrana(stmt));
+            const hranaRows = await state.stream.query(hranaStmt);
+            evictSqlCache(state);
             return resultSetFromHrana(hranaRows);
         } catch (e) {
             throw mapHranaError(e);
         } finally {
-            stream.close();
+            state.stream.close();
         }
     }
 
     async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
-        const useSqlCache = await this._useSqlCache();
-        const stream = this.#openStream();
+        const state = await this.#openStream();
         try {
-            const batch = stream.batch();
+            const batch = state.stream.batch();
             
             const beginStep = batch.step();
             const beginPromise = beginStep.run("BEGIN").catch(_ => undefined);
 
             let lastStep = beginStep;
             const stmtPromises = stmts.map((stmt) => {
-                const hranaStmt = stmtToHrana(stmt);
-                if (useSqlCache) {
-                    this._applySqlCache(hranaStmt);
-                }
-
+                const hranaStmt = applySqlCache(state, stmtToHrana(stmt));
                 const stmtStep = batch.step()
                     .condition(hrana.BatchCond.ok(lastStep));
                 const stmtPromise = stmtStep.query(hranaStmt);
@@ -122,7 +120,7 @@ export class HranaClient implements Client {
             rollbackStep.run("ROLLBACK").catch(_ => undefined);
 
             await batch.execute();
-            this._evictSqlCache();
+            evictSqlCache(state);
 
             const resultSets = [];
             for (const stmtPromise of stmtPromises) {
@@ -141,90 +139,66 @@ export class HranaClient implements Client {
         } catch (e) {
             throw mapHranaError(e);
         } finally {
-            stream.close();
+            state.stream.close();
         }
     }
 
     async transaction(): Promise<HranaTransaction> {
-        const useSqlCache = await this._useSqlCache();
-        const stream = this.#openStream();
+        const state = await this.#openStream();
         try {
-            await stream.run("BEGIN");
-            return new HranaTransaction(this, stream, useSqlCache);
+            await state.stream.run("BEGIN");
+            return new HranaTransaction(state);
         } catch (e) {
-            stream.close();
+            state.stream.close();
             throw mapHranaError(e);
         }
     }
 
-    #openStream(): hrana.Stream {
+    async #openStream(): Promise<StreamState> {
         if (this.closed) {
             throw new LibsqlError("The client is closed", "CLIENT_CLOSED");
         }
 
-        if (this.#client.closed) {
-            this.#sqlCache.clear();
+        if (this.#connState.client.closed) {
             try {
-                this.#client = hrana.open(this.#url, this.#authToken);
+                this.#connState = {
+                    client: hrana.open(this.#url, this.#authToken),
+                    useSqlCache: undefined,
+                    sqlCache: new Lru(),
+                };
             } catch (e) {
                 throw mapHranaError(e);
             }
         }
 
-        return this.#client.openStream();
+        const connState = this.#connState;
+        try {
+            if (connState.useSqlCache === undefined) {
+                connState.useSqlCache = await connState.client.getVersion() >= 2;
+            }
+            const stream = connState.client.openStream();
+            return {stream, ...connState};
+        } catch (e) {
+            throw mapHranaError(e);
+        }
     }
 
     close(): void {
-        this.#client.close();
+        this.#connState.client.close();
         this.closed = true;
-    }
-
-    /** @private */
-    async _useSqlCache(): Promise<boolean> {
-        return await this.#client.getVersion() >= 2;
-    }
-
-    /** @private */
-    _applySqlCache(hranaStmt: hrana.Stmt): void {
-        if (typeof hranaStmt.sql !== "string") {
-            return;
-        }
-        const sqlText: string = hranaStmt.sql;
-
-        let sqlObj = this.#sqlCache.get(sqlText);
-        if (sqlObj === undefined) {
-            sqlObj = this.#client.storeSql(sqlText);
-            this.#sqlCache.set(sqlText, sqlObj);
-        }
-
-        if (sqlObj !== undefined) {
-            hranaStmt.sql = sqlObj;
-        }
-    }
-
-    /** @private */
-    _evictSqlCache(): void {
-        while (this.#sqlCache.size > sqlCacheCapacity) {
-            const sqlObj = this.#sqlCache.deleteLru()!;
-            sqlObj.close();
-        }
     }
 }
 
 export class HranaTransaction implements Transaction {
-    #client: HranaClient;
-    stream: hrana.Stream;
-    #useSqlCache: boolean;
+    #state: StreamState;
 
     /** @private */
-    constructor(client: HranaClient, stream: hrana.Stream, useSqlCache: boolean) {
-        this.#client = client;
-        this.stream = stream;
-        this.#useSqlCache = useSqlCache;
+    constructor(state: StreamState) {
+        this.#state = state;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
-        if (this.stream.closed) {
+        if (this.#state.stream.closed) {
             throw new LibsqlError(
                 "Cannot execute a statement because the transaction is closed",
                 "TRANSACTION_CLOSED",
@@ -232,13 +206,9 @@ export class HranaTransaction implements Transaction {
         }
 
         try {
-            const hranaStmt = stmtToHrana(stmt);
-            if (this.#useSqlCache) {
-                this.#client._applySqlCache(hranaStmt);
-            }
-
-            const hranaRows = await this.stream.query(hranaStmt);
-            this.#client._evictSqlCache();
+            const hranaStmt = applySqlCache(this.#state, stmtToHrana(stmt));
+            const hranaRows = await this.#state.stream.query(hranaStmt);
+            evictSqlCache(this.#state);
             return resultSetFromHrana(hranaRows);
         } catch (e) {
             throw mapHranaError(e);
@@ -246,36 +216,66 @@ export class HranaTransaction implements Transaction {
     }
 
     async rollback(): Promise<void> {
-        if (this.stream.closed) {
+        if (this.#state.stream.closed) {
             return;
         }
-        const promise = this.stream.run("ROLLBACK")
+        const promise = this.#state.stream.run("ROLLBACK")
             .catch(e => { throw mapHranaError(e); });
-        this.stream.close();
+        this.#state.stream.close();
         await promise;
     }
 
     async commit(): Promise<void> {
-        if (this.stream.closed) {
+        if (this.#state.stream.closed) {
             throw new LibsqlError(
                 "Cannot commit the transaction because it is already closed",
                 "TRANSACTION_CLOSED",
             );
         }
-        const promise = this.stream.run("COMMIT")
+        const promise = this.#state.stream.run("COMMIT")
             .catch(e => { throw mapHranaError(e); });
-        this.stream.close();
+        this.#state.stream.close();
         await promise;
     }
 
     close(): void {
-        this.stream.close();
+        this.#state.stream.close();
     }
 
     get closed(): boolean {
-        return this.stream.closed;
+        return this.#state.stream.closed;
     }
 }
+
+
+
+const sqlCacheCapacity = 100;
+
+function applySqlCache(state: ConnState, hranaStmt: hrana.Stmt): hrana.Stmt {
+    if (state.useSqlCache && typeof hranaStmt.sql === "string") {
+        const sqlText: string = hranaStmt.sql;
+
+        let sqlObj = state.sqlCache.get(sqlText);
+        if (sqlObj === undefined) {
+            sqlObj = state.client.storeSql(sqlText);
+            state.sqlCache.set(sqlText, sqlObj);
+        }
+
+        if (sqlObj !== undefined) {
+            hranaStmt.sql = sqlObj;
+        }
+    }
+    return hranaStmt;
+}
+
+function evictSqlCache(state: ConnState): void {
+    while (state.sqlCache.size > sqlCacheCapacity) {
+        const sqlObj = state.sqlCache.deleteLru()!;
+        sqlObj.close();
+    }
+}
+
+
 
 export function stmtToHrana(stmt: InStatement): hrana.Stmt {
     if (typeof stmt === "string") {

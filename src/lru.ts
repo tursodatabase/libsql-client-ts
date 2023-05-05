@@ -29,10 +29,6 @@ export class Lru<K, V> {
         return undefined;
     }
 
-    clear(): void {
-        this.#cache.clear();
-    }
-
     get size(): number {
         return this.#cache.size;
     }
