@@ -1,6 +1,6 @@
 from ctypes import (
     CDLL, POINTER, CFUNCTYPE,
-    pointer, byref, string_at,
+    pointer, byref, string_at, cast,
     c_void_p, c_char_p,
     c_int, c_int64, c_uint64, c_double, c_char,
 )
@@ -15,6 +15,12 @@ lib.sqlite3_open_v2.argtypes = (c_char_p, POINTER(c_sqlite3_p), c_int, c_char_p,
 lib.sqlite3_open_v2.restype = c_int
 lib.sqlite3_close_v2.argtypes = (c_sqlite3_p,)
 lib.sqlite3_close_v2.restype = c_int
+lib.sqlite3_extended_result_codes.argtypes = (c_sqlite3_p, c_int,)
+lib.sqlite3_extended_result_codes.restype = c_int
+lib.sqlite3_errmsg.argtypes = (c_sqlite3_p,)
+lib.sqlite3_errmsg.restype = c_char_p
+lib.sqlite3_errstr.argtypes = (c_int,)
+lib.sqlite3_errstr.restype = c_char_p
 lib.sqlite3_exec.argtypes = (c_sqlite3_p, c_char_p, c_exec_callback_fn, c_void_p, POINTER(c_char_p),)
 lib.sqlite3_exec.restype = c_int
 lib.sqlite3_txn_state.argtypes = (c_sqlite3_p, c_char_p,)
@@ -26,7 +32,8 @@ lib.sqlite3_total_changes64.restype = c_int64
 lib.sqlite3_last_insert_rowid.argtypes = (c_sqlite3_p,)
 lib.sqlite3_last_insert_rowid.restype = c_int64
 
-lib.sqlite3_prepare_v2.argtypes = (c_sqlite3_p, c_char_p, c_int, POINTER(c_sqlite3_stmt_p), POINTER(c_char_p),)
+lib.sqlite3_prepare_v2.argtypes = (
+    c_sqlite3_p, c_void_p, c_int, POINTER(c_sqlite3_stmt_p), POINTER(c_void_p),)
 lib.sqlite3_prepare_v2.restype = c_int
 lib.sqlite3_finalize.argtypes = (c_sqlite3_stmt_p,)
 lib.sqlite3_finalize.restype = c_int
@@ -104,13 +111,25 @@ class Conn:
     def __del__(self):
         self.close()
 
+    def extended_result_codes(self, onoff):
+        assert self.db_ptr is not None
+        lib.sqlite3_extended_result_codes(self.db_ptr, onoff)
+
+    def errmsg(self):
+        assert self.db_ptr is not None
+        return str(lib.sqlite3_errmsg(self.db_ptr).decode())
+
+    @classmethod
+    def errstr(cls, code):
+        return str(lib.sqlite3_errstr(code).decode())
+
     def exec(self, sql):
         assert self.db_ptr is not None
         sql_ptr = c_char_p(sql.encode())
         callback_ptr = c_exec_callback_fn()
         arg_ptr = c_void_p()
         errmsg_ptr_ptr = pointer(c_char_p())
-        _try(lib.sqlite3_exec(self.db_ptr, sql_ptr, callback_ptr, arg_ptr, errmsg_ptr_ptr))
+        _try(lib.sqlite3_exec(self.db_ptr, sql_ptr, callback_ptr, arg_ptr, errmsg_ptr_ptr), self)
 
     def txn_state(self):
         assert self.db_ptr is not None
@@ -120,11 +139,16 @@ class Conn:
     def prepare(self, sql):
         assert self.db_ptr is not None
         sql = sql.encode()
-        sql_ptr, sql_len = c_char_p(sql), c_int(len(sql))
+        sql_data = c_char_p(sql)
+        sql_ptr = cast(sql_data, c_void_p)
+        sql_len = c_int(len(sql) + 1)
         stmt_ptr = c_sqlite3_stmt_p()
-        tail_ptr_ptr = POINTER(c_char_p)()
-        _try(lib.sqlite3_prepare_v2(self.db_ptr, sql_ptr, sql_len, byref(stmt_ptr), tail_ptr_ptr))
-        return Stmt(stmt_ptr)
+        tail_ptr = c_void_p()
+        _try(lib.sqlite3_prepare_v2(self.db_ptr, sql_ptr, sql_len, byref(stmt_ptr), byref(tail_ptr)), self)
+        if stmt_ptr.value is None:
+            return None, b""
+        tail = sql[tail_ptr.value - sql_ptr.value:]
+        return Stmt(self, stmt_ptr), tail.decode()
 
     def changes(self):
         assert self.db_ptr is not None
@@ -139,7 +163,8 @@ class Conn:
         return lib.sqlite3_last_insert_rowid(self.db_ptr)
 
 class Stmt:
-    def __init__(self, stmt_ptr):
+    def __init__(self, conn, stmt_ptr):
+        self.conn = conn
         self.stmt_ptr = stmt_ptr
 
     def close(self):
@@ -169,16 +194,16 @@ class Stmt:
         if isinstance(value, str):
             value = value.encode()
             value_ptr, value_len = c_char_p(value), c_int(len(value))
-            _try(lib.sqlite3_bind_text(self.stmt_ptr, param_i, value_ptr, value_len, SQLITE_TRANSIENT))
+            _try(lib.sqlite3_bind_text(self.stmt_ptr, param_i, value_ptr, value_len, SQLITE_TRANSIENT), self.conn)
         elif isinstance(value, bytes):
             value_ptr, value_len = c_char_p(value), c_uint64(len(value))
-            _try(lib.sqlite3_bind_blob64(self.stmt_ptr, param_i, value_ptr, value_len, SQLITE_TRANSIENT))
+            _try(lib.sqlite3_bind_blob64(self.stmt_ptr, param_i, value_ptr, value_len, SQLITE_TRANSIENT), self.conn)
         elif isinstance(value, int):
-            _try(lib.sqlite3_bind_int64(self.stmt_ptr, param_i, c_int64(value)))
+            _try(lib.sqlite3_bind_int64(self.stmt_ptr, param_i, c_int64(value)), self.conn)
         elif isinstance(value, float):
-            _try(lib.sqlite3_bind_double(self.stmt_ptr, param_i, c_double(value)))
+            _try(lib.sqlite3_bind_double(self.stmt_ptr, param_i, c_double(value)), self.conn)
         elif value is None:
-            _try(lib.sqlite3_bind_null(self.stmt_ptr, param_i))
+            _try(lib.sqlite3_bind_null(self.stmt_ptr, param_i), self.conn)
         else:
             raise ValueError(f"Cannot bind {type(value)!r}")
 
@@ -189,7 +214,7 @@ class Stmt:
             return False
         elif res == SQLITE_ROW:
             return True
-        _try(res)
+        _try(res, self.conn)
 
     def column_count(self):
         assert self.stmt_ptr is not None
@@ -235,6 +260,12 @@ class Stmt:
 class SqliteError(RuntimeError):
     pass
 
-def _try(error_code):
-    if error_code != 0:
-        raise SqliteError(f"SQLite function returned error code {error_code}")
+def _try(error_code, conn=None):
+    if error_code == 0:
+        return
+
+    error_str = Conn.errstr(error_code)
+    if conn is not None:
+        details = f": {conn.errmsg()}"
+
+    raise SqliteError(f"SQLite function returned error code {error_code} ({error_str}){details}")

@@ -104,6 +104,11 @@ async def handle_websocket(ws):
             stream = streams[int(req["stream_id"])]
             result = await execute_batch(stream.conn, sqls, req["batch"])
             return {"type": "batch", "result": result}
+        elif req["type"] == "sequence":
+            stream = streams[int(req["stream_id"])]
+            sql = get_sql(sqls, req)
+            result = await to_thread(lambda: execute_sequence(stream.conn, sql))
+            return {"type": "sequence"}
         elif req["type"] == "describe":
             stream = streams[int(req["stream_id"])]
             sql = get_sql(sqls, req)
@@ -189,6 +194,7 @@ async def handle_post_batch(req):
 
 def connect(db_file):
     conn = c3.Conn.open(db_file)
+    conn.extended_result_codes(True)
     conn.exec("PRAGMA journal_mode = WAL")
     return conn
 
@@ -222,7 +228,7 @@ def execute_stmt(conn, sqls, stmt):
 
     try:
         changes_before = conn.total_changes()
-        prepared = conn.prepare(sql)
+        prepared, _ = conn.prepare(sql)
         param_count = prepared.param_count()
 
         for param_i, arg_value in enumerate(stmt.get("args", []), 1):
@@ -249,9 +255,10 @@ def execute_stmt(conn, sqls, stmt):
             for col_i in range(column_count)
         ]
 
+        want_rows = stmt.get("want_rows", True)
         rows = []
         while prepared.step():
-            if not stmt["want_rows"]:
+            if not want_rows:
                 continue
 
             rows.append([
@@ -273,7 +280,7 @@ def execute_stmt(conn, sqls, stmt):
 
 def describe_stmt(conn, sql):
     try:
-        prepared = conn.prepare(sql)
+        prepared, _ = conn.prepare(sql)
 
         param_count = prepared.param_count()
         params = [
@@ -301,6 +308,17 @@ def describe_stmt(conn, sql):
         "is_explain": is_explain,
         "is_readonly": is_readonly,
     }
+
+def execute_sequence(conn, sql):
+    try:
+        while len(sql) > 0:
+            prepared, sql = conn.prepare(sql)
+            if prepared is None:
+                break
+            while prepared.step():
+                pass
+    except c3.SqliteError as e:
+        raise ResponseError(str(e)) from e
 
 async def execute_batch(conn, sqls, batch):
     step_results = []
