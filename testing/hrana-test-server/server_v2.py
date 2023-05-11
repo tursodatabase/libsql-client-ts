@@ -249,10 +249,13 @@ def execute_stmt(conn, sqls, stmt):
                 raise ResponseError(f"Parameter with name {arg_name!r} was not found")
             prepared.bind(param_i, value_to_sqlite(arg["value"]))
 
-        column_count = prepared.column_count()
+        col_count = prepared.column_count()
         cols = [
-            {"name": prepared.column_name(col_i)}
-            for col_i in range(column_count)
+            {
+                "name": prepared.column_name(col_i),
+                "decltype": prepared.column_decltype(col_i),
+            }
+            for col_i in range(col_count)
         ]
 
         want_rows = stmt.get("want_rows", True)
@@ -263,7 +266,7 @@ def execute_stmt(conn, sqls, stmt):
 
             rows.append([
                 value_from_sqlite(prepared.column(col_i))
-                for col_i in range(column_count)
+                for col_i in range(col_count)
             ])
 
         affected_row_count = conn.total_changes() - changes_before
