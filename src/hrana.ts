@@ -44,65 +44,80 @@ export function _createClient(config: ExpandedConfig): HranaClient {
                 "WEBSOCKETS_NOT_SUPPORTED",
             );
         }
-        throw e;
+        throw mapHranaError(e);
     }
 
     return new HranaClient(client, url, config.authToken);
 }
 
+// This object maintains state for a single WebSocket connection.
 interface ConnState {
+    // The Hrana client (which corresponds to a single WebSocket).
     client: hrana.Client;
+    // We can cache SQL texts on the server only if the server supports Hrana 2. But to get the server
+    // version, we need to wait for the WebSocket handshake to complete, so this value is initially
+    // `undefined`, until we find out the version.
     useSqlCache: boolean | undefined;
+    // The LRU cache of SQL texts cached on the server. Can only be used if `useSqlCache` is `true`.
     sqlCache: Lru<string, hrana.Sql>;
+    // The time when the connection was opened.
+    openTime: Date;
+    // Set of all `StreamState`-s that were opened from this connection. We can safely close the connection
+    // only when this is empty.
+    streamStates: Set<StreamState>;
 }
 
-interface StreamState extends ConnState {
+interface StreamState {
+    conn: ConnState;
     stream: hrana.Stream;
 }
+
+const maxConnAgeMillis = 60*1000;
 
 export class HranaClient implements Client {
     #url: URL;
     #authToken: string | undefined;
+    // State of the current connection. The `hrana.Client` inside may be closed at any moment due to an
+    // asynchronous error.
     #connState: ConnState;
+    // If defined, this is a connection that will be used in the future, once it is ready.
+    #futureConnState: ConnState | undefined;
     closed: boolean;
 
     /** @private */
     constructor(client: hrana.Client, url: URL, authToken: string | undefined) {
         this.#url = url;
         this.#authToken = authToken;
-        this.#connState = {
-            client,
-            useSqlCache: undefined,
-            sqlCache: new Lru(),
-        };
+        this.#connState = this.#openConn(client);
+        this.#futureConnState = undefined;
         this.closed = false;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
-        const state = await this.#openStream();
+        const streamState = await this.#openStream();
         try {
-            const hranaStmt = applySqlCache(state, stmtToHrana(stmt));
-            const hranaRows = await state.stream.query(hranaStmt);
-            evictSqlCache(state);
+            const hranaStmt = applySqlCache(streamState.conn, stmtToHrana(stmt));
+            const hranaRows = await streamState.stream.query(hranaStmt);
+            evictSqlCache(streamState.conn);
             return resultSetFromHrana(hranaRows);
         } catch (e) {
             throw mapHranaError(e);
         } finally {
-            state.stream.close();
+            this._closeStream(streamState);
         }
     }
 
     async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
-        const state = await this.#openStream();
+        const streamState = await this.#openStream();
         try {
-            const batch = state.stream.batch();
+            const batch = streamState.stream.batch();
             
             const beginStep = batch.step();
             const beginPromise = beginStep.run("BEGIN").catch(_ => undefined);
 
             let lastStep = beginStep;
             const stmtPromises = stmts.map((stmt) => {
-                const hranaStmt = applySqlCache(state, stmtToHrana(stmt));
+                const hranaStmt = applySqlCache(streamState.conn, stmtToHrana(stmt));
                 const stmtStep = batch.step()
                     .condition(hrana.BatchCond.ok(lastStep));
                 const stmtPromise = stmtStep.query(hranaStmt);
@@ -120,7 +135,7 @@ export class HranaClient implements Client {
             rollbackStep.run("ROLLBACK").catch(_ => undefined);
 
             await batch.execute();
-            evictSqlCache(state);
+            evictSqlCache(streamState.conn);
 
             const resultSets = [];
             for (const stmtPromise of stmtPromises) {
@@ -139,17 +154,17 @@ export class HranaClient implements Client {
         } catch (e) {
             throw mapHranaError(e);
         } finally {
-            state.stream.close();
+            this._closeStream(streamState);
         }
     }
 
     async transaction(): Promise<HranaTransaction> {
-        const state = await this.#openStream();
+        const streamState = await this.#openStream();
         try {
-            await state.stream.run("BEGIN");
-            return new HranaTransaction(state);
+            await streamState.stream.run("BEGIN");
+            return new HranaTransaction(this, streamState);
         } catch (e) {
-            state.stream.close();
+            this._closeStream(streamState);
             throw mapHranaError(e);
         }
     }
@@ -159,13 +174,56 @@ export class HranaClient implements Client {
             throw new LibsqlError("The client is closed", "CLIENT_CLOSED");
         }
 
+        const now = new Date();
+
+        const ageMillis = now.valueOf() - this.#connState.openTime.valueOf();
+        if (ageMillis > maxConnAgeMillis && this.#futureConnState === undefined) {
+            // The existing connection is too old, let's open a new one.
+            const futureConnState = this.#openConn();
+            this.#futureConnState = futureConnState;
+
+            // However, if we used `futureConnState` immediately, we would introduce additional latency,
+            // because we would have to wait for the WebSocket handshake to complete, even though we may a
+            // have perfectly good existing connection in `this.#connState`!
+            //
+            // So we wait until the `hrana.Client.getVersion()` operation completes (which happens when the
+            // WebSocket hanshake completes), and only then we replace `this.#connState` with
+            // `futureConnState`, which is stored in `this.#futureConnState` in the meantime.
+            futureConnState.client.getVersion().then(
+                (_version) => {
+                    if (this.#connState !== futureConnState) {
+                        // We need to close `this.#connState` before we replace it. However, it is possible
+                        // that `this.#connState` has already been replaced: see the code below.
+                        if (this.#connState.streamStates.size === 0) {
+                            this.#connState.client.close();
+                        } else {
+                            // If there are existing streams on the connection, we must not close it, because
+                            // these streams would be broken. The last stream to be closed will also close the
+                            // connection in `_closeStream()`.
+                        }
+                    }
+
+                    this.#connState = futureConnState;
+                    this.#futureConnState = undefined;
+                },
+                (_e) => {
+                    // If the new connection could not be established, let's just ignore the error and keep
+                    // using the existing connection.
+                    this.#futureConnState = undefined;
+                },
+            );
+        }
+
         if (this.#connState.client.closed) {
+            // An error happened on this connection and it has been closed. Let's try to seamlessly reconnect.
             try {
-                this.#connState = {
-                    client: hrana.open(this.#url, this.#authToken),
-                    useSqlCache: undefined,
-                    sqlCache: new Lru(),
-                };
+                if (this.#futureConnState !== undefined) {
+                    // We are already in the process of opening a new connection, so let's just use it
+                    // immediately.
+                    this.#connState = this.#futureConnState;
+                } else {
+                    this.#connState = this.#openConn();
+                }
             } catch (e) {
                 throw mapHranaError(e);
             }
@@ -173,13 +231,45 @@ export class HranaClient implements Client {
 
         const connState = this.#connState;
         try {
+            // Now we wait for the WebSocket handshake to complete (if it hasn't completed yet). Note that
+            // this does not increase latency, because any messages that we would send on the WebSocket before
+            // the handshake would be queued until the handshake is completed anyway.
             if (connState.useSqlCache === undefined) {
                 connState.useSqlCache = await connState.client.getVersion() >= 2;
             }
+
             const stream = connState.client.openStream();
-            return {stream, ...connState};
+            const streamState = {conn: connState, stream};
+            connState.streamStates.add(streamState);
+            return streamState;
         } catch (e) {
             throw mapHranaError(e);
+        }
+    }
+
+    #openConn(client?: hrana.Client): ConnState {
+        try {
+            return {
+                client: client ?? hrana.open(this.#url, this.#authToken),
+                useSqlCache: undefined,
+                sqlCache: new Lru(),
+                openTime: new Date(),
+                streamStates: new Set(),
+            };
+        } catch (e) {
+            throw mapHranaError(e);
+        }
+    }
+
+    _closeStream(streamState: StreamState): void {
+        streamState.stream.close();
+
+        const connState = streamState.conn;
+        connState.streamStates.delete(streamState);
+        if (connState.streamStates.size === 0 && connState !== this.#connState) {
+            // We are not using this connection anymore and this is the last stream that was using it, so we
+            // must close it now.
+            connState.client.close();
         }
     }
 
@@ -190,15 +280,17 @@ export class HranaClient implements Client {
 }
 
 export class HranaTransaction implements Transaction {
-    #state: StreamState;
+    #client: HranaClient;
+    #streamState: StreamState;
 
     /** @private */
-    constructor(state: StreamState) {
-        this.#state = state;
+    constructor(client: HranaClient, state: StreamState) {
+        this.#client = client;
+        this.#streamState = state;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
-        if (this.#state.stream.closed) {
+        if (this.#streamState.stream.closed) {
             throw new LibsqlError(
                 "Cannot execute a statement because the transaction is closed",
                 "TRANSACTION_CLOSED",
@@ -206,9 +298,9 @@ export class HranaTransaction implements Transaction {
         }
 
         try {
-            const hranaStmt = applySqlCache(this.#state, stmtToHrana(stmt));
-            const hranaRows = await this.#state.stream.query(hranaStmt);
-            evictSqlCache(this.#state);
+            const hranaStmt = applySqlCache(this.#streamState.conn, stmtToHrana(stmt));
+            const hranaRows = await this.#streamState.stream.query(hranaStmt);
+            evictSqlCache(this.#streamState.conn);
             return resultSetFromHrana(hranaRows);
         } catch (e) {
             throw mapHranaError(e);
@@ -216,34 +308,34 @@ export class HranaTransaction implements Transaction {
     }
 
     async rollback(): Promise<void> {
-        if (this.#state.stream.closed) {
+        if (this.#streamState.stream.closed) {
             return;
         }
-        const promise = this.#state.stream.run("ROLLBACK")
+        const promise = this.#streamState.stream.run("ROLLBACK")
             .catch(e => { throw mapHranaError(e); });
-        this.#state.stream.close();
+        this.#streamState.stream.close();
         await promise;
     }
 
     async commit(): Promise<void> {
-        if (this.#state.stream.closed) {
+        if (this.#streamState.stream.closed) {
             throw new LibsqlError(
                 "Cannot commit the transaction because it is already closed",
                 "TRANSACTION_CLOSED",
             );
         }
-        const promise = this.#state.stream.run("COMMIT")
+        const promise = this.#streamState.stream.run("COMMIT")
             .catch(e => { throw mapHranaError(e); });
-        this.#state.stream.close();
+        this.#streamState.stream.close();
         await promise;
     }
 
     close(): void {
-        this.#state.stream.close();
+        this.#client._closeStream(this.#streamState);
     }
 
     get closed(): boolean {
-        return this.#state.stream.closed;
+        return this.#streamState.stream.closed;
     }
 }
 
@@ -251,14 +343,14 @@ export class HranaTransaction implements Transaction {
 
 const sqlCacheCapacity = 100;
 
-function applySqlCache(state: ConnState, hranaStmt: hrana.Stmt): hrana.Stmt {
-    if (state.useSqlCache && typeof hranaStmt.sql === "string") {
+function applySqlCache(connState: ConnState, hranaStmt: hrana.Stmt): hrana.Stmt {
+    if (connState.useSqlCache && typeof hranaStmt.sql === "string") {
         const sqlText: string = hranaStmt.sql;
 
-        let sqlObj = state.sqlCache.get(sqlText);
+        let sqlObj = connState.sqlCache.get(sqlText);
         if (sqlObj === undefined) {
-            sqlObj = state.client.storeSql(sqlText);
-            state.sqlCache.set(sqlText, sqlObj);
+            sqlObj = connState.client.storeSql(sqlText);
+            connState.sqlCache.set(sqlText, sqlObj);
         }
 
         if (sqlObj !== undefined) {
@@ -268,9 +360,9 @@ function applySqlCache(state: ConnState, hranaStmt: hrana.Stmt): hrana.Stmt {
     return hranaStmt;
 }
 
-function evictSqlCache(state: ConnState): void {
-    while (state.sqlCache.size > sqlCacheCapacity) {
-        const sqlObj = state.sqlCache.deleteLru()!;
+function evictSqlCache(connState: ConnState): void {
+    while (connState.sqlCache.size > sqlCacheCapacity) {
+        const sqlObj = connState.sqlCache.deleteLru()!;
         sqlObj.close();
     }
 }
