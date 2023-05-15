@@ -51,3 +51,69 @@ jobs:
       run: "npm test"
       env:
         "URL": "file:///tmp/test.db"
+
+  "workers-test":
+    name: "Build and test with Cloudflare Workers"
+    runs-on: ubuntu-latest
+    env:
+      "CLOUDFLARE_API_TOKEN": "${{ secrets.CLOUDFLARE_API_TOKEN }}"
+    steps:
+    - name: "Checkout this repo"
+      uses: actions/checkout@v3
+    - name: "Setup Node.js"
+      uses: actions/setup-node@v3
+      with:
+        node-version: "19.x"
+        cache: "npm"
+    - name: "Install npm dependencies"
+      run: "npm ci"
+
+    - name: "Checkout hrana-test-server"
+      uses: actions/checkout@v3
+      with:
+        repository: "libsql/hrana-test-server"
+        path: "hrana-test-server"
+    - name: "Setup Python"
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        cache: "pip"
+    - name: "Install pip dependencies"
+      run: "pip install -r hrana-test-server/requirements.txt"
+
+    - name: "Build"
+      run: "npm run build"
+    - name: "Install npm dependencies of the Workers test"
+      run: "cd smoke_test/workers && npm link ../.."
+
+    - name: "Local test with Hrana 1"
+      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v1.py node test.js"
+      env:
+        "LOCAL": "1"
+        "URL": "ws://localhost:8080"
+    - name: "Local test with Hrana 2"
+      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node test.js"
+      env:
+        "LOCAL": "1"
+        "URL": "ws://localhost:8080"
+    - name: "Local test with HTTP"
+      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v1.py node test.js"
+      env:
+        "LOCAL": "1"
+        "URL": "http://localhost:8080"
+
+    - name: "Non-local test with Hrana 1"
+      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v1.py node test.js"
+      env:
+        "LOCAL": "0"
+        "URL": "ws://localhost:8080"
+    - name: "Non-local test with Hrana 2"
+      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node test.js"
+      env:
+        "LOCAL": "0"
+        "URL": "ws://localhost:8080"
+    - name: "Non-local test with HTTP"
+      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v1.py node test.js"
+      env:
+        "LOCAL": "0"
+        "URL": "http://localhost:8080"

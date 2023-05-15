@@ -1,0 +1,5 @@
+main = "worker.js"
+compatibility_date = "2023-05-15"
+
+[vars]
+CLIENT_URL = "ws://localhost:8080"
