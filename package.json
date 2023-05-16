@@ -85,7 +85,7 @@
         "typescript": "^4.9.4"
     },
     "dependencies": {
-        "@libsql/hrana-client": "^0.3.10",
+        "@libsql/hrana-client": "^0.3.13",
         "@libsql/isomorphic-fetch": "^0.1.1",
         "better-sqlite3": "^8.0.1",
         "js-base64": "^3.7.5"
