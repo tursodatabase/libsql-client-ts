@@ -228,8 +228,11 @@ def execute_stmt(conn, sqls, stmt):
 
     try:
         changes_before = conn.total_changes()
-        prepared, _ = conn.prepare(sql)
+        prepared, sql_rest = conn.prepare(sql)
         param_count = prepared.param_count()
+
+        if len(sql_rest.strip()) != 0:
+            raise ResponseError(f"SQL string contains more than one statement")
 
         for param_i, arg_value in enumerate(stmt.get("args", []), 1):
             if param_i > param_count:
