@@ -247,12 +247,16 @@ def execute_stmt(conn, sqls, stmt):
         if len(sql_rest.strip()) != 0:
             raise ResponseError(f"SQL string contains more than one statement")
 
-        for param_i, arg_value in enumerate(stmt.get("args", []), 1):
-            if param_i > param_count:
-                raise ResponseError(f"Statement accepts only {param_count} params", "ARGS_INVALID")
+        args = stmt.get("args", [])
+        named_args = stmt.get("named_args", [])
+        provided_params_count = len(args) + len(named_args)
+        if provided_params_count != param_count:
+            raise ResponseError(f"Required {param_count} but {provided_params_count} were provided", "ARGS_INVALID")
+
+        for param_i, arg_value in enumerate(args, 1):
             prepared.bind(param_i, value_to_sqlite(arg_value))
 
-        for arg in stmt.get("named_args", []):
+        for arg in named_args:
             arg_name = arg["name"]
             if arg_name[0] in (":", "@", "$"):
                 param_i = prepared.param_index(arg_name)
