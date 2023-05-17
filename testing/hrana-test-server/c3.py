@@ -1,3 +1,4 @@
+import platform
 from ctypes import (
     CDLL, POINTER, CFUNCTYPE,
     pointer, byref, string_at, cast,
@@ -10,7 +11,14 @@ c_sqlite3_stmt_p = c_void_p
 c_exec_callback_fn = CFUNCTYPE(c_int, c_void_p, c_int, POINTER(c_char_p), POINTER(c_char_p))
 c_destructor_fn = CFUNCTYPE(None, c_void_p)
 
-lib = CDLL("libsqlite3.so")
+libfile_platform = {
+    "Linux": "libsqlite3.so",
+    "Darwin": "libsqlite3.dylib",
+}
+
+platform_name = platform.system()
+libfile = libfile_platform[platform_name]
+lib = CDLL(libfile)
 lib.sqlite3_open_v2.argtypes = (c_char_p, POINTER(c_sqlite3_p), c_int, c_char_p,)
 lib.sqlite3_open_v2.restype = c_int
 lib.sqlite3_close_v2.argtypes = (c_sqlite3_p,)
