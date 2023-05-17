@@ -142,7 +142,7 @@ async def handle_websocket(ws):
                 await send_msg({
                     "type": "response_error",
                     "request_id": msg["request_id"],
-                    "error": {"message": str(e)},
+                    "error": e.tojson(),
                 })
         elif msg["type"] == "hello":
             jwt = msg.get("jwt")
@@ -176,7 +176,7 @@ async def handle_post_execute(req):
             result = await to_thread(lambda: execute_stmt(conn, {}, req_body["stmt"]))
             return aiohttp.web.json_response({"result": result})
         except ResponseError as e:
-            return aiohttp.web.json_response({"message": str(e)}, status=400)
+            return aiohttp.web.json_response(e.tojson(), status=400)
         finally:
             cleanup_conn(conn)
 
@@ -188,7 +188,7 @@ async def handle_post_batch(req):
             result = await execute_batch(conn, {}, req_body["batch"])
             return aiohttp.web.json_response({"result": result})
         except ResponseError as e:
-            return aiohttp.web.json_response({"message": str(e)}, status=400)
+            return aiohttp.web.json_response(e.tojson(), status=400)
         finally:
             cleanup_conn(conn)
 
@@ -236,7 +236,7 @@ def execute_stmt(conn, sqls, stmt):
 
         for param_i, arg_value in enumerate(stmt.get("args", []), 1):
             if param_i > param_count:
-                raise ResponseError(f"Statement accepts only {param_count} params")
+                raise ResponseError(f"Statement accepts only {param_count} params", "ARGS_INVALID")
             prepared.bind(param_i, value_to_sqlite(arg_value))
 
         for arg in stmt.get("named_args", []):
@@ -249,7 +249,7 @@ def execute_stmt(conn, sqls, stmt):
                     if param_i != 0: break
 
             if param_i == 0:
-                raise ResponseError(f"Parameter with name {arg_name!r} was not found")
+                raise ResponseError(f"Parameter with name {arg_name!r} was not found", "ARGS_INVALID")
             prepared.bind(param_i, value_to_sqlite(arg["value"]))
 
         col_count = prepared.column_count()
@@ -275,7 +275,7 @@ def execute_stmt(conn, sqls, stmt):
         affected_row_count = conn.total_changes() - changes_before
         last_insert_rowid = conn.last_insert_rowid()
     except c3.SqliteError as e:
-        raise ResponseError(str(e)) from e
+        raise ResponseError(e) from e
 
     return {
         "cols": cols,
@@ -306,7 +306,7 @@ def describe_stmt(conn, sql):
         is_explain = prepared.isexplain() > 0
         is_readonly = prepared.readonly()
     except c3.SqliteError as e:
-        raise ResponseError(str(e)) from e
+        raise ResponseError(e) from e
 
     return {
         "params": params,
@@ -324,7 +324,7 @@ def execute_sequence(conn, sql):
             while prepared.step():
                 pass
     except c3.SqliteError as e:
-        raise ResponseError(str(e)) from e
+        raise ResponseError(e) from e
 
 async def execute_batch(conn, sqls, batch):
     step_results = []
@@ -342,7 +342,7 @@ async def execute_batch(conn, sqls, batch):
             try:
                 step_result = await to_thread(lambda: execute_stmt(conn, sqls, step["stmt"]))
             except ResponseError as e:
-                step_error = {"message": str(e)}
+                step_error = e.tojson()
 
         step_results.append(step_result)
         step_errors.append(step_error)
@@ -394,8 +394,22 @@ def value_from_sqlite(value):
     else:
         raise RuntimeError(f"Unknown SQLite value: {value!r}")
 
+
 class ResponseError(RuntimeError):
-    pass
+    def __init__(self, message, code=None):
+        if isinstance(message, c3.SqliteError):
+            if code is None:
+                code = message.error_name
+            message = str(message)
+        super().__init__(message)
+        self.code = code
+
+    def tojson(self):
+        message = str(self)
+        if self.code:
+            return {"message": message, "code": self.code}
+        return {"message": message}
+
 
 async def to_thread(func):
     return await asyncio.get_running_loop().run_in_executor(None, func)

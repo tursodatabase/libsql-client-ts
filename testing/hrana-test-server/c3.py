@@ -6,6 +6,9 @@ from ctypes import (
     c_int, c_int64, c_uint64, c_double, c_char,
 )
 
+from sqlite3_error_map import sqlite_error_code_to_name
+
+
 c_sqlite3_p = c_void_p
 c_sqlite3_stmt_p = c_void_p
 c_exec_callback_fn = CFUNCTYPE(c_int, c_void_p, c_int, POINTER(c_char_p), POINTER(c_char_p))
@@ -265,8 +268,13 @@ class Stmt:
         assert self.stmt_ptr is not None
         return lib.sqlite3_stmt_isexplain(self.stmt_ptr)
 
+
 class SqliteError(RuntimeError):
-    pass
+    def __init__(self, message, error_code=None) -> None:
+        super().__init__(message)
+        self.error_code = error_code
+        self.error_name = sqlite_error_code_to_name.get(error_code)
+
 
 def _try(error_code, conn=None):
     if error_code == 0:
@@ -276,4 +284,5 @@ def _try(error_code, conn=None):
     if conn is not None:
         details = f": {conn.errmsg()}"
 
-    raise SqliteError(f"SQLite function returned error code {error_code} ({error_str}){details}")
+    message = f"SQLite function returned error code {error_code} ({error_str}){details}"
+    raise SqliteError(message, error_code)
