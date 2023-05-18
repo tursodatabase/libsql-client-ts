@@ -16,7 +16,7 @@ ws_persistent_db = os.getenv("WS_PERSISTENT_DB")
 
 
 async def main(command):
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
     app = aiohttp.web.Application()
     app.add_routes([

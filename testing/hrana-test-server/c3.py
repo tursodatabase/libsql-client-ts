@@ -1,3 +1,4 @@
+import logging
 import platform
 from ctypes import (
     CDLL, POINTER, CFUNCTYPE,
@@ -8,6 +9,7 @@ from ctypes import (
 
 from sqlite3_error_map import sqlite_error_code_to_name
 
+logger = logging.getLogger("server")
 
 c_sqlite3_p = c_void_p
 c_sqlite3_stmt_p = c_void_p
@@ -254,7 +256,12 @@ class Stmt:
         elif typ == SQLITE_TEXT:
             data_ptr = lib.sqlite3_column_text(self.stmt_ptr, column_i)
             data_len = lib.sqlite3_column_bytes(self.stmt_ptr, column_i)
-            return bytes(string_at(data_ptr, data_len)).decode()
+            b = bytes(string_at(data_ptr, data_len))
+            try:
+                return b.decode()
+            except UnicodeDecodeError:
+                logger.debug("Could not decode column %s, bytes %s", column_i, b, exc_info=True)
+                raise
         elif typ == SQLITE_NULL:
             return None
         else:

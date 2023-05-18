@@ -17,7 +17,7 @@ ws_persistent_db = os.getenv("WS_PERSISTENT_DB")
 
 
 async def main(command):
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
     app = aiohttp.web.Application()
     app.add_routes([
@@ -242,6 +242,9 @@ def execute_stmt(conn, sqls, stmt):
     try:
         changes_before = conn.total_changes()
         prepared, sql_rest = conn.prepare(sql)
+        if not prepared:
+            raise ResponseError(f"SQL string does not contain a valid statement", "SQL_NO_STATEMENT")
+
         param_count = prepared.param_count()
 
         if len(sql_rest.strip()) != 0:
@@ -284,10 +287,28 @@ def execute_stmt(conn, sqls, stmt):
             if not want_rows:
                 continue
 
-            rows.append([
-                value_from_sqlite(prepared.column(col_i))
-                for col_i in range(col_count)
-            ])
+            cells = []
+            for col_i in range(col_count):
+                try:
+                    val = prepared.column(col_i)
+                except ValueError as e:
+                    name = cols[col_i].get("name") or col_i
+                    if isinstance(e, UnicodeDecodeError):
+                        # NOTE: formatting msg like this to match Python's dbapi
+                        # error, but it could be anything. However this way
+                        # allows the hrana test server to be used against
+                        # Python's test suite
+                        obj = e.object.decode(errors="replace")
+                        msg = f"Could not decode to UTF-8 column '{name}' with text '{obj}'"
+                        code = "UNICODE_ERROR"
+                    else:
+                        msg = f"Could not get column '{name}': {e}"
+                        code = "VALUE_ERROR"
+                    raise ResponseError(msg, code) from e
+
+                cells.append(value_from_sqlite(val))
+
+            rows.append(cells)
 
         affected_row_count = conn.total_changes() - changes_before
         last_insert_rowid = conn.last_insert_rowid()
