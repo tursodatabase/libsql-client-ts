@@ -44,6 +44,8 @@ lib.sqlite3_total_changes64.argtypes = (c_sqlite3_p,)
 lib.sqlite3_total_changes64.restype = c_int64
 lib.sqlite3_last_insert_rowid.argtypes = (c_sqlite3_p,)
 lib.sqlite3_last_insert_rowid.restype = c_int64
+lib.sqlite3_limit.argtypes = (c_sqlite3_p, c_int, c_int)
+lib.sqlite3_limit.restype = c_int
 
 lib.sqlite3_prepare_v2.argtypes = (
     c_sqlite3_p, c_void_p, c_int, POINTER(c_sqlite3_stmt_p), POINTER(c_void_p),)
@@ -103,6 +105,20 @@ SQLITE_BLOB = 4
 SQLITE_NULL = 5
 SQLITE_TEXT = 3
 
+SQLITE_LIMIT_LENGTH = 0
+SQLITE_LIMIT_SQL_LENGTH = 1
+SQLITE_LIMIT_COLUMN = 2
+SQLITE_LIMIT_EXPR_DEPTH = 3
+SQLITE_LIMIT_COMPOUND_SELECT = 4
+SQLITE_LIMIT_VDBE_OP = 5
+SQLITE_LIMIT_FUNCTION_ARG = 6
+SQLITE_LIMIT_ATTACHED = 7
+SQLITE_LIMIT_LIKE_PATTERN_LENGTH = 8
+SQLITE_LIMIT_VARIABLE_NUMBER = 9
+SQLITE_LIMIT_TRIGGER_DEPTH = 10
+SQLITE_LIMIT_WORKER_THREADS = 11
+
+
 class Conn:
     def __init__(self, db_ptr):
         self.db_ptr = db_ptr
@@ -114,6 +130,7 @@ class Conn:
         flags = SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE
         vfs_ptr = c_char_p()
         _try(lib.sqlite3_open_v2(filename_ptr, byref(db_ptr), flags, vfs_ptr))
+        lib.sqlite3_limit(db_ptr, SQLITE_LIMIT_ATTACHED, 0)
         return cls(db_ptr)
 
     def close(self):
