@@ -11,9 +11,12 @@ import tempfile
 import aiohttp.web
 
 logger = logging.getLogger("server")
+http_persistent_db = os.getenv("HTTP_PERSISTENT_DB")
+ws_persistent_db = os.getenv("WS_PERSISTENT_DB")
+
 
 async def main(command):
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
     app = aiohttp.web.Application()
     app.add_routes([
@@ -22,15 +25,19 @@ async def main(command):
         aiohttp.web.post("/v1/batch", handle_post_batch),
     ])
 
-    http_db_fd, http_db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_http_")
-    os.close(http_db_fd)
+    if http_persistent_db is None:
+        http_db_fd, http_db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_http_")
+        os.close(http_db_fd)
+    else:
+        http_db_file = http_persistent_db
     app["http_db_conn"] = connect(http_db_file)
     app["http_db_lock"] = asyncio.Lock()
     logger.info(f"Using db {http_db_file!r} for HTTP requests")
 
     async def on_shutdown(app):
         app["http_db_conn"].close()
-        os.unlink(http_db_file)
+        if http_persistent_db is None:
+            os.unlink(http_db_file)
     app.on_shutdown.append(on_shutdown)
 
     runner = aiohttp.web.AppRunner(app)
@@ -75,8 +82,12 @@ async def handle_websocket(ws):
         msg_str = json.dumps(msg)
         await ws.send_str(msg_str)
 
-    db_fd, db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_ws_")
-    os.close(db_fd)
+    if ws_persistent_db is None:
+        db_fd, db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_ws_")
+        os.close(db_fd)
+    else:
+        db_file = ws_persistent_db
+
     logger.info(f"Accepted WebSocket using db {db_file!r}")
 
     Stream = collections.namedtuple("Stream", ["conn"])
@@ -144,7 +155,8 @@ async def handle_websocket(ws):
     finally:
         for stream in streams.values():
             stream.conn.close()
-        os.unlink(db_file)
+        if ws_persistent_db is None:
+            os.unlink(db_file)
 
 async def handle_post_execute(req):
     req_body = await req.json()

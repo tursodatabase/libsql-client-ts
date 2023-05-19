@@ -12,9 +12,12 @@ import aiohttp.web
 import c3
 
 logger = logging.getLogger("server")
+http_persistent_db = os.getenv("HTTP_PERSISTENT_DB")
+ws_persistent_db = os.getenv("WS_PERSISTENT_DB")
+
 
 async def main(command):
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
     app = aiohttp.web.Application()
     app.add_routes([
@@ -23,15 +26,20 @@ async def main(command):
         aiohttp.web.post("/v1/batch", handle_post_batch),
     ])
 
-    http_db_fd, http_db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_http_")
-    os.close(http_db_fd)
+    if http_persistent_db is None:
+        http_db_fd, http_db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_http_")
+        os.close(http_db_fd)
+    else:
+        http_db_file = http_persistent_db
+
     app["http_db_conn"] = connect(http_db_file)
     app["http_db_lock"] = asyncio.Lock()
     logger.info(f"Using db {http_db_file!r} for HTTP requests")
 
     async def on_shutdown(app):
         app["http_db_conn"].close()
-        os.unlink(http_db_file)
+        if http_persistent_db is None:
+            os.unlink(http_db_file)
     app.on_shutdown.append(on_shutdown)
 
     runner = aiohttp.web.AppRunner(app)
@@ -76,8 +84,12 @@ async def handle_websocket(ws):
         msg_str = json.dumps(msg)
         await ws.send_str(msg_str)
 
-    db_fd, db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_ws_")
-    os.close(db_fd)
+    if ws_persistent_db is None:
+        db_fd, db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_ws_")
+        os.close(db_fd)
+    else:
+        db_file = ws_persistent_db
+
     logger.info(f"Accepted WebSocket using db {db_file!r}")
 
     Stream = collections.namedtuple("Stream", ["conn"])
@@ -142,7 +154,7 @@ async def handle_websocket(ws):
                 await send_msg({
                     "type": "response_error",
                     "request_id": msg["request_id"],
-                    "error": {"message": str(e)},
+                    "error": e.tojson(),
                 })
         elif msg["type"] == "hello":
             jwt = msg.get("jwt")
@@ -166,7 +178,8 @@ async def handle_websocket(ws):
     finally:
         for stream in streams.values():
             stream.conn.close()
-        os.unlink(db_file)
+        if ws_persistent_db is None:
+            os.unlink(db_file)
 
 async def handle_post_execute(req):
     req_body = await req.json()
@@ -176,7 +189,7 @@ async def handle_post_execute(req):
             result = await to_thread(lambda: execute_stmt(conn, {}, req_body["stmt"]))
             return aiohttp.web.json_response({"result": result})
         except ResponseError as e:
-            return aiohttp.web.json_response({"message": str(e)}, status=400)
+            return aiohttp.web.json_response(e.tojson(), status=400)
         finally:
             cleanup_conn(conn)
 
@@ -188,7 +201,7 @@ async def handle_post_batch(req):
             result = await execute_batch(conn, {}, req_body["batch"])
             return aiohttp.web.json_response({"result": result})
         except ResponseError as e:
-            return aiohttp.web.json_response({"message": str(e)}, status=400)
+            return aiohttp.web.json_response(e.tojson(), status=400)
         finally:
             cleanup_conn(conn)
 
@@ -229,17 +242,24 @@ def execute_stmt(conn, sqls, stmt):
     try:
         changes_before = conn.total_changes()
         prepared, sql_rest = conn.prepare(sql)
+        if not prepared:
+            raise ResponseError(f"SQL string does not contain a valid statement", "SQL_NO_STATEMENT")
+
         param_count = prepared.param_count()
 
         if len(sql_rest.strip()) != 0:
             raise ResponseError(f"SQL string contains more than one statement")
 
-        for param_i, arg_value in enumerate(stmt.get("args", []), 1):
-            if param_i > param_count:
-                raise ResponseError(f"Statement accepts only {param_count} params")
+        args = stmt.get("args", [])
+        named_args = stmt.get("named_args", [])
+        provided_params_count = len(args) + len(named_args)
+        if provided_params_count != param_count:
+            raise ResponseError(f"Required {param_count} but {provided_params_count} were provided", "ARGS_INVALID")
+
+        for param_i, arg_value in enumerate(args, 1):
             prepared.bind(param_i, value_to_sqlite(arg_value))
 
-        for arg in stmt.get("named_args", []):
+        for arg in named_args:
             arg_name = arg["name"]
             if arg_name[0] in (":", "@", "$"):
                 param_i = prepared.param_index(arg_name)
@@ -249,7 +269,7 @@ def execute_stmt(conn, sqls, stmt):
                     if param_i != 0: break
 
             if param_i == 0:
-                raise ResponseError(f"Parameter with name {arg_name!r} was not found")
+                raise ResponseError(f"Parameter with name {arg_name!r} was not found", "ARGS_INVALID")
             prepared.bind(param_i, value_to_sqlite(arg["value"]))
 
         col_count = prepared.column_count()
@@ -267,15 +287,33 @@ def execute_stmt(conn, sqls, stmt):
             if not want_rows:
                 continue
 
-            rows.append([
-                value_from_sqlite(prepared.column(col_i))
-                for col_i in range(col_count)
-            ])
+            cells = []
+            for col_i in range(col_count):
+                try:
+                    val = prepared.column(col_i)
+                except ValueError as e:
+                    name = cols[col_i].get("name") or col_i
+                    if isinstance(e, UnicodeDecodeError):
+                        # NOTE: formatting msg like this to match Python's dbapi
+                        # error, but it could be anything. However this way
+                        # allows the hrana test server to be used against
+                        # Python's test suite
+                        obj = e.object.decode(errors="replace")
+                        msg = f"Could not decode to UTF-8 column '{name}' with text '{obj}'"
+                        code = "UNICODE_ERROR"
+                    else:
+                        msg = f"Could not get column '{name}': {e}"
+                        code = "VALUE_ERROR"
+                    raise ResponseError(msg, code) from e
+
+                cells.append(value_from_sqlite(val))
+
+            rows.append(cells)
 
         affected_row_count = conn.total_changes() - changes_before
         last_insert_rowid = conn.last_insert_rowid()
     except c3.SqliteError as e:
-        raise ResponseError(str(e)) from e
+        raise ResponseError(e) from e
 
     return {
         "cols": cols,
@@ -306,7 +344,7 @@ def describe_stmt(conn, sql):
         is_explain = prepared.isexplain() > 0
         is_readonly = prepared.readonly()
     except c3.SqliteError as e:
-        raise ResponseError(str(e)) from e
+        raise ResponseError(e) from e
 
     return {
         "params": params,
@@ -324,7 +362,7 @@ def execute_sequence(conn, sql):
             while prepared.step():
                 pass
     except c3.SqliteError as e:
-        raise ResponseError(str(e)) from e
+        raise ResponseError(e) from e
 
 async def execute_batch(conn, sqls, batch):
     step_results = []
@@ -342,7 +380,7 @@ async def execute_batch(conn, sqls, batch):
             try:
                 step_result = await to_thread(lambda: execute_stmt(conn, sqls, step["stmt"]))
             except ResponseError as e:
-                step_error = {"message": str(e)}
+                step_error = e.tojson()
 
         step_results.append(step_result)
         step_errors.append(step_error)
@@ -394,8 +432,22 @@ def value_from_sqlite(value):
     else:
         raise RuntimeError(f"Unknown SQLite value: {value!r}")
 
+
 class ResponseError(RuntimeError):
-    pass
+    def __init__(self, message, code=None):
+        if isinstance(message, c3.SqliteError):
+            if code is None:
+                code = message.error_name
+            message = str(message)
+        super().__init__(message)
+        self.code = code
+
+    def tojson(self):
+        message = str(self)
+        if self.code:
+            return {"message": message, "code": self.code}
+        return {"message": message}
+
 
 async def to_thread(func):
     return await asyncio.get_running_loop().run_in_executor(None, func)

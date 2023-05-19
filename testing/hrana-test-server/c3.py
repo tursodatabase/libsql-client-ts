@@ -1,3 +1,5 @@
+import logging
+import platform
 from ctypes import (
     CDLL, POINTER, CFUNCTYPE,
     pointer, byref, string_at, cast,
@@ -5,12 +7,23 @@ from ctypes import (
     c_int, c_int64, c_uint64, c_double, c_char,
 )
 
+from sqlite3_error_map import sqlite_error_code_to_name
+
+logger = logging.getLogger("server")
+
 c_sqlite3_p = c_void_p
 c_sqlite3_stmt_p = c_void_p
 c_exec_callback_fn = CFUNCTYPE(c_int, c_void_p, c_int, POINTER(c_char_p), POINTER(c_char_p))
 c_destructor_fn = CFUNCTYPE(None, c_void_p)
 
-lib = CDLL("libsqlite3.so")
+libfile_platform = {
+    "Linux": "libsqlite3.so",
+    "Darwin": "libsqlite3.dylib",
+}
+
+platform_name = platform.system()
+libfile = libfile_platform[platform_name]
+lib = CDLL(libfile)
 lib.sqlite3_open_v2.argtypes = (c_char_p, POINTER(c_sqlite3_p), c_int, c_char_p,)
 lib.sqlite3_open_v2.restype = c_int
 lib.sqlite3_close_v2.argtypes = (c_sqlite3_p,)
@@ -66,7 +79,7 @@ lib.sqlite3_column_type.restype = c_int
 lib.sqlite3_column_blob.argtypes = (c_sqlite3_stmt_p, c_int,)
 lib.sqlite3_column_blob.restype = c_void_p
 lib.sqlite3_column_text.argtypes = (c_sqlite3_stmt_p, c_int,)
-lib.sqlite3_column_text.restype = c_char_p
+lib.sqlite3_column_text.restype = c_void_p
 lib.sqlite3_column_bytes.argtypes = (c_sqlite3_stmt_p, c_int,)
 lib.sqlite3_column_bytes.restype = c_int
 lib.sqlite3_column_double.argtypes = (c_sqlite3_stmt_p, c_int,)
@@ -243,7 +256,12 @@ class Stmt:
         elif typ == SQLITE_TEXT:
             data_ptr = lib.sqlite3_column_text(self.stmt_ptr, column_i)
             data_len = lib.sqlite3_column_bytes(self.stmt_ptr, column_i)
-            return bytes(string_at(data_ptr, data_len)).decode()
+            b = bytes(string_at(data_ptr, data_len))
+            try:
+                return b.decode()
+            except UnicodeDecodeError:
+                logger.debug("Could not decode column %s, bytes %s", column_i, b, exc_info=True)
+                raise
         elif typ == SQLITE_NULL:
             return None
         else:
@@ -257,8 +275,13 @@ class Stmt:
         assert self.stmt_ptr is not None
         return lib.sqlite3_stmt_isexplain(self.stmt_ptr)
 
+
 class SqliteError(RuntimeError):
-    pass
+    def __init__(self, message, error_code=None) -> None:
+        super().__init__(message)
+        self.error_code = error_code
+        self.error_name = sqlite_error_code_to_name.get(error_code)
+
 
 def _try(error_code, conn=None):
     if error_code == 0:
@@ -268,4 +291,5 @@ def _try(error_code, conn=None):
     if conn is not None:
         details = f": {conn.errmsg()}"
 
-    raise SqliteError(f"SQLite function returned error code {error_code} ({error_str}){details}")
+    message = f"SQLite function returned error code {error_code} ({error_str}){details}"
+    raise SqliteError(message, error_code)
