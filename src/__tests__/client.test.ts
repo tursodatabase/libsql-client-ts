@@ -15,6 +15,12 @@ const isWs = config.url.startsWith("ws:") || config.url.startsWith("wss:") || co
 const isHttp = config.url.startsWith("http:") || config.url.startsWith("https:");
 const isFile = config.url.startsWith("file:");
 
+// This allows us to skip tests based on the Hrana server that we are targeting:
+// - "test_v2" is the v2 test server in Python
+// - "test_v1" is the v1 test server in Python
+// - "sqld" is sqld
+const server = process.env.SERVER ?? "test_v2";
+
 function withClient(f: (c: libsql.Client) => Promise<void>): () => Promise<void> {
     return async () => {
         const c = createClient(config);
@@ -104,6 +110,32 @@ describe("execute()", () => {
             args: [insertRs.lastInsertRowid!],
         });
         expect(Array.from(selectRs.rows[0])).toStrictEqual(["three"]);
+    }));
+
+    test("rows from INSERT RETURNING", withClient(async (c) => {
+        await c.batch([
+            "DROP TABLE IF EXISTS t",
+            "CREATE TABLE t (a)",
+        ]);
+
+        const rs = await c.execute("INSERT INTO t VALUES (1) RETURNING 42 AS x, 'foo' AS y");
+        expect(rs.columns).toStrictEqual(["x", "y"]);
+        expect(rs.rows.length).toStrictEqual(1);
+        expect(Array.from(rs.rows[0])).toStrictEqual([42, "foo"]);
+    }));
+
+    (server != "test_v1" ? test : test.skip)("rowsAffected with WITH INSERT", withClient(async (c) => {
+        await c.batch([
+            "DROP TABLE IF EXISTS t",
+            "CREATE TABLE t (a)",
+            "INSERT INTO t VALUES (1), (2), (3)",
+        ]);
+
+        const rs = await c.execute(`
+            WITH x(a) AS (SELECT 2*a FROM t)
+            INSERT INTO t SELECT a+1 FROM x
+        `);
+        expect(rs.rowsAffected).toStrictEqual(3);
     }));
 });
 
@@ -318,7 +350,8 @@ describe("batch()", () => {
     }));
 });
 
-(!isHttp ? describe : describe.skip)("transaction()", () => {
+const hasTransactions = !isHttp;
+(hasTransactions ? describe : describe.skip)("transaction()", () => {
     test("query multiple rows", withClient(async (c) => {
         const txn = await c.transaction();
 
@@ -401,8 +434,12 @@ describe("batch()", () => {
         expect(rs.rows[0][0]).toStrictEqual(1);
     }));
 });
+(!hasTransactions ? test : test.skip)("transaction() not supported", withClient(async (c) => {
+    await expect(c.transaction()).rejects.toBeLibsqlError("TRANSACTIONS_NOT_SUPPORTED");
+}));
 
-(isWs ? describe : describe.skip)("network errors", () => {
+const hasNetworkErrors = isWs && (server == "test_v1" || server == "test_v2");
+(hasNetworkErrors ? describe : describe.skip)("network errors", () => {
     const testCases = [
         {title: "WebSocket close", sql: ".close_ws"},
         {title: "TCP close", sql: ".close_tcp"},
@@ -432,7 +469,3 @@ describe("batch()", () => {
         }));
     }
 });
-
-(isHttp ? test : test.skip)("transaction() not supported", withClient(async (c) => {
-    await expect(c.transaction()).rejects.toBeLibsqlError("TRANSACTIONS_NOT_SUPPORTED");
-}));
