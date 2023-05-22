@@ -1,6 +1,6 @@
 {
     "devDependencies": {
-        "ngrok": "^4.3.3",
+        "ngrok": "^5.0.0-beta.2",
         "wrangler": "^2.20.0"
     }
 }
