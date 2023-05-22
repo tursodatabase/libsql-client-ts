@@ -65,6 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       "CLOUDFLARE_API_TOKEN": "${{ secrets.CLOUDFLARE_API_TOKEN }}"
+      "NGROK_AUTHTOKEN": "${{ secrets.NGROK_AUTHTOKEN }}"
     steps:
     - name: "Checkout this repo"
       uses: actions/checkout@v3

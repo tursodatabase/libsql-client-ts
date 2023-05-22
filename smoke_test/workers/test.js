@@ -20,11 +20,19 @@ async function main() {
         tunnelUrl = await ngrok.connect({
             proto: "http",
             addr: url.host,
+            authtoken: process.env.NGROK_AUTHTOKEN,
         });
-        console.info(`Established a localtunnel on ${tunnelUrl}`);
 
         clientUrlInsideWorker = new URL(tunnelUrl);
-        clientUrlInsideWorker.protocol = url.protocol;
+        if (url.protocol === "http:") {
+            clientUrlInsideWorker.protocol = "https:";
+        } else if (url.protocol === "ws:") {
+            clientUrlInsideWorker.protocol = "wss:";
+        } else {
+            clientUrlInsideWorker.protocol = url.protocol;
+        }
+
+        console.info(`Established a localtunnel on ${clientUrlInsideWorker}`);
     }
 
     let ok = false;
