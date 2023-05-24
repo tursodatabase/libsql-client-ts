@@ -44,8 +44,10 @@ lib.sqlite3_total_changes64.argtypes = (c_sqlite3_p,)
 lib.sqlite3_total_changes64.restype = c_int64
 lib.sqlite3_last_insert_rowid.argtypes = (c_sqlite3_p,)
 lib.sqlite3_last_insert_rowid.restype = c_int64
-lib.sqlite3_limit.argtypes = (c_sqlite3_p, c_int, c_int)
+lib.sqlite3_limit.argtypes = (c_sqlite3_p, c_int, c_int,)
 lib.sqlite3_limit.restype = c_int
+lib.sqlite3_busy_timeout.argtypes = (c_sqlite3_p, c_int,)
+lib.sqlite3_busy_timeout.restype = c_int
 
 lib.sqlite3_prepare_v2.argtypes = (
     c_sqlite3_p, c_void_p, c_int, POINTER(c_sqlite3_stmt_p), POINTER(c_void_p),)
@@ -130,7 +132,6 @@ class Conn:
         flags = SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE
         vfs_ptr = c_char_p()
         _try(lib.sqlite3_open_v2(filename_ptr, byref(db_ptr), flags, vfs_ptr))
-        lib.sqlite3_limit(db_ptr, SQLITE_LIMIT_ATTACHED, 0)
         return cls(db_ptr)
 
     def close(self):
@@ -191,6 +192,14 @@ class Conn:
     def last_insert_rowid(self):
         assert self.db_ptr is not None
         return lib.sqlite3_last_insert_rowid(self.db_ptr)
+
+    def limit(self, id, new_val):
+        assert self.db_ptr is not None
+        return lib.sqlite3_limit(self.db_ptr, id, new_val)
+
+    def busy_timeout(self, ms):
+        assert self.db_ptr is not None
+        lib.sqlite3_busy_timeout(self.db_ptr, ms)
 
 class Stmt:
     def __init__(self, conn, stmt_ptr):

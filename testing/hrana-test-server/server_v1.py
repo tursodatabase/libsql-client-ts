@@ -11,9 +11,6 @@ import tempfile
 import aiohttp.web
 
 logger = logging.getLogger("server")
-http_persistent_db = os.getenv("HTTP_PERSISTENT_DB")
-ws_persistent_db = os.getenv("WS_PERSISTENT_DB")
-
 
 async def main(command):
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
@@ -25,19 +22,14 @@ async def main(command):
         aiohttp.web.post("/v1/batch", handle_post_batch),
     ])
 
-    if http_persistent_db is None:
-        http_db_fd, http_db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_http_")
-        os.close(http_db_fd)
-    else:
-        http_db_file = http_persistent_db
-    app["http_db_conn"] = connect(http_db_file)
-    app["http_db_lock"] = asyncio.Lock()
-    logger.info(f"Using db {http_db_file!r} for HTTP requests")
+    db_fd, db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_")
+    os.close(db_fd)
+    app["db_file"] = db_file
+    app["db_sema"] = asyncio.BoundedSemaphore(8)
+    logger.info(f"Using database file {db_file!r}")
 
     async def on_shutdown(app):
-        app["http_db_conn"].close()
-        if http_persistent_db is None:
-            os.unlink(http_db_file)
+        os.unlink(db_file)
     app.on_shutdown.append(on_shutdown)
 
     runner = aiohttp.web.AppRunner(app)
@@ -60,14 +52,14 @@ async def handle_get_index(req):
     if ws.can_prepare(req):
         await ws.prepare(req)
         try:
-            await handle_websocket(ws)
+            await handle_websocket(req.app, ws)
         finally:
             await ws.close()
         return ws
 
     return aiohttp.web.Response(text="This is a Hrana test server")
 
-async def handle_websocket(ws):
+async def handle_websocket(app, ws):
     async def recv_msg():
         ws_msg = await ws.receive()
         if ws_msg.type == aiohttp.WSMsgType.TEXT:
@@ -82,20 +74,12 @@ async def handle_websocket(ws):
         msg_str = json.dumps(msg)
         await ws.send_str(msg_str)
 
-    if ws_persistent_db is None:
-        db_fd, db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_ws_")
-        os.close(db_fd)
-    else:
-        db_file = ws_persistent_db
-
-    logger.info(f"Accepted WebSocket using db {db_file!r}")
-
     Stream = collections.namedtuple("Stream", ["conn"])
     streams = {}
 
     async def handle_request(req):
         if req["type"] == "open_stream":
-            conn = await to_thread(lambda: connect(db_file))
+            conn = await to_thread(lambda: connect(app["db_file"]))
             streams[int(req["stream_id"])] = Stream(conn)
             return {"type": "open_stream"}
         elif req["type"] == "close_stream":
@@ -105,11 +89,13 @@ async def handle_websocket(ws):
             return {"type": "close_stream"}
         elif req["type"] == "execute":
             stream = streams[int(req["stream_id"])]
-            result = await to_thread(lambda: execute_stmt(stream.conn, req["stmt"]))
+            async with app["db_sema"]:
+                result = await to_thread(lambda: execute_stmt(stream.conn, req["stmt"]))
             return {"type": "execute", "result": result}
         elif req["type"] == "batch":
             stream = streams[int(req["stream_id"])]
-            result = await execute_batch(stream.conn, req["batch"])
+            async with app["db_sema"]:
+                result = await execute_batch(stream.conn, req["batch"])
             return {"type": "batch", "result": result}
         else:
             raise RuntimeError(f"Unknown req: {req!r}")
@@ -155,41 +141,35 @@ async def handle_websocket(ws):
     finally:
         for stream in streams.values():
             stream.conn.close()
-        if ws_persistent_db is None:
-            os.unlink(db_file)
 
 async def handle_post_execute(req):
     req_body = await req.json()
-    async with req.app["http_db_lock"]:
-        conn = req.app["http_db_conn"]
-        try:
+    conn = await to_thread(lambda: connect(req.app["db_file"]))
+    try:
+        async with req.app["db_sema"]:
             result = await to_thread(lambda: execute_stmt(conn, req_body["stmt"]))
-            return aiohttp.web.json_response({"result": result})
-        except ResponseError as e:
-            return aiohttp.web.json_response({"message": str(e)}, status=400)
-        finally:
-            cleanup_conn(conn)
+        return aiohttp.web.json_response({"result": result})
+    except ResponseError as e:
+        return aiohttp.web.json_response(e.tojson(), status=400)
+    finally:
+        conn.close()
 
 async def handle_post_batch(req):
     req_body = await req.json()
-    async with req.app["http_db_lock"]:
-        conn = req.app["http_db_conn"]
-        try:
+    conn = await to_thread(lambda: connect(req.app["db_file"]))
+    try:
+        async with req.app["db_sema"]:
             result = await execute_batch(conn, req_body["batch"])
-            return aiohttp.web.json_response({"result": result})
-        except ResponseError as e:
-            return aiohttp.web.json_response({"message": str(e)}, status=400)
-        finally:
-            cleanup_conn(conn)
+        return aiohttp.web.json_response({"result": result})
+    except ResponseError as e:
+        return aiohttp.web.json_response(e.tojson(), status=400)
+    finally:
+        conn.close()
 
 def connect(db_file):
-    conn = sqlite3.connect(db_file, check_same_thread=False, isolation_level=None, timeout=0)
+    conn = sqlite3.connect(db_file, check_same_thread=False, isolation_level=None, timeout=1)
     conn.execute("PRAGMA journal_mode = WAL")
     return conn
-
-def cleanup_conn(conn):
-    if conn.in_transaction:
-        conn.execute("ROLLBACK")
 
 class CloseWebSocket(BaseException):
     pass
