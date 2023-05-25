@@ -1,6 +1,6 @@
 {
     "name": "@libsql/client",
-    "version": "0.1.7-pre",
+    "version": "0.2.0-pre",
     "keywords": [
         "libsql",
         "database",
@@ -36,10 +36,10 @@
             "import": "./lib-esm/http.js",
             "require": "./lib-cjs/http.js"
         },
-        "./hrana": {
-            "types": "./lib-esm/hrana.d.ts",
-            "import": "./lib-esm/hrana.js",
-            "require": "./lib-cjs/hrana.js"
+        "./ws": {
+            "types": "./lib-esm/ws.d.ts",
+            "import": "./lib-esm/ws.js",
+            "require": "./lib-cjs/ws.js"
         },
         "./sqlite3": {
             "types": "./lib-esm/sqlite3.d.ts",
@@ -85,8 +85,7 @@
         "typescript": "^4.9.4"
     },
     "dependencies": {
-        "@libsql/hrana-client": "^0.3.13",
-        "@libsql/isomorphic-fetch": "^0.1.1",
+        "@libsql/hrana-client": "^0.4.0",
         "better-sqlite3": "^8.0.1",
         "js-base64": "^3.7.5"
     }

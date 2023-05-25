@@ -100,21 +100,27 @@ A `file:` URL connects to a local SQLite database (using [better-sqlite3]).
 
 ### libSQL sqld instances
 
-#### WebSocket URLs
+The client can connect to `sqld` using HTTP or WebSockets. Internally, it uses the Hrana protocol implemented by [hrana-client-ts].
 
-`ws:`, `wss:`, or `libsql:` URLs use a stateful WebSocket to connect to `sqld`.
+#### libsql URLs
 
-- `libsql:` always uses `wss:` internally (using TLS at the transport layer).
-- WebSockets are implemented using the Hrana protocol implemented by [hrana-client-ts].
-- WebSockets are supported in Node.js and browser.
-- If you are running in a cloud or edge hosted environments, you should check to see if WebSockets are supported. If not, change the URL to use an [HTTP URL](#http-urls).
+`libsql:` URL leaves the choice of protocol to the client. We are now using HTTP by default, but this may change in the future.
+
+- By default, a `libsql:` URL uses TLS (i.e. `https:` or `wss:`).
+- To disable TLS, you can pass the query parameter `?tls=0`. You will also need to specify the port.
 
 #### HTTP URLs
 
 `http:` or `https:` URLs connect to `sqld` using HTTP.
 
-- This is supported in Node.js and in every environment that supports the [web fetch API].
-- Interactive transactions using `transaction()` are not supported over HTTP, as it requires a stateful connection to the server.
+- This is supported in Node.js and in every environment that supports the [Web fetch API].
+
+#### WebSocket URLs
+
+`ws:` or `wss:` URLs use a stateful WebSocket to connect to `sqld`.
+
+- WebSockets are supported in Node.js and browser.
+- If you are running in a cloud or edge hosted environments, you should check to see if WebSockets are supported. If not, change the URL to use an [HTTP URL](#http-urls).
 
 ## Additional documentation
 

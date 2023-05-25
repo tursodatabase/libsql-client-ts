@@ -1,7 +1,7 @@
 name: "CI"
 on:
   push:
-    branches: ["main", "staging", "trying"]
+    branches:
   pull_request:
 
 jobs:

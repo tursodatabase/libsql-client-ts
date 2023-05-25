@@ -1,6 +1,7 @@
 export interface Config {
     url: string;
     authToken?: string;
+    tls?: boolean;
 }
 
 export interface Client {
@@ -36,11 +37,11 @@ export type Value =
     | null
     | string
     | number
+    | bigint
     | ArrayBuffer
 
 export type InValue =
     | Value
-    | bigint
     | boolean
     | Uint8Array
     | Date

@@ -10,7 +10,7 @@ import { supportedUrlLink } from "./help.js";
 export * from "./api.js";
 
 export function createClient(config: Config): Client {
-    return _createClient(expandConfig(config));
+    return _createClient(expandConfig(config, true));
 }
 
 /** @private */

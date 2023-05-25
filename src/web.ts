@@ -3,21 +3,20 @@ import { LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
 import { supportedUrlLink } from "./help.js";
-import { _createClient as _createHranaClient } from "./hrana.js";
+import { _createClient as _createWsClient } from "./ws.js";
 import { _createClient as _createHttpClient } from "./http.js";
 
 export * from "./api.js";
 
 export function createClient(config: Config): Client {
-    return _createClient(expandConfig(config));
+    return _createClient(expandConfig(config, true));
 }
 
 /** @private */
 export function _createClient(config: ExpandedConfig): Client {
-    const scheme = config.scheme.toLowerCase();
-    if (scheme === "libsql" || scheme === "wss" || scheme === "ws") {
-        return _createHranaClient(config);
-    } else if (scheme === "https" || scheme === "http") {
+    if (config.scheme === "ws" || config.scheme === "wss") {
+        return _createWsClient(config);
+    } else if (config.scheme === "http" || config.scheme === "https") {
         return _createHttpClient(config);
     } else {
         throw new LibsqlError(

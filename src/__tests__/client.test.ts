@@ -42,6 +42,34 @@ describe("createClient()", () => {
         expect(() => createClient({url: "ws://localhost?foo=bar"}))
             .toThrow(expect.toBeLibsqlError("URL_PARAM_NOT_SUPPORTED", /"foo"/));
     });
+
+    test("URL scheme incompatible with ?tls", () => {
+        const urls = [
+            "ws://localhost?tls=1",
+            "wss://localhost?tls=0",
+            "http://localhost?tls=1",
+            "https://localhost?tls=0",
+        ];
+        for (const url of urls) {
+            expect(() => createClient({url}))
+                .toThrow(expect.toBeLibsqlError("URL_INVALID", /TLS/));
+        }
+    });
+
+    test("missing port in libsql URL with tls=0", () => {
+        expect(() => createClient({url: "libsql://localhost?tls=0"}))
+            .toThrow(expect.toBeLibsqlError("URL_INVALID", /port/));
+    });
+
+    test("invalid value of tls query param", () => {
+        expect(() => createClient({url: "libsql://localhost?tls=yes"}))
+            .toThrow(expect.toBeLibsqlError("URL_INVALID", /"tls".*"yes"/));
+    });
+
+    test("passing URL instead of config object", () => {
+        // @ts-expect-error
+        expect(() => createClient("ws://localhost")).toThrow(/as object, got string/);
+    });
 });
 
 describe("execute()", () => {
@@ -159,8 +187,8 @@ describe("values", () => {
         "žluťoučký kůň úpěl ďábelské ódy", "žluťoučký kůň úpěl ďábelské ódy");
 
     testRoundtrip("zero", 0, 0);
-    testRoundtrip("integer", -2023, -2023);
-    testRoundtrip("float", 12.345, 12.345);
+    testRoundtrip("integer number", -2023, -2023);
+    testRoundtrip("float number", 12.345, 12.345);
     testRoundtrip("Infinity", Infinity, Infinity, {skip: true});
     testRoundtrip("NaN", NaN, NaN, {skip: true});
 
@@ -176,7 +204,7 @@ describe("values", () => {
     testRoundtrip("true", true, 1);
     testRoundtrip("false", false, 0);
     
-    testRoundtrip("bigint", -1267650600228229401496703205376n, "-1267650600228229401496703205376");
+    testRoundtrip("bigint", -1000n, -1000);
     testRoundtrip("Date", new Date("2023-01-02T12:34:56Z"), 1672662896000);
 
     test("undefined produces error", withClient(async (c) => {
@@ -185,6 +213,23 @@ describe("values", () => {
             // @ts-expect-error
             args: [undefined],
         })).rejects.toBeInstanceOf(TypeError);
+    }));
+
+    test("large bigint produces error", withClient(async (c) => {
+        await expect(c.execute({
+            sql: "SELECT ?",
+            args: [-1267650600228229401496703205376n],
+        })).rejects.toBeInstanceOf(RangeError);
+    }));
+
+    test("max 64-bit bigint", withClient(async (c) => {
+        const rs = await c.execute({sql: "SELECT ?||''", args: [9223372036854775807n]});
+        expect(rs.rows[0][0]).toStrictEqual("9223372036854775807");
+    }));
+
+    test("min 64-bit bigint", withClient(async (c) => {
+        const rs = await c.execute({sql: "SELECT ?||''", args: [-9223372036854775808n]});
+        expect(rs.rows[0][0]).toStrictEqual("-9223372036854775808");
     }));
 });
 
@@ -348,10 +393,41 @@ describe("batch()", () => {
         const rs = await c.execute("SELECT COUNT(*) FROM t");
         expect(rs.rows[0][0]).toStrictEqual(1);
     }));
+
+    test("batch with a lot of different statements", withClient(async (c) => {
+        const stmts = [];
+        for (let i = 0; i < 1000; ++i) {
+            stmts.push(`SELECT ${i}`);
+        }
+        const rss = await c.batch(stmts);
+        for (let i = 0; i < stmts.length; ++i) {
+            expect(rss[i].rows[0][0]).toStrictEqual(i);
+        }
+    }));
+
+    test("batch with a lot of the same statements", withClient(async (c) => {
+        const n = 20;
+        const m = 200;
+
+        const stmts = [];
+        for (let i = 0; i < n; ++i) {
+            for (let j = 0; j < m; ++j) {
+                stmts.push({sql: `SELECT ?, ${j}`, args: [i]});
+            }
+        }
+
+        const rss = await c.batch(stmts);
+        for (let i = 0; i < n; ++i) {
+            for (let j = 0; j < m; ++j) {
+                const rs = rss[i*m + j];
+                expect(rs.rows[0][0]).toStrictEqual(i);
+                expect(rs.rows[0][1]).toStrictEqual(j);
+            }
+        }
+    }));
 });
 
-const hasTransactions = !isHttp;
-(hasTransactions ? describe : describe.skip)("transaction()", () => {
+describe("transaction()", () => {
     test("query multiple rows", withClient(async (c) => {
         const txn = await c.transaction();
 
@@ -426,17 +502,25 @@ const hasTransactions = !isHttp;
         ]);
 
         const txn = await c.transaction();
-        await expect(txn.execute("SELECT foobar")).rejects.toBeLibsqlError();
+        await expect(txn.execute("SELECT foo")).rejects.toBeLibsqlError();
         await txn.execute("INSERT INTO t VALUES ('one')");
+        await expect(txn.execute("SELECT bar")).rejects.toBeLibsqlError();
         await txn.commit();
 
         const rs = await c.execute("SELECT COUNT(*) FROM t");
         expect(rs.rows[0][0]).toStrictEqual(1);
     }));
+
+    test("commit empty", withClient(async (c) => {
+        const txn = await c.transaction();
+        await txn.commit();
+    }));
+
+    test("rollback empty", withClient(async (c) => {
+        const txn = await c.transaction();
+        await txn.rollback();
+    }));
 });
-(!hasTransactions ? test : test.skip)("transaction() not supported", withClient(async (c) => {
-    await expect(c.transaction()).rejects.toBeLibsqlError("TRANSACTIONS_NOT_SUPPORTED");
-}));
 
 const hasNetworkErrors = isWs && (server == "test_v1" || server == "test_v2");
 (hasNetworkErrors ? describe : describe.skip)("network errors", () => {
@@ -455,7 +539,7 @@ const hasNetworkErrors = isWs && (server == "test_v1" || server == "test_v2");
         test(`${title} in transaction()`, withClient(async (c) => {
             const txn = await c.transaction();
             await expect(txn.execute(sql)).rejects.toBeLibsqlError("HRANA_WEBSOCKET_ERROR");
-            await expect(txn.commit()).rejects.toBeLibsqlError("HRANA_CLOSED_ERROR");
+            await expect(txn.commit()).rejects.toBeLibsqlError("HRANA_WEBSOCKET_ERROR");
             txn.close();
 
             expect((await c.execute("SELECT 42")).rows[0][0]).toStrictEqual(42);
