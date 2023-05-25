@@ -1,9 +1,11 @@
 import asyncio
 import base64
 import collections
+import dataclasses
 import json
 import logging
 import os
+import random
 import sys
 import tempfile
 
@@ -13,6 +15,12 @@ import c3
 
 logger = logging.getLogger("server")
 
+@dataclasses.dataclass
+class HttpStream:
+    conn: c3.Conn
+    sqls: dict
+    baton: str
+
 async def main(command):
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
@@ -21,7 +29,11 @@ async def main(command):
         aiohttp.web.get("/", handle_get_index),
         aiohttp.web.post("/v1/execute", handle_post_execute),
         aiohttp.web.post("/v1/batch", handle_post_batch),
+        aiohttp.web.get("/v2", handle_get_index),
+        aiohttp.web.post("/v2/pipeline", handle_post_pipeline),
     ])
+
+    app["http_streams"] = {}
 
     db_fd, db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_")
     os.close(db_fd)
@@ -75,7 +87,7 @@ async def handle_websocket(app, ws):
         msg_str = json.dumps(msg)
         await ws.send_str(msg_str)
 
-    Stream = collections.namedtuple("Stream", ["conn"])
+    WsStream = collections.namedtuple("WsStream", ["conn"])
     streams = {}
     sqls = {}
 
@@ -84,7 +96,7 @@ async def handle_websocket(app, ws):
             conn = await to_thread(lambda: connect(app["db_file"]))
             stream_id = int(req["stream_id"])
             assert stream_id not in streams
-            streams[stream_id] = Stream(conn)
+            streams[stream_id] = WsStream(conn)
             return {"type": "open_stream"}
         elif req["type"] == "close_stream":
             stream = streams.pop(int(req["stream_id"]), None)
@@ -105,7 +117,7 @@ async def handle_websocket(app, ws):
             stream = streams[int(req["stream_id"])]
             sql = get_sql(sqls, req)
             async with app["db_sema"]:
-                result = await to_thread(lambda: execute_sequence(stream.conn, sql))
+                await to_thread(lambda: execute_sequence(stream.conn, sql))
             return {"type": "sequence"}
         elif req["type"] == "describe":
             stream = streams[int(req["stream_id"])]
@@ -189,6 +201,79 @@ async def handle_post_batch(req):
         return aiohttp.web.json_response(e.tojson(), status=400)
     finally:
         conn.close()
+
+async def handle_post_pipeline(req):
+    req_body = await req.json()
+    app = req.app
+
+    if req_body.get("baton") is not None:
+        baton = req_body["baton"]
+        stream_id, _, _ = baton.partition(".")
+        stream = req.app["http_streams"][stream_id]
+        assert stream.baton == baton
+    else:
+        conn = await to_thread(lambda: connect(req.app["db_file"]))
+        stream_id = random.randbytes(16).hex()
+        stream = HttpStream(conn, sqls={}, baton=None)
+        req.app["http_streams"][stream_id] = stream
+    stream.baton = f"{stream_id}.{random.randbytes(8).hex()}"
+
+    async def handle_request(req):
+        if req["type"] == "execute":
+            async with app["db_sema"]:
+                result = await to_thread(lambda: execute_stmt(stream.conn, stream.sqls, req["stmt"]))
+            return {"type": "execute", "result": result}
+        elif req["type"] == "batch":
+            async with app["db_sema"]:
+                result = await execute_batch(stream.conn, stream.sqls, req["batch"])
+            return {"type": "batch", "result": result}
+        elif req["type"] == "sequence":
+            sql = get_sql(stream.sqls, req)
+            async with app["db_sema"]:
+                await to_thread(lambda: execute_sequence(stream.conn, sql))
+            return {"type": "sequence"}
+        elif req["type"] == "describe":
+            sql = get_sql(stream.sqls, req)
+            async with app["db_sema"]:
+                result = await to_thread(lambda: describe_stmt(stream.conn, sql))
+            return {"type": "describe", "result": result}
+        elif req["type"] == "store_sql":
+            sql_id = int(req["sql_id"])
+            assert sql_id not in stream.sqls
+            stream.sqls[sql_id] = req["sql"]
+            return {"type": "store_sql"}
+        elif req["type"] == "close_sql":
+            stream.sqls.pop(int(req["sql_id"]))
+            return {"type": "close_sql"}
+        elif req["type"] == "close":
+            stream.conn.close()
+            stream.conn = None
+        else:
+            raise RuntimeError(f"Unknown req: {req!r}")
+
+    try:
+        results = []
+        for request in req_body["requests"]:
+            try:
+                response = await handle_request(request)
+                result = {"type": "ok", "response": response}
+            except ResponseError as e:
+                result = {"type": "error", "error": e.tojson()}
+            results.append(result)
+    except Exception:
+        if stream.conn is not None:
+            stream.conn.close()
+        stream.conn = None
+        raise
+    finally:
+        if stream.conn is None:
+            stream.baton = None
+            del app["http_streams"][stream_id]
+
+    return aiohttp.web.json_response({
+        "baton": stream.baton,
+        "results": results,
+    })
 
 def connect(db_file):
     conn = c3.Conn.open(db_file)
