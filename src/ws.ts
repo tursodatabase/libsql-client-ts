@@ -9,7 +9,7 @@ import {
     HranaTransaction, executeHranaBatch,
     stmtToHrana, resultSetFromHrana, mapHranaError,
 } from "./hrana.js";
-import { Lru } from "./lru.js";
+import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "./uri.js";
 
 export * from "./api.js";
@@ -29,9 +29,9 @@ export function _createClient(config: ExpandedConfig): WsClient {
     }
 
     if (config.scheme === "ws" && config.tls) {
-        throw new LibsqlError(`A "ws" URL cannot opt into TLS by using ?tls=1`, "URL_INVALID");
+        throw new LibsqlError(`A "ws:" URL cannot opt into TLS by using ?tls=1`, "URL_INVALID");
     } else if (config.scheme === "wss" && !config.tls) {
-        throw new LibsqlError(`A "wss" URL cannot opt out of TLS by using ?tls=0`, "URL_INVALID");
+        throw new LibsqlError(`A "wss:" URL cannot opt out of TLS by using ?tls=0`, "URL_INVALID");
     }
 
     const url = encodeBaseUrl(config.scheme, config.authority, config.path);
@@ -64,8 +64,9 @@ interface ConnState {
     // version, we need to wait for the WebSocket handshake to complete, so this value is initially
     // `undefined`, until we find out the version.
     useSqlCache: boolean | undefined;
-    // The LRU cache of SQL texts cached on the server. Can only be used if `useSqlCache` is `true`.
-    sqlCache: Lru<string, hrana.Sql>;
+    // The cache of SQL texts stored on the server. Initially has capacity 0, but it is set to
+    // `sqlCacheCapacity` when `useSqlCache` is set to `true`.
+    sqlCache: SqlCache,
     // The time when the connection was opened.
     openTime: Date;
     // Set of all `StreamState`-s that were opened from this connection. We can safely close the connection
@@ -79,6 +80,7 @@ interface StreamState {
 }
 
 const maxConnAgeMillis = 60*1000;
+const sqlCacheCapacity = 100;
 
 export class WsClient implements Client {
     #url: URL;
@@ -102,9 +104,11 @@ export class WsClient implements Client {
     async execute(stmt: InStatement): Promise<ResultSet> {
         const streamState = await this.#openStream();
         try {
+            const hranaStmt = stmtToHrana(stmt);
+
             // Schedule all operations synchronously, so they will be pipelined and executed in a single
             // network roundtrip.
-            const hranaStmt = applySqlCache(streamState.conn, stmtToHrana(stmt));
+            streamState.conn.sqlCache.apply([hranaStmt]);
             const hranaRowsPromise = streamState.stream.query(hranaStmt);
             streamState.stream.close();
 
@@ -119,12 +123,11 @@ export class WsClient implements Client {
     async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
         const streamState = await this.#openStream();
         try {
-            const hranaStmts = stmts.map((stmt) => {
-                return applySqlCache(streamState.conn, stmtToHrana(stmt));
-            });
+            const hranaStmts = stmts.map(stmtToHrana);
 
             // Schedule all operations synchronously, so they will be pipelined and executed in a single
             // network roundtrip.
+            streamState.conn.sqlCache.apply(hranaStmts);
             const batch = streamState.stream.batch();
             const resultsPromise = executeHranaBatch(batch, hranaStmts);
             streamState.stream.close();
@@ -216,6 +219,9 @@ export class WsClient implements Client {
             // the handshake would be queued until the handshake is completed anyway.
             if (connState.useSqlCache === undefined) {
                 connState.useSqlCache = await connState.client.getVersion() >= 2;
+                if (connState.useSqlCache) {
+                    connState.sqlCache.capacity = sqlCacheCapacity;
+                }
             }
 
             const stream = connState.client.openStream();
@@ -229,10 +235,11 @@ export class WsClient implements Client {
 
     #openConn(client?: hrana.WsClient): ConnState {
         try {
+            client ??= hrana.openWs(this.#url, this.#authToken);
             return {
-                client: client ?? hrana.openWs(this.#url, this.#authToken),
+                client,
                 useSqlCache: undefined,
-                sqlCache: new Lru(),
+                sqlCache: new SqlCache(client, 0),
                 openTime: new Date(),
                 streamStates: new Set(),
             };
@@ -276,8 +283,8 @@ export class WsTransaction extends HranaTransaction implements Transaction {
     }
 
     /** @private */
-    override _applySqlCache(hranaStmt: hrana.Stmt): hrana.Stmt {
-        return applySqlCache(this.#streamState.conn, hranaStmt);
+    override _getSqlCache(): SqlCache {
+        return this.#streamState.conn.sqlCache;
     }
 
     override close(): void {
@@ -287,28 +294,4 @@ export class WsTransaction extends HranaTransaction implements Transaction {
     override get closed(): boolean {
         return this.#streamState.stream.closed;
     }
-}
-
-const sqlCacheCapacity = 100;
-
-function applySqlCache(connState: ConnState, hranaStmt: hrana.Stmt): hrana.Stmt {
-    if (connState.useSqlCache && typeof hranaStmt.sql === "string") {
-        const sqlText: string = hranaStmt.sql;
-
-        let sqlObj = connState.sqlCache.get(sqlText);
-        if (sqlObj === undefined) {
-            while (connState.sqlCache.size + 1 > sqlCacheCapacity) {
-                const evictedSqlObj = connState.sqlCache.deleteLru()!;
-                evictedSqlObj.close();
-            }
-
-            sqlObj = connState.client.storeSql(sqlText);
-            connState.sqlCache.set(sqlText, sqlObj);
-        }
-
-        if (sqlObj !== undefined) {
-            hranaStmt.sql = sqlObj;
-        }
-    }
-    return hranaStmt;
 }

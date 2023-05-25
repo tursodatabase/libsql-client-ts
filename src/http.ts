@@ -11,7 +11,7 @@ import {
     HranaTransaction, executeHranaBatch,
     stmtToHrana, resultSetFromHrana, mapHranaError,
 } from "./hrana.js";
-import { Lru } from "./lru.js";
+import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "./uri.js";
 
 export * from "./api.js";
@@ -31,14 +31,16 @@ export function _createClient(config: ExpandedConfig): Client {
     }
 
     if (config.scheme === "http" && config.tls) {
-        throw new LibsqlError(`A "http" URL cannot opt into TLS by using ?tls=1`, "URL_INVALID");
+        throw new LibsqlError(`A "http:" URL cannot opt into TLS by using ?tls=1`, "URL_INVALID");
     } else if (config.scheme === "https" && !config.tls) {
-        throw new LibsqlError(`A "https" URL cannot opt out of TLS by using ?tls=0`, "URL_INVALID");
+        throw new LibsqlError(`A "https:" URL cannot opt out of TLS by using ?tls=0`, "URL_INVALID");
     }
 
     const url = encodeBaseUrl(config.scheme, config.authority, config.path);
     return new HttpClient(url, config.authToken);
 }
+
+const sqlCacheCapacity = 30;
 
 export class HttpClient implements Client {
     #client: hrana.HttpClient;
@@ -77,6 +79,11 @@ export class HttpClient implements Client {
             let resultsPromise: Promise<Array<ResultSet>>;
             const stream = this.#client.openStream();
             try {
+                // It makes sense to use a SQL cache even for a single batch, because it may contain the same
+                // statement repeated multiple times.
+                const sqlCache = new SqlCache(stream, sqlCacheCapacity);
+                sqlCache.apply(hranaStmts);
+
                 const batch = stream.batch();
                 resultsPromise = executeHranaBatch(batch, hranaStmts);
             } finally {
@@ -106,17 +113,15 @@ export class HttpClient implements Client {
     }
 }
 
-const sqlCacheCapacity = 30;
-
 export class HttpTransaction extends HranaTransaction implements Transaction {
     #stream: hrana.HttpStream;
-    #sqlCache: Lru<string, hrana.Sql>;
+    #sqlCache: SqlCache;
 
     /** @private */
     constructor(stream: hrana.HttpStream) {
         super();
         this.#stream = stream;
-        this.#sqlCache = new Lru();
+        this.#sqlCache = new SqlCache(stream, sqlCacheCapacity);
     }
 
     /** @private */
@@ -125,26 +130,8 @@ export class HttpTransaction extends HranaTransaction implements Transaction {
     }
 
     /** @private */
-    override _applySqlCache(hranaStmt: hrana.Stmt): hrana.Stmt {
-        if (typeof hranaStmt.sql === "string") {
-            const sqlText: string = hranaStmt.sql;
-
-            let sqlObj = this.#sqlCache.get(sqlText);
-            if (sqlObj === undefined) {
-                while (this.#sqlCache.size + 1 > sqlCacheCapacity) {
-                    const evictedSqlObj = this.#sqlCache.deleteLru()!;
-                    evictedSqlObj.close();
-                }
-
-                sqlObj = this.#stream.storeSql(sqlText);
-                this.#sqlCache.set(sqlText, sqlObj);
-            }
-
-            if (sqlObj !== undefined) {
-                hranaStmt.sql = sqlObj;
-            }
-        }
-        return hranaStmt;
+    override _getSqlCache(): SqlCache {
+        return this.#sqlCache;
     }
 
     override close(): void {

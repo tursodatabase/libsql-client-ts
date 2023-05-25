@@ -1,6 +1,7 @@
 import * as hrana from "@libsql/hrana-client";
 import type { InStatement, ResultSet, Transaction } from "./api.js";
 import { LibsqlError } from "./api.js";
+import type { SqlCache } from "./sql_cache.js";
 
 export abstract class HranaTransaction implements Transaction {
     // Promise that is resolved when the BEGIN statement completes, or `undefined` if we haven't executed the
@@ -15,7 +16,7 @@ export abstract class HranaTransaction implements Transaction {
     /** @private */
     abstract _getStream(): hrana.Stream;
     /** @private */
-    abstract _applySqlCache(hranaStmt: hrana.Stmt): hrana.Stmt;
+    abstract _getSqlCache(): SqlCache;
 
     abstract close(): void;
     abstract get closed(): boolean;
@@ -30,13 +31,14 @@ export abstract class HranaTransaction implements Transaction {
         }
 
         try {
-            const hranaStmt = this._applySqlCache(stmtToHrana(stmt));
+            const hranaStmt = stmtToHrana(stmt);
 
             let rowsPromise: Promise<hrana.RowsResult>;
             if (this.#started === undefined) {
                 // The transaction hasn't started yet, so we need to send the BEGIN statement in a batch with
                 // `stmt`.
 
+                this._getSqlCache().apply([hranaStmt]);
                 const batch = stream.batch();
                 const beginStep = batch.step();
                 const beginPromise = beginStep.run("BEGIN");
@@ -67,6 +69,7 @@ export abstract class HranaTransaction implements Transaction {
                 // sure that we don't execute `stmt` outside of a transaction.
                 await this.#started;
 
+                this._getSqlCache().apply([hranaStmt]);
                 rowsPromise = stream.query(hranaStmt);
             }
 
