@@ -42,7 +42,7 @@ async def main(command):
     else:
         http_db_file = persistent_db_file
     app["http_db_file"] = http_db_file
-    app["db_sema"] = asyncio.BoundedSemaphore(8)
+    app["db_lock"] = asyncio.Lock()
 
     async def on_shutdown(app):
         if http_db_file != persistent_db_file:
@@ -116,24 +116,24 @@ async def handle_websocket(app, ws):
             return {"type": "close_stream"}
         elif req["type"] == "execute":
             stream = streams[int(req["stream_id"])]
-            async with app["db_sema"]:
+            async with app["db_lock"]:
                 result = await to_thread(lambda: execute_stmt(stream.conn, sqls, req["stmt"]))
             return {"type": "execute", "result": result}
         elif req["type"] == "batch":
             stream = streams[int(req["stream_id"])]
-            async with app["db_sema"]:
-                result = await execute_batch(stream.conn, sqls, req["batch"])
+            async with app["db_lock"]:
+                result = await to_thread(lambda: execute_batch(stream.conn, sqls, req["batch"]))
             return {"type": "batch", "result": result}
         elif req["type"] == "sequence":
             stream = streams[int(req["stream_id"])]
             sql = get_sql(sqls, req)
-            async with app["db_sema"]:
+            async with app["db_lock"]:
                 await to_thread(lambda: execute_sequence(stream.conn, sql))
             return {"type": "sequence"}
         elif req["type"] == "describe":
             stream = streams[int(req["stream_id"])]
             sql = get_sql(sqls, req)
-            async with app["db_sema"]:
+            async with app["db_lock"]:
                 result = await to_thread(lambda: describe_stmt(stream.conn, sql))
             return {"type": "describe", "result": result}
         elif req["type"] == "store_sql":
@@ -196,7 +196,7 @@ async def handle_post_execute(req):
     req_body = await req.json()
     conn = await to_thread(lambda: connect(req.app["http_db_file"]))
     try:
-        async with req.app["db_sema"]:
+        async with req.app["db_lock"]:
             result = await to_thread(lambda: execute_stmt(conn, {}, req_body["stmt"]))
         return aiohttp.web.json_response({"result": result})
     except ResponseError as e:
@@ -208,8 +208,8 @@ async def handle_post_batch(req):
     req_body = await req.json()
     conn = await to_thread(lambda: connect(req.app["http_db_file"]))
     try:
-        async with req.app["db_sema"]:
-            result = await execute_batch(conn, {}, req_body["batch"])
+        async with req.app["db_lock"]:
+            result = await to_thread(lambda: execute_batch(conn, {}, req_body["batch"]))
         return aiohttp.web.json_response({"result": result})
     except ResponseError as e:
         return aiohttp.web.json_response(e.tojson(), status=400)
@@ -234,21 +234,21 @@ async def handle_post_pipeline(req):
 
     async def handle_request(req):
         if req["type"] == "execute":
-            async with app["db_sema"]:
+            async with app["db_lock"]:
                 result = await to_thread(lambda: execute_stmt(stream.conn, stream.sqls, req["stmt"]))
             return {"type": "execute", "result": result}
         elif req["type"] == "batch":
-            async with app["db_sema"]:
-                result = await execute_batch(stream.conn, stream.sqls, req["batch"])
+            async with app["db_lock"]:
+                result = await to_thread(lambda: execute_batch(stream.conn, stream.sqls, req["batch"]))
             return {"type": "batch", "result": result}
         elif req["type"] == "sequence":
             sql = get_sql(stream.sqls, req)
-            async with app["db_sema"]:
+            async with app["db_lock"]:
                 await to_thread(lambda: execute_sequence(stream.conn, sql))
             return {"type": "sequence"}
         elif req["type"] == "describe":
             sql = get_sql(stream.sqls, req)
-            async with app["db_sema"]:
+            async with app["db_lock"]:
                 result = await to_thread(lambda: describe_stmt(stream.conn, sql))
             return {"type": "describe", "result": result}
         elif req["type"] == "store_sql":
@@ -447,7 +447,7 @@ def execute_sequence(conn, sql):
     except c3.SqliteError as e:
         raise ResponseError(e) from e
 
-async def execute_batch(conn, sqls, batch):
+def execute_batch(conn, sqls, batch):
     step_results = []
     step_errors = []
     for step in batch["steps"]:
@@ -461,7 +461,7 @@ async def execute_batch(conn, sqls, batch):
         step_error = None
         if enabled:
             try:
-                step_result = await to_thread(lambda: execute_stmt(conn, sqls, step["stmt"]))
+                step_result = execute_stmt(conn, sqls, step["stmt"])
             except ResponseError as e:
                 step_error = e.tojson()
 
