@@ -14,6 +14,7 @@ import aiohttp.web
 import c3
 
 logger = logging.getLogger("server")
+persistent_db_file = os.getenv("PERSISTENT_DB")
 
 @dataclasses.dataclass
 class HttpStream:
@@ -35,20 +36,24 @@ async def main(command):
 
     app["http_streams"] = {}
 
-    db_fd, db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_")
-    os.close(db_fd)
-    app["db_file"] = db_file
+    if persistent_db_file is None:
+        http_db_fd, http_db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_")
+        os.close(http_db_fd)
+    else:
+        http_db_file = persistent_db_file
+    app["http_db_file"] = http_db_file
     app["db_sema"] = asyncio.BoundedSemaphore(8)
-    logger.info(f"Using database file {db_file!r}")
 
     async def on_shutdown(app):
-        os.unlink(db_file)
+        if http_db_file != persistent_db_file:
+            os.unlink(http_db_file)
     app.on_shutdown.append(on_shutdown)
 
     runner = aiohttp.web.AppRunner(app)
     await runner.setup()
     site = aiohttp.web.TCPSite(runner, "localhost", 8080)
     await site.start()
+    logger.info("Server is ready")
 
     if len(command) > 0:
         proc = await asyncio.create_subprocess_exec(*command)
@@ -91,9 +96,15 @@ async def handle_websocket(app, ws):
     streams = {}
     sqls = {}
 
+    if persistent_db_file is None:
+        db_fd, db_file = tempfile.mkstemp(suffix=".db", prefix="hrana_test_")
+        os.close(db_fd)
+    else:
+        db_file = persistent_db_file
+
     async def handle_request(req):
         if req["type"] == "open_stream":
-            conn = await to_thread(lambda: connect(app["db_file"]))
+            conn = await to_thread(lambda: connect(db_file))
             stream_id = int(req["stream_id"])
             assert stream_id not in streams
             streams[stream_id] = WsStream(conn)
@@ -177,10 +188,12 @@ async def handle_websocket(app, ws):
     finally:
         for stream in streams.values():
             stream.conn.close()
+        if db_file != persistent_db_file:
+            os.unlink(db_file)
 
 async def handle_post_execute(req):
     req_body = await req.json()
-    conn = await to_thread(lambda: connect(req.app["db_file"]))
+    conn = await to_thread(lambda: connect(req.app["http_db_file"]))
     try:
         async with req.app["db_sema"]:
             result = await to_thread(lambda: execute_stmt(conn, {}, req_body["stmt"]))
@@ -192,7 +205,7 @@ async def handle_post_execute(req):
 
 async def handle_post_batch(req):
     req_body = await req.json()
-    conn = await to_thread(lambda: connect(req.app["db_file"]))
+    conn = await to_thread(lambda: connect(req.app["http_db_file"]))
     try:
         async with req.app["db_sema"]:
             result = await execute_batch(conn, {}, req_body["batch"])
@@ -212,7 +225,7 @@ async def handle_post_pipeline(req):
         stream = req.app["http_streams"][stream_id]
         assert stream.baton == baton
     else:
-        conn = await to_thread(lambda: connect(req.app["db_file"]))
+        conn = await to_thread(lambda: connect(req.app["http_db_file"]))
         stream_id = random.randbytes(16).hex()
         stream = HttpStream(conn, sqls={}, baton=None)
         req.app["http_streams"][stream_id] = stream
