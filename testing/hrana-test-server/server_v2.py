@@ -140,6 +140,7 @@ async def handle_websocket(app, ws):
             sql_id = int(req["sql_id"])
             assert sql_id not in sqls
             sqls[sql_id] = req["sql"]
+            assert len(sqls) <= 250
             return {"type": "store_sql"}
         elif req["type"] == "close_sql":
             sqls.pop(int(req["sql_id"]))
@@ -254,6 +255,7 @@ async def handle_post_pipeline(req):
             sql_id = int(req["sql_id"])
             assert sql_id not in stream.sqls
             stream.sqls[sql_id] = req["sql"]
+            assert len(stream.sqls) <= 50
             return {"type": "store_sql"}
         elif req["type"] == "close_sql":
             stream.sqls.pop(int(req["sql_id"]))
