@@ -189,8 +189,6 @@ describe("values", () => {
     testRoundtrip("zero", 0, 0);
     testRoundtrip("integer number", -2023, -2023);
     testRoundtrip("float number", 12.345, 12.345);
-    testRoundtrip("Infinity", Infinity, Infinity, {skip: true});
-    testRoundtrip("NaN", NaN, NaN, {skip: true});
 
     const buf = new ArrayBuffer(256);
     const array = new Uint8Array(buf);
@@ -213,6 +211,20 @@ describe("values", () => {
             // @ts-expect-error
             args: [undefined],
         })).rejects.toBeInstanceOf(TypeError);
+    }));
+
+    test("NaN produces error", withClient(async (c) => {
+        await expect(c.execute({
+            sql: "SELECT ?",
+            args: [NaN],
+        })).rejects.toBeInstanceOf(Error); // TODO: test for RangeError
+    }));
+
+    test("Infinity produces error", withClient(async (c) => {
+        await expect(c.execute({
+            sql: "SELECT ?",
+            args: [Infinity],
+        })).rejects.toBeInstanceOf(Error); // TODO: test for RangeError
     }));
 
     test("large bigint produces error", withClient(async (c) => {

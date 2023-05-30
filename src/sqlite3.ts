@@ -237,8 +237,18 @@ function valueFromSql(sqlValue: unknown): Value {
 }
 
 function valueToSql(value: InValue): unknown {
-    if (typeof value === "bigint") {
-        return ""+value;
+    if (typeof value === "number") {
+        if (!Number.isFinite(value)) {
+            throw new RangeError("Only finite numbers (not Infinity or NaN) can be passed as arguments");
+        }
+        return value;
+    } else if (typeof value === "bigint") {
+        if (value < minInteger || value > maxInteger) {
+            throw new RangeError(
+                "bigint is too large to be represented as a 64-bit integer and passed as argument"
+            );
+        }
+        return value;
     } else if (typeof value === "boolean") {
         return value ? 1 : 0;
     } else if (value instanceof ArrayBuffer) {
@@ -251,3 +261,6 @@ function valueToSql(value: InValue): unknown {
         return value;
     }
 }
+
+const minInteger = -9223372036854775808n;
+const maxInteger = 9223372036854775807n;
