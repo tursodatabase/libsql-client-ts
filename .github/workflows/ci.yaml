@@ -45,11 +45,6 @@ jobs:
       env:
         "URL": "ws://localhost:8080"
         "SERVER": "test_v2"
-    - name: "Test HTTP 1"
-      run: "python hrana-test-server/server_v1.py npm test"
-      env:
-        "URL": "http://localhost:8080"
-        "SERVER": "test_v1"
     - name: "Test HTTP 2"
       run: "python hrana-test-server/server_v2.py npm test"
       env:
@@ -105,8 +100,8 @@ jobs:
       env:
         "LOCAL": "1"
         "URL": "ws://localhost:8080"
-    - name: "Local test with HTTP 1"
-      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v1.py node test.js"
+    - name: "Local test with HTTP 2"
+      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node test.js"
       env:
         "LOCAL": "1"
         "URL": "http://localhost:8080"
@@ -121,8 +116,8 @@ jobs:
       env:
         "LOCAL": "0"
         "URL": "ws://localhost:8080"
-    - name: "Non-local test with HTTP 1"
-      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v1.py node test.js"
+    - name: "Non-local test with HTTP 2"
+      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node test.js"
       env:
         "LOCAL": "0"
         "URL": "http://localhost:8080"
