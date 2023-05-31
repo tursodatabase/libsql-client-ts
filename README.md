@@ -66,7 +66,7 @@ console.log(rs);
 
 ### libSQL sqld instance
 
-To connect to a [libSQL sqld] instance using a [WebSocket URL](#websocket-urls) or [HTTP URL](#http-urls):
+To connect to a [libSQL sqld] instance using a [libsql: URL](#libsql-urls):
 
 ```typescript
 import { createClient } from "@libsql/client"
@@ -80,7 +80,7 @@ const rs = await db.execute("SELECT * FROM users");
 console.log(rs);
 ```
 
-If you are querying a `sqld` instance on your local machine, use the `ws:` URL it provides.
+If you are querying a `sqld` instance on your local machine, add `?tls=0` to the URL to disable TLS.
 
 `authToken` in the config object is a token that your sqld instance recognizes to allow client access. For Turso databases, [a token is obtained using the Turso CLI][turso-cli-token]. No token is required by default when running `sqld` on its own.
 
@@ -140,5 +140,5 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 [turso-cli-token]: https://docs.turso.tech/reference/turso-cli#authentication-tokens-for-client-access
 [better-sqlite3]: https://github.com/WiseLibs/better-sqlite3
 [hrana-client-ts]: https://github.com/libsql/hrana-client-ts
-[web fetch API]: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+[Web fetch API]: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
 [turso-js-ts]: https://docs.turso.tech/reference/client-access/javascript-typescript-sdk
