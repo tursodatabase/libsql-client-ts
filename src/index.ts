@@ -8,6 +8,10 @@ import { _createClient as _createHttpClient } from "./http.js";
 
 export * from "./api.js";
 
+/** Creates a {@link Client} object.
+ *
+ * You must pass at least an `url` in the {@link Config} object.
+ */
 export function createClient(config: Config): Client {
     return _createClient(expandConfig(config, true));
 }

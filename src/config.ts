@@ -35,7 +35,8 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
                 tls = true;
             } else {
                 throw new LibsqlError(
-                    `Unknown value for the "tls" query argument: ${JSON.stringify(value)}`,
+                    `Unknown value for the "tls" query argument: ${JSON.stringify(value)}. ` +
+                        'Supported values are "0" and "1"',
                     "URL_INVALID",
                 );
             }

@@ -1,0 +1,44 @@
+name: "GitHub Pages"
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  "build":
+    name: "Build the docs"
+    runs-on: ubuntu-latest
+    steps:
+    - name: "Checkout this repo"
+      uses: actions/checkout@v3
+    - name: "Setup Node.js"
+      uses: actions/setup-node@v3
+      with:
+        node-version: "${{ matrix.node-version }}"
+        cache: "npm"
+    - name: "Install npm dependencies"
+      run: "npm ci"
+    - name: "Build"
+      run: "npm run typedoc"
+    - name: "Upload GitHub Pages artifact"
+      uses: actions/upload-pages-artifact@v1
+      with:
+        path: "./docs"
+
+  "deploy":
+    name: "Deploy the docs to GitHub Pages"
+    needs: "build"
+    permissions:
+        pages: write
+        id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Deploy to GitHub Pages"
+        id: deployment
+        uses: actions/deploy-pages@v1
+
+
