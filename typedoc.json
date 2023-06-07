@@ -1,0 +1,11 @@
+{
+    "entryPoints": ["src/index.ts"],
+    "out": "docs",
+    "excludePrivate": true,
+    "excludeInternal": true,
+    "visibilityFilters": {
+        "inherited": true,
+        "external": true
+    },
+    "includeVersion": true
+}

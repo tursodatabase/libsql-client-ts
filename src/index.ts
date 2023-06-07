@@ -3,30 +3,25 @@ import { LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
 import { _createClient as _createSqlite3Client } from "./sqlite3.js";
-import { supportedUrlLink } from "./help.js";
-import { _createClient as _createHranaClient } from "./hrana.js";
+import { _createClient as _createWsClient } from "./ws.js";
 import { _createClient as _createHttpClient } from "./http.js";
 
 export * from "./api.js";
 
+/** Creates a {@link Client} object.
+ *
+ * You must pass at least an `url` in the {@link Config} object.
+ */
 export function createClient(config: Config): Client {
-    return _createClient(expandConfig(config));
+    return _createClient(expandConfig(config, true));
 }
 
 function _createClient(config: ExpandedConfig) {
-    const scheme = config.scheme.toLowerCase();
-    if (scheme === "file") {
-        return _createSqlite3Client(config);
-    } else if (scheme === "libsql" || scheme === "wss" || scheme === "ws") {
-        return _createHranaClient(config);
-    } else if (scheme === "https" || scheme === "http") {
+    if (config.scheme === "wss" || config.scheme === "ws") {
+        return _createWsClient(config);
+    } else if (config.scheme === "https" || config.scheme === "http") {
         return _createHttpClient(config);
     } else {
-        throw new LibsqlError(
-            'The client supports only "file:", "libsql:", "wss:", "ws:", "https:" and "http:" URLs, ' +
-                `got ${JSON.stringify(config.scheme + ":")}. ` +
-                `For more information, please read ${supportedUrlLink}`,
-            "URL_SCHEME_NOT_SUPPORTED",
-        );
+        return _createSqlite3Client(config);
     }
 }
