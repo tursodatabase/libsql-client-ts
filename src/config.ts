@@ -1,8 +1,8 @@
 import type { Config } from "./api.js";
 import { LibsqlError } from "./api.js";
-import { supportedUrlLink } from "./help.js";
 import type { Authority } from "./uri.js";
 import { parseUri } from "./uri.js";
+import { supportedUrlLink } from "./util.js";
 
 export interface ExpandedConfig {
     scheme: ExpandedScheme;

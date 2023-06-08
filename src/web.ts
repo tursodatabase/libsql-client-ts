@@ -2,7 +2,8 @@ import type { Config, Client } from "./api.js";
 import { LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
-import { supportedUrlLink } from "./help.js";
+import { supportedUrlLink } from "./util.js";
+
 import { _createClient as _createWsClient } from "./ws.js";
 import { _createClient as _createHttpClient } from "./http.js";
 

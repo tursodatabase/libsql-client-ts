@@ -6,7 +6,7 @@ async function example() {
     url
   };
   const db = createClient(config);
-  await db.batch([
+  await db.batch("write", [
     "CREATE TABLE IF NOT EXISTS users (email TEXT)",
     "INSERT INTO users (email) VALUES ('alice@example.com')",
     "INSERT INTO users (email) VALUES ('bob@example.com')"

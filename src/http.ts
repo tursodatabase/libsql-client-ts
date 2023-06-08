@@ -3,16 +3,16 @@ import { fetch } from "@libsql/isomorphic-fetch";
 
 import type { Config, Client } from "./api.js";
 import type { InStatement, ResultSet, Transaction } from "./api.js";
-import { LibsqlError } from "./api.js";
+import { TransactionMode, LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
-import { supportedUrlLink } from "./help.js";
 import {
     HranaTransaction, executeHranaBatch,
     stmtToHrana, resultSetFromHrana, mapHranaError,
 } from "./hrana.js";
 import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "./uri.js";
+import { supportedUrlLink, extractBatchArgs } from "./util.js";
 
 export * from "./api.js";
 
@@ -70,7 +70,11 @@ export class HttpClient implements Client {
         }
     }
 
-    async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
+    batch(mode: TransactionMode, stmts: Array<InStatement>): Promise<Array<ResultSet>>;
+    batch(stmts: Array<InStatement>): Promise<Array<ResultSet>>;
+    async batch(arg1: unknown, arg2: unknown = undefined): Promise<Array<ResultSet>> {
+        const {mode, stmts} = extractBatchArgs(arg1, arg2);
+
         try {
             const hranaStmts = stmts.map(stmtToHrana);
 
@@ -85,7 +89,7 @@ export class HttpClient implements Client {
                 sqlCache.apply(hranaStmts);
 
                 const batch = stream.batch();
-                resultsPromise = executeHranaBatch(batch, hranaStmts);
+                resultsPromise = executeHranaBatch(mode, batch, hranaStmts);
             } finally {
                 stream.close();
             }
@@ -96,9 +100,9 @@ export class HttpClient implements Client {
         }
     }
 
-    async transaction(): Promise<HttpTransaction> {
+    async transaction(mode: TransactionMode = "write"): Promise<HttpTransaction> {
         try {
-            return new HttpTransaction(this.#client.openStream());
+            return new HttpTransaction(this.#client.openStream(), mode);
         } catch (e) {
             throw mapHranaError(e);
         }
@@ -118,8 +122,8 @@ export class HttpTransaction extends HranaTransaction implements Transaction {
     #sqlCache: SqlCache;
 
     /** @private */
-    constructor(stream: hrana.HttpStream) {
-        super();
+    constructor(stream: hrana.HttpStream, mode: TransactionMode) {
+        super(mode);
         this.#stream = stream;
         this.#sqlCache = new SqlCache(stream, sqlCacheCapacity);
     }
