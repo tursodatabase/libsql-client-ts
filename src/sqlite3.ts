@@ -217,7 +217,7 @@ function executeStmt(db: Database.Database, stmt: InStatement): ResultSet {
 
         if (returnsData) {
             const columns = Array.from(sqlStmt.columns().map(col => col.name));
-            const rows = sqlStmt.all(args).map(sqlRow => rowFromSql(sqlRow, columns));
+            const rows = sqlStmt.all(args).map(sqlRow => rowFromSql(sqlRow as Array<unknown>, columns));
             // TODO: can we get this info from better-sqlite3?
             const rowsAffected = 0;
             const lastInsertRowid = undefined;
