@@ -60,6 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       "CLOUDFLARE_API_TOKEN": "${{ secrets.CLOUDFLARE_API_TOKEN }}"
+      "CLOUDFLARE_ACCOUNT_ID": "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
       "NGROK_AUTHTOKEN": "${{ secrets.NGROK_AUTHTOKEN }}"
     steps:
     - name: "Checkout this repo"
