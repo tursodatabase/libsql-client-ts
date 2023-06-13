@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Added `TransactionMode` argument to `batch()` and `transaction()` ([#46](https://github.com/libsql/libsql-client-ts/pull/46))
+- Added `Client.executeMultiple()` and `Transaction.executeMultiple()` ([#49](https://github.com/libsql/libsql-client-ts/pull/49))
+- Added `Transaction.batch()` ([#49](https://github.com/libsql/libsql-client-ts/pull/49))
 - **Changed the default transaction mode** from `BEGIN DEFERRED` to `BEGIN IMMEDIATE`
 
 ## 0.2.0 -- 2023-06-07

@@ -93,7 +93,7 @@ export interface Client {
      */
     batch(stmts: Array<InStatement>): Promise<Array<ResultSet>>;
 
-    /** Starts an interactive transaction.
+    /** Start an interactive transaction.
      *
      * Interactive transactions allow you to interleave execution of SQL statements with your application
      * logic. They can be used if the {@link batch} method is too restrictive, but please note that
@@ -107,10 +107,17 @@ export interface Client {
      * to call {@link Transaction.close} in a `finally` block, as follows:
      *
      * ```javascript
-     * const transaction = client.transaction("write");
+     * const transaction = client.transaction();
      * try {
      *     // do some operations with the transaction here
-     *     ...
+     *     await transaction.execute({
+     *         sql: "INSERT INTO books (name, author) VALUES (?, ?)",
+     *         args: ["First Impressions", "Jane Austen"],
+     *     });
+     *     await transaction.execute({
+     *         sql: "UPDATE books SET name = ? WHERE name = ?",
+     *         args: ["Pride and Prejudice", "First Impressions"],
+     *     });
      *
      *     // if all went well, commit the transaction
      *     await transaction.commit();
@@ -122,7 +129,7 @@ export interface Client {
      */
     transaction(mode: TransactionMode): Promise<Transaction>;
 
-    /** Starts an interactive transaction in `"write"` mode.
+    /** Start an interactive transaction in `"write"` mode.
      *
      * Please see {@link transaction} for details.
      *
@@ -130,6 +137,28 @@ export interface Client {
      * major release.
      */
     transaction(): Promise<Transaction>;
+
+    /** Execute a sequence of SQL statements separated by semicolons.
+     *
+     * The statements are executed sequentially on a new logical database connection. If a statement fails,
+     * further statements are not executed and this method throws an error. All results from the statements
+     * are ignored.
+     *
+     * We do not wrap the statements in a transaction, but the SQL can contain explicit transaction-control
+     * statements such as `BEGIN` and `COMMIT`.
+     *
+     * This method is intended to be used with existing SQL scripts, such as migrations or small database
+     * dumps. If you want to execute a sequence of statements programmatically, please use {@link batch}
+     * instead.
+     *
+     * ```javascript
+     * await client.executeMultiple(`
+     *     CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT NOT NULL, author_id INTEGER NOT NULL);
+     *     CREATE TABLE authors (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+     * `);
+     * ```
+     */
+    executeMultiple(sql: string): Promise<void>;
 
     /** Close the client and release resources.
      *
@@ -161,7 +190,14 @@ export interface Client {
  * const transaction = client.transaction();
  * try {
  *     // do some operations with the transaction here
- *     ...
+ *     await transaction.execute({
+ *         sql: "INSERT INTO books (name, author) VALUES (?, ?)",
+ *         args: ["First Impressions", "Jane Austen"],
+ *     });
+ *     await transaction.execute({
+ *         sql: "UPDATE books SET name = ? WHERE name = ?",
+ *         args: ["Pride and Prejudice", "First Impressions"],
+ *     });
  *
  *     // if all went well, commit the transaction
  *     await transaction.commit();
@@ -172,21 +208,46 @@ export interface Client {
  * ```
  */
 export interface Transaction {
-    /** Executes an SQL statement in the transaction.
+    /** Execute an SQL statement in this transaction.
      *
      * If the statement makes any changes to the database, these changes won't be visible to statements
      * outside of this transaction until you call {@link rollback}.
+     *
+     * ```javascript
+     * await transaction.execute({
+     *     sql: "INSERT INTO books (name, author) VALUES (?, ?)",
+     *     args: ["First Impressions", "Jane Austen"],
+     * });
+     * ```
      */
     execute(stmt: InStatement): Promise<ResultSet>;
 
-    /** Rolls back any changes from this transaction.
+    /** Execute a batch of SQL statements in this transaction.
+     *
+     * If any of the statements in the batch fails with an error, further statements are not executed and the
+     * returned promise is rejected with an error, but the transaction is not rolled back.
+     */
+    batch(stmts: Array<InStatement>): Promise<Array<ResultSet>>;
+
+    /** Execute a sequence of SQL statements separated by semicolons.
+     *
+     * The statements are executed sequentially in the transaction. If a statement fails, further statements
+     * are not executed and this method throws an error, but the transaction won't be rolled back. All results
+     * from the statements are ignored.
+     *
+     * This method is intended to be used with existing SQL scripts, such as migrations or small database
+     * dumps. If you want to execute statements programmatically, please use {@link batch} instead.
+     */
+    executeMultiple(sql: string): Promise<void>;
+
+    /** Roll back any changes from this transaction.
      *
      * This method closes the transaction and undoes any changes done by the previous SQL statements on this
      * transaction. You cannot call this method after calling {@link commit}, though.
      */
     rollback(): Promise<void>;
 
-    /** Commits changes from this transaction to the database.
+    /** Commit changes from this transaction to the database.
      *
      * This method closes the transaction and applies all changes done by the previous SQL statement on this
      * transaction. Once the returned promise is resolved successfully, the database guarantees that the
@@ -194,7 +255,7 @@ export interface Transaction {
      */
     commit(): Promise<void>;
 
-    /** Closes the transaction.
+    /** Close the transaction.
      *
      * This method closes the transaction and releases any resources associated with the transaction. If the
      * transaction is already closed (perhaps by a previous call to {@link commit} or {@link rollback}), then

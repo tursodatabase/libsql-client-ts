@@ -82,6 +82,114 @@ export abstract class HranaTransaction implements Transaction {
         }
     }
 
+    async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
+        const stream = this._getStream();
+        if (stream.closed) {
+            throw new LibsqlError(
+                "Cannot execute a batch because the transaction is closed",
+                "TRANSACTION_CLOSED",
+            );
+        }
+
+        try {
+            const hranaStmts = stmts.map(stmtToHrana);
+
+            // This is analogous to `execute()`, please read the comments there
+
+            let rowsPromises: Array<Promise<hrana.RowsResult | undefined>>;
+            if (this.#started === undefined) {
+                this._getSqlCache().apply(hranaStmts);
+                const batch = stream.batch();
+                const beginStep = batch.step();
+                const beginPromise = beginStep.run(transactionModeToBegin(this.#mode));
+
+                let lastStep = beginStep;
+                rowsPromises = hranaStmts.map((hranaStmt) => {
+                    const stmtStep = batch.step()
+                        .condition(hrana.BatchCond.ok(lastStep));
+                    const rowsPromise = stmtStep.query(hranaStmt);
+                    lastStep = stmtStep;
+                    return rowsPromise;
+                });
+
+                this.#started = batch.execute()
+                    .then(() => beginPromise)
+                    .then(() => undefined);
+
+                try {
+                    await this.#started;
+                } catch (e) {
+                    this.close();
+                    throw e;
+                }
+            } else {
+                await this.#started;
+
+                this._getSqlCache().apply(hranaStmts);
+                const batch = stream.batch();
+
+                let lastStep: hrana.BatchStep | undefined = undefined;
+                rowsPromises = hranaStmts.map((hranaStmt) => {
+                    const stmtStep = batch.step();
+                    if (lastStep !== undefined) {
+                        stmtStep.condition(hrana.BatchCond.ok(lastStep));
+                    }
+                    const rowsPromise = stmtStep.query(hranaStmt);
+                    lastStep = stmtStep;
+                    return rowsPromise;
+                });
+
+                await batch.execute();
+            }
+
+            const resultSets = [];
+            for (const rowsPromise of rowsPromises) {
+                const rows = await rowsPromise;
+                if (rows === undefined) {
+                    throw new LibsqlError(
+                        "Server did not return a result for statement in a batch",
+                        "SERVER_ERROR",
+                    );
+                }
+                resultSets.push(resultSetFromHrana(rows));
+            }
+            return resultSets;
+        } catch (e) {
+            throw mapHranaError(e);
+        }
+    }
+
+    async executeMultiple(sql: string): Promise<void> {
+        const stream = this._getStream();
+        if (stream.closed) {
+            throw new LibsqlError(
+                "Cannot execute statements because the transaction is closed",
+                "TRANSACTION_CLOSED",
+            );
+        }
+
+        try {
+            if (this.#started === undefined) {
+                // If the transaction hasn't started yet, start it now
+                this.#started = stream.run(transactionModeToBegin(this.#mode))
+                    .then(() => undefined);
+                try {
+                    await this.#started;
+                } catch (e) {
+                    this.close();
+                    throw e;
+                }
+            } else {
+                // Wait until the transaction has started
+                await this.#started;
+            }
+
+            await stream.sequence(sql);
+        } catch (e) {
+            throw mapHranaError(e);
+        }
+    }
+
     async rollback(): Promise<void> {
         try {
             const stream = this._getStream();
