@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 -- 2023-06-13
 
 - Added `TransactionMode` argument to `batch()` and `transaction()` ([#46](https://github.com/libsql/libsql-client-ts/pull/46))
 - Added `Client.executeMultiple()` and `Transaction.executeMultiple()` ([#49](https://github.com/libsql/libsql-client-ts/pull/49))
