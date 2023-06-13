@@ -49,8 +49,6 @@ For Deno:
 import { createClient } from "https://esm.sh/@libsql/client@[version]/web";
 ```
 
-In each case, the client API is the same, with the exception that [HTTP URLs](#http-urls) don't support interactive transactions.
-
 ### Local SQLite files
 
 To connect to a local SQLite database file using a [local file URL](#local-sqlite-file-urls):

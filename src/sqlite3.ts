@@ -90,13 +90,9 @@ export class Sqlite3Client implements Client {
         this.#checkNotClosed();
         const db = new Database(this.path, this.options);
         try {
-            if (stmts.length > 1) {
-                executeStmt(db, transactionModeToBegin(mode));
-            }
+            executeStmt(db, transactionModeToBegin(mode));
             const resultSets = stmts.map(stmt => executeStmt(db, stmt));
-            if (stmts.length > 1) {
-                executeStmt(db, "COMMIT");
-            }
+            executeStmt(db, "COMMIT");
             return resultSets;
         } finally {
             db.close();
@@ -112,6 +108,16 @@ export class Sqlite3Client implements Client {
         } catch (e) {
             db.close();
             throw e;
+        }
+    }
+
+    async executeMultiple(sql: string): Promise<void> {
+        this.#checkNotClosed();
+        const db = new Database(this.path, this.options);
+        try {
+            return executeMultiple(db, sql);
+        } finally {
+            db.close();
         }
     }
 
@@ -137,6 +143,16 @@ export class Sqlite3Transaction implements Transaction {
     async execute(stmt: InStatement): Promise<ResultSet> {
         this.#checkNotClosed();
         return executeStmt(this.database, stmt);
+    }
+
+    async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
+        this.#checkNotClosed();
+        return stmts.map(stmt => executeStmt(this.database, stmt));
+    }
+
+    async executeMultiple(sql: string): Promise<void> {
+        this.#checkNotClosed();
+        return executeMultiple(this.database, sql);
     }
 
     async rollback(): Promise<void> {
@@ -213,10 +229,7 @@ function executeStmt(db: Database.Database, stmt: InStatement): ResultSet {
             return { columns: [], rows: [], rowsAffected, lastInsertRowid };
         }
     } catch (e) {
-        if (e instanceof Database.SqliteError) {
-            throw new LibsqlError(e.message, e.code, e);
-        }
-        throw e;
+        throw mapSqliteError(e);
     }
 }
 
@@ -271,3 +284,18 @@ function valueToSql(value: InValue): unknown {
 
 const minInteger = -9223372036854775808n;
 const maxInteger = 9223372036854775807n;
+
+function executeMultiple(db: Database.Database, sql: string): void {
+    try {
+        db.exec(sql);
+    } catch (e) {
+        throw mapSqliteError(e);
+    }
+}
+
+function mapSqliteError(e: unknown): unknown {
+    if (e instanceof Database.SqliteError) {
+        return new LibsqlError(e.message, e.code, e);
+    }
+    return e;
+}

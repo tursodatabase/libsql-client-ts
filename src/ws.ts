@@ -156,6 +156,22 @@ export class WsClient implements Client {
         }
     }
 
+    async executeMultiple(sql: string): Promise<void> {
+        const streamState = await this.#openStream();
+        try {
+            // Schedule all operations synchronously, so they will be pipelined and executed in a single
+            // network roundtrip.
+            const promise = streamState.stream.sequence(sql);
+            streamState.stream.close();
+
+            await promise;
+        } catch (e) {
+            throw mapHranaError(e);
+        } finally {
+            this._closeStream(streamState);
+        }
+    }
+
     async #openStream(): Promise<StreamState> {
         if (this.closed) {
             throw new LibsqlError("The client is closed", "CLIENT_CLOSED");

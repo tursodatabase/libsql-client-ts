@@ -108,6 +108,24 @@ export class HttpClient implements Client {
         }
     }
 
+    async executeMultiple(sql: string): Promise<void> {
+        try {
+            // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the sequence and
+            // close the stream in a single HTTP request.
+            let promise: Promise<void>;
+            const stream = this.#client.openStream();
+            try {
+                promise = stream.sequence(sql);
+            } finally {
+                stream.close();
+            }
+
+            await promise;
+        } catch (e) {
+            throw mapHranaError(e);
+        }
+    }
+
     close(): void {
         this.#client.close();
     }

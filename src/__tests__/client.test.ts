@@ -217,14 +217,14 @@ describe("values", () => {
         await expect(c.execute({
             sql: "SELECT ?",
             args: [NaN],
-        })).rejects.toBeInstanceOf(Error); // TODO: test for RangeError
+        })).rejects.toBeInstanceOf(RangeError);
     }));
 
     test("Infinity produces error", withClient(async (c) => {
         await expect(c.execute({
             sql: "SELECT ?",
             args: [Infinity],
-        })).rejects.toBeInstanceOf(Error); // TODO: test for RangeError
+        })).rejects.toBeInstanceOf(RangeError);
     }));
 
     test("large bigint produces error", withClient(async (c) => {
@@ -455,6 +455,20 @@ describe("batch()", () => {
         expect(rs3.rows.length).toStrictEqual(1);
         expect(Array.from(rs3.rows[0])).toStrictEqual([42]);
     }));
+
+    test.skip("ROLLBACK statement stops execution of batch", withClient(async (c) => {
+        await c.execute("DROP TABLE IF EXISTS t");
+        await c.execute("CREATE TABLE t (a)");
+
+        await expect(c.batch("write", [
+            "INSERT INTO t VALUES (1), (2), (3)",
+            "ROLLBACK",
+            "INSERT INTO t VALUES (4), (5)",
+        ])).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
+
+        const rs = await c.execute("SELECT COUNT(*) FROM t");
+        expect(rs.rows[0][0]).toStrictEqual(0);
+    }));
 });
 
 describe("transaction()", () => {
@@ -541,6 +555,62 @@ describe("transaction()", () => {
         expect(rs.rows[0][0]).toStrictEqual(1);
     }));
 
+    test.skip("ROLLBACK statement stops execution of transaction", withClient(async (c) => {
+        await c.execute("DROP TABLE IF EXISTS t");
+        await c.execute("CREATE TABLE t (a)");
+
+        const txn = await c.transaction("write");
+        const prom1 = txn.execute("INSERT INTO t VALUES (1), (2), (3)");
+        const prom2 = txn.execute("ROLLBACK");
+        const prom3 = txn.execute("INSERT INTO t VALUES (4), (5)");
+
+        await prom1;
+        await expect(prom2).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
+        await expect(prom3).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
+        await expect((async () => txn.commit())()).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
+        txn.close();
+
+        const rs = await c.execute("SELECT COUNT(*) FROM t");
+        expect(rs.rows[0][0]).toStrictEqual(0);
+    }));
+
+    test.skip("OR ROLLBACK statement stops execution of transaction", withClient(async (c) => {
+        await c.execute("DROP TABLE IF EXISTS t");
+        await c.execute("CREATE TABLE t (a UNIQUE)");
+
+        const txn = await c.transaction("write");
+        const prom1 = txn.execute("INSERT INTO t VALUES (1), (2), (3)");
+        const prom2 = txn.execute("INSERT OR ROLLBACK INTO t VALUES (1)");
+        const prom3 = txn.execute("INSERT INTO t VALUES (4), (5)");
+
+        await prom1;
+        await expect(prom2).rejects.toBeLibsqlError();
+        await expect(prom3).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
+        await expect((async () => txn.commit())()).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
+        txn.close();
+
+        const rs = await c.execute("SELECT COUNT(*) FROM t");
+        expect(rs.rows[0][0]).toStrictEqual(0);
+    }));
+
+    test.skip("OR ROLLBACK as the first statement stops execution of transaction", withClient(async (c) => {
+        await c.execute("DROP TABLE IF EXISTS t");
+        await c.execute("CREATE TABLE t (a UNIQUE)");
+        await c.execute("INSERT INTO t VALUES (1), (2), (3)");
+
+        const txn = await c.transaction("write");
+        const prom1 = txn.execute("INSERT OR ROLLBACK INTO t VALUES (1)");
+        const prom2 = txn.execute("INSERT INTO t VALUES (4), (5)");
+
+        await expect(prom1).rejects.toBeLibsqlError();
+        await expect(prom2).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
+        await expect((async () => txn.commit())()).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
+        txn.close();
+
+        const rs = await c.execute("SELECT COUNT(*) FROM t");
+        expect(rs.rows[0][0]).toStrictEqual(3);
+    }));
+
     test("commit empty", withClient(async (c) => {
         const txn = await c.transaction("read");
         await txn.commit();
@@ -549,6 +619,159 @@ describe("transaction()", () => {
     test("rollback empty", withClient(async (c) => {
         const txn = await c.transaction("read");
         await txn.rollback();
+    }));
+
+    describe("batch()", () => {
+        test("as the first operation on transaction", withClient(async (c) => {
+            const txn = await c.transaction("write");
+
+            await txn.batch([
+                "DROP TABLE IF EXISTS t",
+                "CREATE TABLE t (a)",
+                {sql: "INSERT INTO t VALUES (?)", args: [1]},
+                {sql: "INSERT INTO t VALUES (?)", args: [2]},
+                {sql: "INSERT INTO t VALUES (?)", args: [4]},
+            ]);
+
+            const rs = await txn.execute("SELECT SUM(a) FROM t");
+            expect(rs.rows[0][0]).toStrictEqual(7);
+            txn.close();
+        }));
+
+        test("as the second operation on transaction", withClient(async (c) => {
+            const txn = await c.transaction("write");
+
+            await txn.execute("DROP TABLE IF EXISTS t");
+            await txn.batch([
+                "CREATE TABLE t (a)",
+                {sql: "INSERT INTO t VALUES (?)", args: [1]},
+                {sql: "INSERT INTO t VALUES (?)", args: [2]},
+                {sql: "INSERT INTO t VALUES (?)", args: [4]},
+            ]);
+
+            const rs = await txn.execute("SELECT SUM(a) FROM t");
+            expect(rs.rows[0][0]).toStrictEqual(7);
+            txn.close();
+        }));
+
+        test("after error, further statements are not executed", withClient(async (c) => {
+            const txn = await c.transaction("write");
+
+            await expect(txn.batch([
+                "DROP TABLE IF EXISTS t",
+                "CREATE TABLE t (a UNIQUE)",
+                "INSERT INTO t VALUES (1), (2), (4)",
+                "INSERT INTO t VALUES (1)",
+                "INSERT INTO t VALUES (8), (16)",
+            ])).rejects.toBeLibsqlError();
+
+            const rs = await txn.execute("SELECT SUM(a) FROM t");
+            expect(rs.rows[0][0]).toStrictEqual(7);
+
+            await txn.commit();
+        }));
+    });
+
+    (server !== "test_v1" ? describe : describe.skip)("executeMultiple()", () => {
+        test("as the first operation on transaction", withClient(async (c) => {
+            const txn = await c.transaction("write");
+
+            await txn.executeMultiple(`
+                DROP TABLE IF EXISTS t;
+                CREATE TABLE t (a);
+                INSERT INTO t VALUES (1), (2), (4), (8);
+            `);
+
+            const rs = await txn.execute("SELECT SUM(a) FROM t");
+            expect(rs.rows[0][0]).toStrictEqual(15);
+            txn.close();
+        }));
+
+        test("as the second operation on transaction", withClient(async (c) => {
+            const txn = await c.transaction("write");
+            await txn.execute("DROP TABLE IF EXISTS t");
+            await txn.executeMultiple(`
+                CREATE TABLE t (a);
+                INSERT INTO t VALUES (1), (2), (4), (8);
+            `);
+
+            const rs = await txn.execute("SELECT SUM(a) FROM t");
+            expect(rs.rows[0][0]).toStrictEqual(15);
+            txn.close();
+        }));
+
+        test("after error, further statements are not executed", withClient(async (c) => {
+            const txn = await c.transaction("write");
+
+            await expect(txn.executeMultiple(`
+                DROP TABLE IF EXISTS t;
+                CREATE TABLE t (a UNIQUE);
+                INSERT INTO t VALUES (1), (2), (4);
+                INSERT INTO t VALUES (1);
+                INSERT INTO t VALUES (8), (16);
+            `)).rejects.toBeLibsqlError();
+
+            const rs = await txn.execute("SELECT SUM(a) FROM t");
+            expect(rs.rows[0][0]).toStrictEqual(7);
+
+            await txn.commit();
+        }));
+    });
+});
+
+(server !== "test_v1" ? describe : describe.skip)("executeMultiple()", () => {
+    test("multiple statements", withClient(async (c) => {
+        await c.executeMultiple(`
+            DROP TABLE IF EXISTS t;
+            CREATE TABLE t (a);
+            INSERT INTO t VALUES (1), (2), (4), (8);
+        `);
+
+        const rs = await c.execute("SELECT SUM(a) FROM t");
+        expect(rs.rows[0][0]).toStrictEqual(15);
+    }));
+
+    test("after an error, statements are not executed", withClient(async (c) => {
+        await expect(c.executeMultiple(`
+            DROP TABLE IF EXISTS t;
+            CREATE TABLE t (a);
+            INSERT INTO t VALUES (1), (2), (4);
+            INSERT INTO t VALUES (foo());
+            INSERT INTO t VALUES (8), (16);
+        `)).rejects.toBeLibsqlError();
+
+        const rs = await c.execute("SELECT SUM(a) FROM t");
+        expect(rs.rows[0][0]).toStrictEqual(7);
+    }));
+
+    test("manual transaction control statements", withClient(async (c) => {
+        await c.executeMultiple(`
+            DROP TABLE IF EXISTS t;
+            CREATE TABLE t (a);
+            BEGIN;
+            INSERT INTO t VALUES (1), (2), (4);
+            INSERT INTO t VALUES (8), (16);
+            COMMIT;
+        `);
+
+        const rs = await c.execute("SELECT SUM(a) FROM t");
+        expect(rs.rows[0][0]).toStrictEqual(31);
+    }));
+
+    test("error rolls back a manual transaction", withClient(async (c) => {
+        await expect(c.executeMultiple(`
+            DROP TABLE IF EXISTS t;
+            CREATE TABLE t (a);
+            INSERT INTO t VALUES (0);
+            BEGIN;
+            INSERT INTO t VALUES (1), (2), (4);
+            INSERT INTO t VALUES (foo());
+            INSERT INTO t VALUES (8), (16);
+            COMMIT;
+        `)).rejects.toBeLibsqlError();
+
+        const rs = await c.execute("SELECT SUM(a) FROM t");
+        expect(rs.rows[0][0]).toStrictEqual(0);
     }));
 });
 
