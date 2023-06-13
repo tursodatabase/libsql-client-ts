@@ -1,16 +1,16 @@
 import * as hrana from "@libsql/hrana-client";
 
 import type { Config, Client, Transaction, ResultSet, InStatement } from "./api.js";
-import { LibsqlError } from "./api.js";
+import { TransactionMode, LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
-import { supportedUrlLink } from "./help.js";
 import {
     HranaTransaction, executeHranaBatch,
     stmtToHrana, resultSetFromHrana, mapHranaError,
 } from "./hrana.js";
 import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "./uri.js";
+import { supportedUrlLink, extractBatchArgs } from "./util.js";
 
 export * from "./api.js";
 
@@ -120,7 +120,11 @@ export class WsClient implements Client {
         }
     }
 
-    async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
+    batch(mode: TransactionMode, stmts: Array<InStatement>): Promise<Array<ResultSet>>;
+    batch(stmts: Array<InStatement>): Promise<Array<ResultSet>>;
+    async batch(arg1: unknown, arg2: unknown = undefined): Promise<Array<ResultSet>> {
+        const {mode, stmts} = extractBatchArgs(arg1, arg2);
+
         const streamState = await this.#openStream();
         try {
             const hranaStmts = stmts.map(stmtToHrana);
@@ -129,7 +133,7 @@ export class WsClient implements Client {
             // network roundtrip.
             streamState.conn.sqlCache.apply(hranaStmts);
             const batch = streamState.stream.batch();
-            const resultsPromise = executeHranaBatch(batch, hranaStmts);
+            const resultsPromise = executeHranaBatch(mode, batch, hranaStmts);
             streamState.stream.close();
 
             return await resultsPromise;
@@ -140,12 +144,12 @@ export class WsClient implements Client {
         }
     }
 
-    async transaction(): Promise<WsTransaction> {
+    async transaction(mode: TransactionMode = "write"): Promise<WsTransaction> {
         const streamState = await this.#openStream();
         try {
             // the BEGIN statement will be batched with the first statement on the transaction to save a
             // network roundtrip
-            return new WsTransaction(this, streamState);
+            return new WsTransaction(this, streamState, mode);
         } catch (e) {
             this._closeStream(streamState);
             throw mapHranaError(e);
@@ -271,8 +275,8 @@ export class WsTransaction extends HranaTransaction implements Transaction {
     #streamState: StreamState;
 
     /** @private */
-    constructor(client: WsClient, state: StreamState) {
-        super();
+    constructor(client: WsClient, state: StreamState, mode: TransactionMode) {
+        super(mode);
         this.#client = client;
         this.#streamState = state;
     }

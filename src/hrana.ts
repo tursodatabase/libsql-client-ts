@@ -1,15 +1,18 @@
 import * as hrana from "@libsql/hrana-client";
-import type { InStatement, ResultSet, Transaction } from "./api.js";
+import type { InStatement, ResultSet, Transaction, TransactionMode } from "./api.js";
 import { LibsqlError } from "./api.js";
 import type { SqlCache } from "./sql_cache.js";
+import { transactionModeToBegin } from "./util.js";
 
 export abstract class HranaTransaction implements Transaction {
+    #mode: TransactionMode;
     // Promise that is resolved when the BEGIN statement completes, or `undefined` if we haven't executed the
     // BEGIN statement yet.
     #started: Promise<void> | undefined;
 
     /** @private */
-    constructor() {
+    constructor(mode: TransactionMode) {
+        this.#mode = mode;
         this.#started = undefined;
     }
 
@@ -41,7 +44,7 @@ export abstract class HranaTransaction implements Transaction {
                 this._getSqlCache().apply([hranaStmt]);
                 const batch = stream.batch();
                 const beginStep = batch.step();
-                const beginPromise = beginStep.run("BEGIN");
+                const beginPromise = beginStep.run(transactionModeToBegin(this.#mode));
 
                 // Execute the `stmt` only if the BEGIN succeeded, to make sure that we don't execute it
                 // outside of a transaction.
@@ -143,11 +146,12 @@ export abstract class HranaTransaction implements Transaction {
 }
 
 export async function executeHranaBatch(
+    mode: TransactionMode,
     batch: hrana.Batch,
     hranaStmts: Array<hrana.Stmt>,
 ): Promise<Array<ResultSet>> {
     const beginStep = batch.step();
-    const beginPromise = beginStep.run("BEGIN");
+    const beginPromise = beginStep.run(transactionModeToBegin(mode));
 
     let lastStep = beginStep;
     const stmtPromises = hranaStmts.map((hranaStmt) => {

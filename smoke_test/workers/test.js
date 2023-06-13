@@ -32,7 +32,7 @@ async function main() {
             clientUrlInsideWorker.protocol = url.protocol;
         }
 
-        console.info(`Established a localtunnel on ${clientUrlInsideWorker}`);
+        console.info(`Established an ngrok tunnel on ${clientUrlInsideWorker}`);
     }
 
     let ok = false;

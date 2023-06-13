@@ -53,6 +53,9 @@ export interface Client {
      *
      * The batch is executed in its own logical database connection and the statements are wrapped in a
      * transaction. This ensures that the batch is applied atomically: either all or no changes are applied.
+     *
+     * The `mode` parameter selects the transaction mode for the batch; please see {@link TransactionMode} for
+     * details.
      * 
      * If any of the statements in the batch fails with an error, the batch is aborted, the transaction is
      * rolled back and the returned promise is rejected.
@@ -61,7 +64,7 @@ export interface Client {
      * {@link transaction} method.
      *
      * ```javascript
-     * const rss = await client.batch([
+     * const rss = await client.batch("write", [
      *     // batch statement without arguments
      *     "DELETE FROM books WHERE name LIKE '%Crusoe'",
      *
@@ -79,6 +82,15 @@ export interface Client {
      * ]);
      * ```
      */
+    batch(mode: TransactionMode, stmts: Array<InStatement>): Promise<Array<ResultSet>>;
+
+    /** Execute a batch of SQL statement in the `"write"` transaction mode.
+     *
+     * Please see {@link batch} for details.
+     *
+     * @deprecated Please specify the `mode` explicitly. The default `"write"` will be removed in the next
+     * major release.
+     */
     batch(stmts: Array<InStatement>): Promise<Array<ResultSet>>;
 
     /** Starts an interactive transaction.
@@ -87,12 +99,15 @@ export interface Client {
      * logic. They can be used if the {@link batch} method is too restrictive, but please note that
      * interactive transactions have higher latency.
      *
+     * The `mode` parameter selects the transaction mode for the interactive transaction; please see {@link
+     * TransactionMode} for details.
+     *
      * You **must** make sure that the returned {@link Transaction} object is closed, by calling {@link
      * Transaction.close}, {@link Transaction.commit} or {@link Transaction.rollback}. The best practice is
      * to call {@link Transaction.close} in a `finally` block, as follows:
      *
      * ```javascript
-     * const transaction = client.transaction();
+     * const transaction = client.transaction("write");
      * try {
      *     // do some operations with the transaction here
      *     ...
@@ -104,6 +119,15 @@ export interface Client {
      *     transaction.close();
      * }
      * ```
+     */
+    transaction(mode: TransactionMode): Promise<Transaction>;
+
+    /** Starts an interactive transaction in `"write"` mode.
+     *
+     * Please see {@link transaction} for details.
+     *
+     * @deprecated Please specify the `mode` explicitly. The default `"write"` will be removed in the next
+     * major release.
      */
     transaction(): Promise<Transaction>;
 
@@ -188,6 +212,34 @@ export interface Transaction {
      */
     closed: boolean;
 }
+
+/** Transaction mode.
+ *
+ * The client supports multiple modes for transactions:
+ *
+ * - `"write"` is a read-write transaction, started with `BEGIN IMMEDIATE`. This transaction mode supports
+ * both read statements (`SELECT`) and write statements (`INSERT`, `UPDATE`, `CREATE TABLE`, etc). The libSQL
+ * server cannot process multiple write transactions concurrently, so if there is another write transaction
+ * already started, our transaction will wait in a queue before it can begin.
+ *
+ * - `"read"` is a read-only transaction, started with `BEGIN TRANSACTION READONLY` (a libSQL extension). This
+ * transaction mode supports only reads (`SELECT`) and will not accept write statements. The libSQL server can
+ * handle multiple read transactions at the same time, so we don't need to wait for other transactions to
+ * complete. A read-only transaction can also be executed on a local replica, so it provides lower latency.
+ *
+ * - `"deferred"` is a transaction started with `BEGIN DEFERRED`, which starts as a read transaction, but the
+ * first write statement will try to upgrade it to a write transaction. However, this upgrade may fail if
+ * there already is a write transaction executing on the server, so you should be ready to handle these
+ * failures.
+ *
+ * If your transaction includes only read statements, `"read"` is always preferred over `"deferred"` or
+ * `"write"`, because `"read"` transactions can be executed on a replica and don't block other transactions.
+ *
+ * If your transaction includes both read and write statements, you should be using the `"write"` mode most of
+ * the time. Use the `"deferred"` mode only if you prefer to fail the write transaction instead of waiting for
+ * the previous write transactions to complete.
+ */
+export type TransactionMode = "write" | "read" | "deferred";
 
 /** Result of executing an SQL statement.
  *

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added `TransactionMode` argument to `batch()` and `transaction()` ([#46](https://github.com/libsql/libsql-client-ts/pull/46))
+- **Changed the default transaction mode** from `BEGIN DEFERRED` to `BEGIN IMMEDIATE`
+
 ## 0.2.0 -- 2023-06-07
 
 - **Added support for interactive transactions over HTTP** by using `@libsql/hrana-client` version 0.4 ([#44](https://github.com/libsql/libsql-client-ts/pull/44))

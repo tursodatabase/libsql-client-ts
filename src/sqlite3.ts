@@ -1,11 +1,14 @@
 import Database from "better-sqlite3";
 import { Buffer } from "node:buffer";
 
-import type { Config, Client, Transaction, ResultSet, Row, Value, InValue, InStatement } from "./api.js";
+import type {
+    Config, Client, Transaction, TransactionMode,
+    ResultSet, Row, Value, InValue, InStatement,
+} from "./api.js";
 import { LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
-import { supportedUrlLink } from "./help.js";
+import { supportedUrlLink, transactionModeToBegin, extractBatchArgs } from "./util.js";
 
 export * from "./api.js";
 
@@ -79,12 +82,16 @@ export class Sqlite3Client implements Client {
         }
     }
 
-    async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
+    batch(mode: TransactionMode, stmts: Array<InStatement>): Promise<Array<ResultSet>>;
+    batch(stmts: Array<InStatement>): Promise<Array<ResultSet>>;
+    async batch(arg1: unknown, arg2: unknown = undefined): Promise<Array<ResultSet>> {
+        const {mode, stmts} = extractBatchArgs(arg1, arg2);
+
         this.#checkNotClosed();
         const db = new Database(this.path, this.options);
         try {
             if (stmts.length > 1) {
-                executeStmt(db, "BEGIN");
+                executeStmt(db, transactionModeToBegin(mode));
             }
             const resultSets = stmts.map(stmt => executeStmt(db, stmt));
             if (stmts.length > 1) {
@@ -96,11 +103,11 @@ export class Sqlite3Client implements Client {
         }
     }
 
-    async transaction(): Promise<Transaction> {
+    async transaction(mode: TransactionMode = "write"): Promise<Transaction> {
         this.#checkNotClosed();
         const db = new Database(this.path, this.options);
         try {
-            executeStmt(db, "BEGIN");
+            executeStmt(db, transactionModeToBegin(mode));
             return new Sqlite3Transaction(db);
         } catch (e) {
             db.close();
