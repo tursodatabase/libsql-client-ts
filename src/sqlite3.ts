@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { Buffer } from "node:buffer";
 
 import type {
-    Config, Client, Transaction, TransactionMode,
+    Config, IntMode, Client, Transaction, TransactionMode,
     ResultSet, Row, Value, InValue, InStatement,
 } from "./api.js";
 import { LibsqlError } from "./api.js";
@@ -52,31 +52,33 @@ export function _createClient(config: ExpandedConfig): Client {
 
     const db = new Database(path, options);
     try {
-        executeStmt(db, "SELECT 1 AS checkThatTheDatabaseCanBeOpened");
+        executeStmt(db, "SELECT 1 AS checkThatTheDatabaseCanBeOpened", config.intMode);
     } finally {
         db.close();
     }
 
-    return new Sqlite3Client(path, options);
+    return new Sqlite3Client(path, options, config.intMode);
 }
 
 export class Sqlite3Client implements Client {
-    path: string;
-    options: Database.Options;
+    #path: string;
+    #options: Database.Options;
+    #intMode: IntMode;
     closed: boolean;
 
     /** @private */
-    constructor(path: string, options: Database.Options) {
-        this.path = path;
-        this.options = options;
+    constructor(path: string, options: Database.Options, intMode: IntMode) {
+        this.#path = path;
+        this.#options = options;
+        this.#intMode = intMode;
         this.closed = false;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
         this.#checkNotClosed();
-        const db = new Database(this.path, this.options);
+        const db = new Database(this.#path, this.#options);
         try {
-            return executeStmt(db, stmt);
+            return executeStmt(db, stmt, this.#intMode);
         } finally {
             db.close();
         }
@@ -88,11 +90,11 @@ export class Sqlite3Client implements Client {
         const {mode, stmts} = extractBatchArgs(arg1, arg2);
 
         this.#checkNotClosed();
-        const db = new Database(this.path, this.options);
+        const db = new Database(this.#path, this.#options);
         try {
-            executeStmt(db, transactionModeToBegin(mode));
-            const resultSets = stmts.map(stmt => executeStmt(db, stmt));
-            executeStmt(db, "COMMIT");
+            executeStmt(db, transactionModeToBegin(mode), this.#intMode);
+            const resultSets = stmts.map(stmt => executeStmt(db, stmt, this.#intMode));
+            executeStmt(db, "COMMIT", this.#intMode);
             return resultSets;
         } finally {
             db.close();
@@ -101,10 +103,10 @@ export class Sqlite3Client implements Client {
 
     async transaction(mode: TransactionMode = "write"): Promise<Transaction> {
         this.#checkNotClosed();
-        const db = new Database(this.path, this.options);
+        const db = new Database(this.#path, this.#options);
         try {
-            executeStmt(db, transactionModeToBegin(mode));
-            return new Sqlite3Transaction(db);
+            executeStmt(db, transactionModeToBegin(mode), this.#intMode);
+            return new Sqlite3Transaction(db, this.#intMode);
         } catch (e) {
             db.close();
             throw e;
@@ -113,7 +115,7 @@ export class Sqlite3Client implements Client {
 
     async executeMultiple(sql: string): Promise<void> {
         this.#checkNotClosed();
-        const db = new Database(this.path, this.options);
+        const db = new Database(this.#path, this.#options);
         try {
             return executeMultiple(db, sql);
         } finally {
@@ -133,58 +135,60 @@ export class Sqlite3Client implements Client {
 }
 
 export class Sqlite3Transaction implements Transaction {
-    database: Database.Database
+    #database: Database.Database;
+    #intMode: IntMode;
 
     /** @private */
-    constructor(database: Database.Database) {
-        this.database = database;
+    constructor(database: Database.Database, intMode: IntMode) {
+        this.#database = database;
+        this.#intMode = intMode;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
         this.#checkNotClosed();
-        return executeStmt(this.database, stmt);
+        return executeStmt(this.#database, stmt, this.#intMode);
     }
 
     async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
         this.#checkNotClosed();
-        return stmts.map(stmt => executeStmt(this.database, stmt));
+        return stmts.map(stmt => executeStmt(this.#database, stmt, this.#intMode));
     }
 
     async executeMultiple(sql: string): Promise<void> {
         this.#checkNotClosed();
-        return executeMultiple(this.database, sql);
+        return executeMultiple(this.#database, sql);
     }
 
     async rollback(): Promise<void> {
-        if (!this.database.open) {
+        if (!this.#database.open) {
             return;
         }
-        executeStmt(this.database, "ROLLBACK");
-        this.database.close();
+        executeStmt(this.#database, "ROLLBACK", this.#intMode);
+        this.#database.close();
     }
 
     async commit(): Promise<void> {
         this.#checkNotClosed();
-        executeStmt(this.database, "COMMIT");
-        this.database.close();
+        executeStmt(this.#database, "COMMIT", this.#intMode);
+        this.#database.close();
     }
 
     close(): void {
-        this.database.close();
+        this.#database.close();
     }
 
     get closed(): boolean {
-        return !this.database.open;
+        return !this.#database.open;
     }
 
     #checkNotClosed(): void {
-        if (!this.database.open) {
+        if (!this.#database.open) {
             throw new LibsqlError("The transaction is closed", "TRANSACTION_CLOSED");
         }
     }
 }
 
-function executeStmt(db: Database.Database, stmt: InStatement): ResultSet {
+function executeStmt(db: Database.Database, stmt: InStatement, intMode: IntMode): ResultSet {
     let sql: string;
     let args: Array<unknown> | Record<string, unknown>;
     if (typeof stmt === "string") {
@@ -206,6 +210,7 @@ function executeStmt(db: Database.Database, stmt: InStatement): ResultSet {
 
     try {
         const sqlStmt = db.prepare(sql);
+        sqlStmt.safeIntegers(true);
 
         let returnsData = true;
         try {
@@ -217,7 +222,9 @@ function executeStmt(db: Database.Database, stmt: InStatement): ResultSet {
 
         if (returnsData) {
             const columns = Array.from(sqlStmt.columns().map(col => col.name));
-            const rows = sqlStmt.all(args).map(sqlRow => rowFromSql(sqlRow as Array<unknown>, columns));
+            const rows = sqlStmt.all(args).map((sqlRow) => {
+                return rowFromSql(sqlRow as Array<unknown>, columns, intMode);
+            });
             // TODO: can we get this info from better-sqlite3?
             const rowsAffected = 0;
             const lastInsertRowid = undefined;
@@ -233,12 +240,12 @@ function executeStmt(db: Database.Database, stmt: InStatement): ResultSet {
     }
 }
 
-function rowFromSql(sqlRow: Array<unknown>, columns: Array<string>): Row {
+function rowFromSql(sqlRow: Array<unknown>, columns: Array<string>, intMode: IntMode): Row {
     const row = {};
     // make sure that the "length" property is not enumerable
     Object.defineProperty(row, "length", { value: sqlRow.length });
     for (let i = 0; i < sqlRow.length; ++i) {
-        const value = valueFromSql(sqlRow[i]);
+        const value = valueFromSql(sqlRow[i], intMode);
         Object.defineProperty(row, i, { value });
 
         const column = columns[i];
@@ -249,12 +256,30 @@ function rowFromSql(sqlRow: Array<unknown>, columns: Array<string>): Row {
     return row as Row;
 }
 
-function valueFromSql(sqlValue: unknown): Value {
-    if (sqlValue instanceof Buffer) {
+function valueFromSql(sqlValue: unknown, intMode: IntMode): Value {
+    if (typeof sqlValue === "bigint") {
+        if (intMode === "number") {
+            if (sqlValue < minSafeBigint || sqlValue > maxSafeBigint) {
+                throw new RangeError(
+                    "Received integer which cannot be safely represented as a JavaScript number"
+                );
+            }
+            return Number(sqlValue);
+        } else if (intMode === "bigint") {
+            return sqlValue;
+        } else if (intMode === "string") {
+            return ""+sqlValue;
+        } else {
+            throw new Error("Invalid value for IntMode");
+        }
+    } else if (sqlValue instanceof Buffer) {
         return sqlValue.buffer;
     }
     return sqlValue as Value;
 }
+
+const minSafeBigint = -9007199254740991n;
+const maxSafeBigint = 9007199254740991n;
 
 function valueToSql(value: InValue): unknown {
     if (typeof value === "number") {

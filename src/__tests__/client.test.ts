@@ -21,9 +21,12 @@ const isFile = config.url.startsWith("file:");
 // - "sqld" is sqld
 const server = process.env.SERVER ?? "test_v2";
 
-function withClient(f: (c: libsql.Client) => Promise<void>): () => Promise<void> {
+function withClient(
+    f: (c: libsql.Client) => Promise<void>,
+    extraConfig: Partial<libsql.Config> = {},
+): () => Promise<void> {
     return async () => {
-        const c = createClient(config);
+        const c = createClient({...config, ...extraConfig});
         try {
             await f(c);
         } finally {
@@ -69,6 +72,11 @@ describe("createClient()", () => {
     test("passing URL instead of config object", () => {
         // @ts-expect-error
         expect(() => createClient("ws://localhost")).toThrow(/as object, got string/);
+    });
+
+    test("invalid value for `intMode`", () => {
+        // @ts-expect-error
+        expect(() => createClient({...config, intMode: "foo"})).toThrow(/"foo"/);
     });
 });
 
@@ -172,13 +180,26 @@ describe("values", () => {
         name: string,
         passed: libsql.InValue,
         expected: libsql.Value,
-        opts: { skip?: boolean } = {},
+        intMode?: libsql.IntMode,
     ): void {
-        const skip = opts.skip ?? false;
-        (skip ? test.skip : test)(name, withClient(async (c) => {
+        test(name, withClient(async (c) => {
             const rs = await c.execute({sql: "SELECT ?", args: [passed]});
             expect(rs.rows[0][0]).toStrictEqual(expected);
-        }));
+        }, {intMode}));
+    }
+
+    function testRoundtripError(
+        name: string,
+        passed: libsql.InValue,
+        expectedError: unknown,
+        intMode?: libsql.IntMode,
+    ): void {
+        test(name, withClient(async (c) => {
+            await expect(c.execute({
+                sql: "SELECT ?",
+                args: [passed],
+            })).rejects.toBeInstanceOf(expectedError);
+        }, {intMode}));
     }
 
     testRoundtrip("string", "boomerang", "boomerang");
@@ -186,9 +207,35 @@ describe("values", () => {
     testRoundtrip("string with unicode",
         "žluťoučký kůň úpěl ďábelské ódy", "žluťoučký kůň úpěl ďábelské ódy");
 
-    testRoundtrip("zero", 0, 0);
+    testRoundtrip("zero number", 0, 0);
     testRoundtrip("integer number", -2023, -2023);
     testRoundtrip("float number", 12.345, 12.345);
+
+    describe("'number' int mode", () => {
+        testRoundtrip("zero integer", 0n, 0, "number");
+        testRoundtrip("small integer", -42n, -42, "number");
+        testRoundtrip("largest safe integer", 9007199254740991n, 9007199254740991, "number");
+        testRoundtripError("smallest unsafe integer", 9007199254740992n, RangeError, "number");
+        testRoundtripError("large unsafe integer", -1152921504594532842n, RangeError, "number");
+    });
+
+    describe("'bigint' int mode", () => {
+        testRoundtrip("zero integer", 0n, 0n, "bigint");
+        testRoundtrip("small integer", -42n, -42n, "bigint");
+        testRoundtrip("large positive integer", 1152921504608088318n, 1152921504608088318n, "bigint");
+        testRoundtrip("large negative integer", -1152921504594532842n, -1152921504594532842n, "bigint");
+        testRoundtrip("largest positive integer", 9223372036854775807n, 9223372036854775807n, "bigint");
+        testRoundtrip("largest negative integer", -9223372036854775808n, -9223372036854775808n, "bigint");
+    });
+
+    describe("'string' int mode", () => {
+        testRoundtrip("zero integer", 0n, "0", "string");
+        testRoundtrip("small integer", -42n, "-42", "string");
+        testRoundtrip("large positive integer", 1152921504608088318n, "1152921504608088318", "string");
+        testRoundtrip("large negative integer", -1152921504594532842n, "-1152921504594532842", "string");
+        testRoundtrip("largest positive integer", 9223372036854775807n, "9223372036854775807", "string");
+        testRoundtrip("largest negative integer", -9223372036854775808n, "-9223372036854775808", "string");
+    });
 
     const buf = new ArrayBuffer(256);
     const array = new Uint8Array(buf);
@@ -205,34 +252,11 @@ describe("values", () => {
     testRoundtrip("bigint", -1000n, -1000);
     testRoundtrip("Date", new Date("2023-01-02T12:34:56Z"), 1672662896000);
 
-    test("undefined produces error", withClient(async (c) => {
-        await expect(c.execute({
-            sql: "SELECT ?",
-            // @ts-expect-error
-            args: [undefined],
-        })).rejects.toBeInstanceOf(TypeError);
-    }));
-
-    test("NaN produces error", withClient(async (c) => {
-        await expect(c.execute({
-            sql: "SELECT ?",
-            args: [NaN],
-        })).rejects.toBeInstanceOf(RangeError);
-    }));
-
-    test("Infinity produces error", withClient(async (c) => {
-        await expect(c.execute({
-            sql: "SELECT ?",
-            args: [Infinity],
-        })).rejects.toBeInstanceOf(RangeError);
-    }));
-
-    test("large bigint produces error", withClient(async (c) => {
-        await expect(c.execute({
-            sql: "SELECT ?",
-            args: [-1267650600228229401496703205376n],
-        })).rejects.toBeInstanceOf(RangeError);
-    }));
+    // @ts-expect-error
+    testRoundtripError("undefined produces error", undefined, TypeError);
+    testRoundtripError("NaN produces error", NaN, RangeError);
+    testRoundtripError("Infinity produces error", Infinity, RangeError);
+    testRoundtripError("large bigint produces error", -1267650600228229401496703205376n, RangeError);
 
     test("max 64-bit bigint", withClient(async (c) => {
         const rs = await c.execute({sql: "SELECT ?||''", args: [9223372036854775807n]});

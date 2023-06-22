@@ -72,7 +72,7 @@
         "build:cjs": "tsc -p tsconfig.build-cjs.json",
         "build:esm": "tsc -p tsconfig.build-esm.json",
         "postbuild": "cp package-cjs.json ./lib-cjs/package.json",
-        "test": "jest",
+        "test": "jest --runInBand",
         "typecheck": "tsc --noEmit",
         "typedoc": "rm -rf ./docs && typedoc"
     },
@@ -87,7 +87,7 @@
         "typescript": "^4.9.4"
     },
     "dependencies": {
-        "@libsql/hrana-client": "^0.4.1",
+        "@libsql/hrana-client": "^0.4.2",
         "better-sqlite3": "^8.0.1",
         "js-base64": "^3.7.5"
     }

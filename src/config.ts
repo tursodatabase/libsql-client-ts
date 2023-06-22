@@ -1,4 +1,4 @@
-import type { Config } from "./api.js";
+import type { Config, IntMode } from "./api.js";
 import { LibsqlError } from "./api.js";
 import type { Authority } from "./uri.js";
 import { parseUri } from "./uri.js";
@@ -10,6 +10,7 @@ export interface ExpandedConfig {
     authority: Authority | undefined;
     path: string;
     authToken: string | undefined;
+    intMode: IntMode;
 }
 
 export type ExpandedScheme = "wss" | "ws" | "https" | "http" | "file";
@@ -83,11 +84,20 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
         );
     }
 
+    const intMode = ""+(config.intMode ?? "number");
+    if (intMode !== "number" && intMode !== "bigint" && intMode !== "string") {
+        throw new TypeError(
+            `Invalid value for intMode, expected "number", "bigint" or "string", \
+            got ${JSON.stringify(intMode)}`
+        );
+    }
+
     return {
         scheme,
         tls: tls ?? true,
         authority: uri.authority,
         path: uri.path,
         authToken,
+        intMode,
     };
 }
