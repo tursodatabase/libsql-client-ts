@@ -17,7 +17,21 @@ export interface Config {
      * By default, `libsql:` URLs use TLS. You can set this option to `false` to disable TLS.
      */
     tls?: boolean;
+
+    /** How to convert SQLite integers to JavaScript values:
+     *
+     * - `"number"` (default): returns SQLite integers as JavaScript `number`-s (double precision floats).
+     * `number` cannot precisely represent integers larger than 2^53-1 in absolute value, so attempting to read
+     * larger integers will throw a `RangeError`.
+     * - `"bigint"`: returns SQLite integers as JavaScript `bigint`-s (arbitrary precision integers). Bigints can
+     * precisely represent all SQLite integers.
+     * - `"string"`: returns SQLite integers as strings.
+     */
+    intMode?: IntMode;
 }
+
+/** Representation of integers from database as JavaScript values. See {@link Config.intMode}. */
+export type IntMode = "number" | "bigint" | "string";
 
 /** Client object for a remote or local database.
  *

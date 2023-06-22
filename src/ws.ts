@@ -1,6 +1,6 @@
 import * as hrana from "@libsql/hrana-client";
 
-import type { Config, Client, Transaction, ResultSet, InStatement } from "./api.js";
+import type { Config, IntMode, Client, Transaction, ResultSet, InStatement } from "./api.js";
 import { TransactionMode, LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
@@ -53,7 +53,7 @@ export function _createClient(config: ExpandedConfig): WsClient {
         throw mapHranaError(e);
     }
 
-    return new WsClient(client, url, config.authToken);
+    return new WsClient(client, url, config.authToken, config.intMode);
 }
 
 // This object maintains state for a single WebSocket connection.
@@ -85,6 +85,7 @@ const sqlCacheCapacity = 100;
 export class WsClient implements Client {
     #url: URL;
     #authToken: string | undefined;
+    #intMode: IntMode;
     // State of the current connection. The `hrana.WsClient` inside may be closed at any moment due to an
     // asynchronous error.
     #connState: ConnState;
@@ -93,9 +94,10 @@ export class WsClient implements Client {
     closed: boolean;
 
     /** @private */
-    constructor(client: hrana.WsClient, url: URL, authToken: string | undefined) {
+    constructor(client: hrana.WsClient, url: URL, authToken: string | undefined, intMode: IntMode) {
         this.#url = url;
         this.#authToken = authToken;
+        this.#intMode = intMode;
         this.#connState = this.#openConn(client);
         this.#futureConnState = undefined;
         this.closed = false;
@@ -245,6 +247,7 @@ export class WsClient implements Client {
             }
 
             const stream = connState.client.openStream();
+            stream.intMode = this.#intMode;
             const streamState = {conn: connState, stream};
             connState.streamStates.add(streamState);
             return streamState;

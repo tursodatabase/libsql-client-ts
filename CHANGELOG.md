@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added `intMode` field to the `Config`, which chooses whether SQLite integers are represented as numbers,
+bigints or strings in JavaScript ([#51](https://github.com/libsql/libsql-client-ts/pull/51)).
+
 ## 0.2.1 -- 2023-06-13
 
 - Added `TransactionMode` argument to `batch()` and `transaction()` ([#46](https://github.com/libsql/libsql-client-ts/pull/46))

@@ -1,8 +1,7 @@
 import * as hrana from "@libsql/hrana-client";
-import { fetch } from "@libsql/isomorphic-fetch";
 
 import type { Config, Client } from "./api.js";
-import type { InStatement, ResultSet, Transaction } from "./api.js";
+import type { InStatement, ResultSet, Transaction, IntMode } from "./api.js";
 import { TransactionMode, LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
@@ -25,7 +24,7 @@ export function _createClient(config: ExpandedConfig): Client {
     if (config.scheme !== "https" && config.scheme !== "http") {
         throw new LibsqlError(
             'The HTTP client supports only "libsql:", "https:" and "http:" URLs, ' +
-                `got ${JSON.stringify(config.scheme)}. For more information, please read ${supportedUrlLink}`,
+                `got ${JSON.stringify(config.scheme + ":")}. For more information, please read ${supportedUrlLink}`,
             "URL_SCHEME_NOT_SUPPORTED",
         );
     }
@@ -37,7 +36,7 @@ export function _createClient(config: ExpandedConfig): Client {
     }
 
     const url = encodeBaseUrl(config.scheme, config.authority, config.path);
-    return new HttpClient(url, config.authToken);
+    return new HttpClient(url, config.authToken, config.intMode);
 }
 
 const sqlCacheCapacity = 30;
@@ -46,8 +45,9 @@ export class HttpClient implements Client {
     #client: hrana.HttpClient;
 
     /** @private */
-    constructor(url: URL, authToken: string | undefined) {
+    constructor(url: URL, authToken: string | undefined, intMode: IntMode) {
         this.#client = hrana.openHttp(url, authToken);
+        this.#client.intMode = intMode;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
