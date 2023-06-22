@@ -1,9 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.2.2 -- 2023-06-22
 
-- Added `intMode` field to the `Config`, which chooses whether SQLite integers are represented as numbers,
-bigints or strings in JavaScript ([#51](https://github.com/libsql/libsql-client-ts/pull/51)).
+- Added `intMode` field to the `Config`, which chooses whether SQLite integers are represented as numbers, bigints or strings in JavaScript ([#51](https://github.com/libsql/libsql-client-ts/pull/51)).
 
 ## 0.2.1 -- 2023-06-13
 
