@@ -121,7 +121,7 @@ export interface Client {
      * to call {@link Transaction.close} in a `finally` block, as follows:
      *
      * ```javascript
-     * const transaction = client.transaction();
+     * const transaction = client.transaction("write");
      * try {
      *     // do some operations with the transaction here
      *     await transaction.execute({
@@ -201,7 +201,7 @@ export interface Client {
  * commit} or {@link rollback}. The best practice is to call {@link close} in a `finally` block, as follows:
  *
  * ```javascript
- * const transaction = client.transaction();
+ * const transaction = client.transaction("write");
  * try {
  *     // do some operations with the transaction here
  *     await transaction.execute({
