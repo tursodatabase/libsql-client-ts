@@ -1,9 +1,8 @@
-import { createClient } from "@libsql/client"
+import { createClient } from "@libsql/client";
 
 async function example() {
-  const url = process.env.URL ?? "file:local.db";
   const config = {
-    url
+    url: process.env.URL ?? "file:local.db",
   };
   const db = createClient(config);
   await db.batch("write", [
@@ -15,4 +14,4 @@ async function example() {
   console.log(rs);
 }
 
-example()
+await example();

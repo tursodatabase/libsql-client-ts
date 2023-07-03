@@ -55,6 +55,11 @@ jobs:
       env:
         "URL": "file:///tmp/test.db"
 
+    - name: "Test example"
+      run: "node examples/example.js"
+      env:
+        "URL": "file:///tmp/example.db"
+
   "workers-test":
     name: "Build and test with Cloudflare Workers"
     runs-on: ubuntu-latest
