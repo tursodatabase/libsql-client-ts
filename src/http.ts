@@ -43,11 +43,13 @@ const sqlCacheCapacity = 30;
 
 export class HttpClient implements Client {
     #client: hrana.HttpClient;
+    protocol: "http";
 
     /** @private */
     constructor(url: URL, authToken: string | undefined, intMode: IntMode) {
         this.#client = hrana.openHttp(url, authToken);
         this.#client.intMode = intMode;
+        this.protocol = "http";
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {

@@ -187,6 +187,14 @@ export interface Client {
      * error.
      */
     closed: boolean;
+
+    /** Which protocol does the client use?
+     *
+     * - `"http"` if the client connects over HTTP
+     * - `"ws"` if the client connects over WebSockets
+     * - `"file"` if the client works with a local file
+     */
+    protocol: string;
 }
 
 /** Interactive transaction.

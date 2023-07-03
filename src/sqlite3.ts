@@ -65,6 +65,7 @@ export class Sqlite3Client implements Client {
     #options: Database.Options;
     #intMode: IntMode;
     closed: boolean;
+    protocol: "file";
 
     /** @private */
     constructor(path: string, options: Database.Options, intMode: IntMode) {
@@ -72,6 +73,7 @@ export class Sqlite3Client implements Client {
         this.#options = options;
         this.#intMode = intMode;
         this.closed = false;
+        this.protocol = "file";
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {

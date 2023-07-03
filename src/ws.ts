@@ -92,6 +92,7 @@ export class WsClient implements Client {
     // If defined, this is a connection that will be used in the future, once it is ready.
     #futureConnState: ConnState | undefined;
     closed: boolean;
+    protocol: "ws";
 
     /** @private */
     constructor(client: hrana.WsClient, url: URL, authToken: string | undefined, intMode: IntMode) {
@@ -101,6 +102,7 @@ export class WsClient implements Client {
         this.#connState = this.#openConn(client);
         this.#futureConnState = undefined;
         this.closed = false;
+        this.protocol = "ws";
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
