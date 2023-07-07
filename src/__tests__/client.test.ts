@@ -115,30 +115,30 @@ describe("execute()", () => {
     }));
 
     test("rowsAffected with INSERT", withClient(async (c) => {
-        await c.batch("write", [
+        await c.batch([
             "DROP TABLE IF EXISTS t",
             "CREATE TABLE t (a)",
-        ]);
+        ], "write");
         const rs = await c.execute("INSERT INTO t VALUES (1), (2)");
         expect(rs.rowsAffected).toStrictEqual(2);
     }));
 
     test("rowsAffected with DELETE", withClient(async (c) => {
-        await c.batch("write", [
+        await c.batch([
             "DROP TABLE IF EXISTS t",
             "CREATE TABLE t (a)",
             "INSERT INTO t VALUES (1), (2), (3), (4), (5)",
-        ]);
+        ], "write");
         const rs = await c.execute("DELETE FROM t WHERE a >= 3");
         expect(rs.rowsAffected).toStrictEqual(3);
     }));
 
     test("lastInsertRowid with INSERT", withClient(async (c) => {
-        await c.batch("write", [
+        await c.batch([
             "DROP TABLE IF EXISTS t",
             "CREATE TABLE t (a)",
             "INSERT INTO t VALUES ('one'), ('two')",
-        ]);
+        ], "write");
         const insertRs = await c.execute("INSERT INTO t VALUES ('three')");
         expect(insertRs.lastInsertRowid).not.toBeUndefined();
         const selectRs = await c.execute({
@@ -149,10 +149,10 @@ describe("execute()", () => {
     }));
 
     test("rows from INSERT RETURNING", withClient(async (c) => {
-        await c.batch("write", [
+        await c.batch([
             "DROP TABLE IF EXISTS t",
             "CREATE TABLE t (a)",
-        ]);
+        ], "write");
 
         const rs = await c.execute("INSERT INTO t VALUES (1) RETURNING 42 AS x, 'foo' AS y");
         expect(rs.columns).toStrictEqual(["x", "y"]);
@@ -161,11 +161,11 @@ describe("execute()", () => {
     }));
 
     (server != "test_v1" ? test : test.skip)("rowsAffected with WITH INSERT", withClient(async (c) => {
-        await c.batch("write", [
+        await c.batch([
             "DROP TABLE IF EXISTS t",
             "CREATE TABLE t (a)",
             "INSERT INTO t VALUES (1), (2), (3)",
-        ]);
+        ], "write");
 
         const rs = await c.execute(`
             WITH x(a) AS (SELECT 2*a FROM t)
@@ -331,12 +331,12 @@ describe("arguments", () => {
 
 describe("batch()", () => {
     test("multiple queries", withClient(async (c) => {
-        const rss = await c.batch("read", [
+        const rss = await c.batch([
             "SELECT 1+1",
             "SELECT 1 AS one, 2 AS two",
             {sql: "SELECT ?", args: ["boomerang"]},
             {sql: "VALUES (?), (?)", args: ["big", "ben"]},
-        ]);
+        ], "read");
 
         expect(rss.length).toStrictEqual(4);
         const [rs0, rs1, rs2, rs3] = rss;
@@ -356,7 +356,7 @@ describe("batch()", () => {
     }));
 
     test("statements are executed sequentially", withClient(async (c) => {
-        const rss = await c.batch("write", [
+        const rss = await c.batch([
             /* 0 */ "DROP TABLE IF EXISTS t",
             /* 1 */ "CREATE TABLE t (a, b)",
             /* 2 */ "INSERT INTO t VALUES (1, 'one')",
@@ -364,7 +364,7 @@ describe("batch()", () => {
             /* 4 */ "INSERT INTO t VALUES (2, 'two')",
             /* 5 */ "SELECT * FROM t ORDER BY a",
             /* 6 */ "DROP TABLE t",
-        ]);
+        ], "write");
 
         expect(rss.length).toStrictEqual(7);
         expect(rss[3].rows).toEqual([
@@ -377,24 +377,24 @@ describe("batch()", () => {
     }));
 
     test("statements are executed in a transaction", withClient(async (c) => {
-        await c.batch("write", [
+        await c.batch([
             "DROP TABLE IF EXISTS t1",
             "DROP TABLE IF EXISTS t2",
             "CREATE TABLE t1 (a)",
             "CREATE TABLE t2 (a)",
-        ]);
+        ], "write");
 
         const n = 100;
         const promises = [];
         for (let i = 0; i < n; ++i) {
             const ii = i;
             promises.push((async () => {
-                const rss = await c.batch("write", [
+                const rss = await c.batch([
                     {sql: "INSERT INTO t1 VALUES (?)", args: [ii]},
                     {sql: "INSERT INTO t2 VALUES (?)", args: [ii * 10]},
                     "SELECT SUM(a) FROM t1",
                     "SELECT SUM(a) FROM t2",
-                ]);
+                ], "write");
 
                 const sum1 = rss[2].rows[0][0] as number;
                 const sum2 = rss[3].rows[0][0] as number;
@@ -410,21 +410,21 @@ describe("batch()", () => {
     }), 10000);
 
     test("error in batch", withClient(async (c) => {
-        await expect(c.batch("read", [
+        await expect(c.batch([
             "SELECT 1+1",
             "SELECT foobar",
-        ])).rejects.toBeLibsqlError();
+        ], "read")).rejects.toBeLibsqlError();
     }));
 
     test("error in batch rolls back transaction", withClient(async (c) => {
         await c.execute("DROP TABLE IF EXISTS t");
         await c.execute("CREATE TABLE t (a)");
         await c.execute("INSERT INTO t VALUES ('one')");
-        await expect(c.batch("write", [
+        await expect(c.batch([
             "INSERT INTO t VALUES ('two')",
             "SELECT foobar",
             "INSERT INTO t VALUES ('three')",
-        ])).rejects.toBeLibsqlError();
+        ], "write")).rejects.toBeLibsqlError();
 
         const rs = await c.execute("SELECT COUNT(*) FROM t");
         expect(rs.rows[0][0]).toStrictEqual(1);
@@ -435,7 +435,7 @@ describe("batch()", () => {
         for (let i = 0; i < 1000; ++i) {
             stmts.push(`SELECT ${i}`);
         }
-        const rss = await c.batch("read", stmts);
+        const rss = await c.batch(stmts, "read");
         for (let i = 0; i < stmts.length; ++i) {
             expect(rss[i].rows[0][0]).toStrictEqual(i);
         }
@@ -452,7 +452,7 @@ describe("batch()", () => {
             }
         }
 
-        const rss = await c.batch("read", stmts);
+        const rss = await c.batch(stmts, "read");
         for (let i = 0; i < n; ++i) {
             for (let j = 0; j < m; ++j) {
                 const rs = rss[i*m + j];
@@ -463,12 +463,12 @@ describe("batch()", () => {
     }));
     
     test("deferred batch", withClient(async (c) => {
-        const rss = await c.batch("deferred", [
+        const rss = await c.batch([
             "SELECT 1+1",
             "DROP TABLE IF EXISTS t",
             "CREATE TABLE t (a)",
             "INSERT INTO t VALUES (21) RETURNING 2*a",
-        ]);
+        ], "deferred");
 
         expect(rss.length).toStrictEqual(4);
         const [rs0, _rs1, _rs2, rs3] = rss;
@@ -484,11 +484,11 @@ describe("batch()", () => {
         await c.execute("DROP TABLE IF EXISTS t");
         await c.execute("CREATE TABLE t (a)");
 
-        await expect(c.batch("write", [
+        await expect(c.batch([
             "INSERT INTO t VALUES (1), (2), (3)",
             "ROLLBACK",
             "INSERT INTO t VALUES (4), (5)",
-        ])).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
+        ], "write")).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
 
         const rs = await c.execute("SELECT COUNT(*) FROM t");
         expect(rs.rows[0][0]).toStrictEqual(0);
@@ -511,10 +511,10 @@ describe("transaction()", () => {
     }));
 
     test("commit()", withClient(async (c) => {
-        await c.batch("write", [
+        await c.batch([
             "DROP TABLE IF EXISTS t",
             "CREATE TABLE t (a)",
-        ]);
+        ], "write");
 
         const txn = await c.transaction("write");
         await txn.execute("INSERT INTO t VALUES ('one')");
@@ -529,10 +529,10 @@ describe("transaction()", () => {
     }));
 
     test("rollback()", withClient(async (c) => {
-        await c.batch("write", [
+        await c.batch([
             "DROP TABLE IF EXISTS t",
             "CREATE TABLE t (a)",
-        ]);
+        ], "write");
 
         const txn = await c.transaction("write");
         await txn.execute("INSERT INTO t VALUES ('one')");
@@ -547,10 +547,10 @@ describe("transaction()", () => {
     }));
 
     test("close()", withClient(async (c) => {
-        await c.batch("write", [
+        await c.batch([
             "DROP TABLE IF EXISTS t",
             "CREATE TABLE t (a)",
-        ]);
+        ], "write");
 
         const txn = await c.transaction("write");
         await txn.execute("INSERT INTO t VALUES ('one')");
@@ -564,10 +564,10 @@ describe("transaction()", () => {
     }));
 
     test("error does not rollback", withClient(async (c) => {
-        await c.batch("write", [
+        await c.batch([
             "DROP TABLE IF EXISTS t",
             "CREATE TABLE t (a)",
-        ]);
+        ], "write");
 
         const txn = await c.transaction("write");
         await expect(txn.execute("SELECT foo")).rejects.toBeLibsqlError();
@@ -823,7 +823,7 @@ const hasNetworkErrors = isWs && (server == "test_v1" || server == "test_v2");
         }));
 
         test(`${title} in batch()`, withClient(async (c) => {
-            await expect(c.batch("read", ["SELECT 42", sql, "SELECT 24"]))
+            await expect(c.batch(["SELECT 42", sql, "SELECT 24"], "read"))
                 .rejects.toBeLibsqlError("HRANA_WEBSOCKET_ERROR");
 
             expect((await c.execute("SELECT 42")).rows[0][0]).toStrictEqual(42);

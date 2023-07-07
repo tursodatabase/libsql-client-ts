@@ -8,7 +8,7 @@ import type {
 import { LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
-import { supportedUrlLink, transactionModeToBegin, extractBatchArgs } from "./util.js";
+import { supportedUrlLink, transactionModeToBegin } from "./util.js";
 
 export * from "./api.js";
 
@@ -86,11 +86,7 @@ export class Sqlite3Client implements Client {
         }
     }
 
-    batch(mode: TransactionMode, stmts: Array<InStatement>): Promise<Array<ResultSet>>;
-    batch(stmts: Array<InStatement>): Promise<Array<ResultSet>>;
-    async batch(arg1: unknown, arg2: unknown = undefined): Promise<Array<ResultSet>> {
-        const {mode, stmts} = extractBatchArgs(arg1, arg2);
-
+    async batch(stmts: Array<InStatement>, mode: TransactionMode = "deferred"): Promise<Array<ResultSet>> {
         this.#checkNotClosed();
         const db = new Database(this.#path, this.#options);
         try {

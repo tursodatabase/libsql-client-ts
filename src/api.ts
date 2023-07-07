@@ -69,7 +69,7 @@ export interface Client {
      * transaction. This ensures that the batch is applied atomically: either all or no changes are applied.
      *
      * The `mode` parameter selects the transaction mode for the batch; please see {@link TransactionMode} for
-     * details.
+     * details. The default transaction mode is `"deferred"`.
      * 
      * If any of the statements in the batch fails with an error, the batch is aborted, the transaction is
      * rolled back and the returned promise is rejected.
@@ -78,7 +78,7 @@ export interface Client {
      * {@link transaction} method.
      *
      * ```javascript
-     * const rss = await client.batch("write", [
+     * const rss = await client.batch([
      *     // batch statement without arguments
      *     "DELETE FROM books WHERE name LIKE '%Crusoe'",
      *
@@ -93,19 +93,10 @@ export interface Client {
      *         sql: "UPDATE books SET name = $new WHERE name = $old",
      *         args: {old: "First Impressions", new: "Pride and Prejudice"},
      *     },
-     * ]);
+     * ], "write");
      * ```
      */
-    batch(mode: TransactionMode, stmts: Array<InStatement>): Promise<Array<ResultSet>>;
-
-    /** Execute a batch of SQL statement in the `"write"` transaction mode.
-     *
-     * Please see {@link batch} for details.
-     *
-     * @deprecated Please specify the `mode` explicitly. The default `"write"` will be removed in the next
-     * major release.
-     */
-    batch(stmts: Array<InStatement>): Promise<Array<ResultSet>>;
+    batch(stmts: Array<InStatement>, mode?: TransactionMode): Promise<Array<ResultSet>>;
 
     /** Start an interactive transaction.
      *
@@ -114,7 +105,7 @@ export interface Client {
      * interactive transactions have higher latency.
      *
      * The `mode` parameter selects the transaction mode for the interactive transaction; please see {@link
-     * TransactionMode} for details.
+     * TransactionMode} for details. The default transaction mode is `"deferred"`.
      *
      * You **must** make sure that the returned {@link Transaction} object is closed, by calling {@link
      * Transaction.close}, {@link Transaction.commit} or {@link Transaction.rollback}. The best practice is
@@ -141,7 +132,7 @@ export interface Client {
      * }
      * ```
      */
-    transaction(mode: TransactionMode): Promise<Transaction>;
+    transaction(mode?: TransactionMode): Promise<Transaction>;
 
     /** Start an interactive transaction in `"write"` mode.
      *
@@ -316,7 +307,8 @@ export interface Transaction {
  * failures.
  *
  * If your transaction includes only read statements, `"read"` is always preferred over `"deferred"` or
- * `"write"`, because `"read"` transactions can be executed on a replica and don't block other transactions.
+ * `"write"`, because `"read"` transactions can be executed more efficiently and don't block other
+ * transactions.
  *
  * If your transaction includes both read and write statements, you should be using the `"write"` mode most of
  * the time. Use the `"deferred"` mode only if you prefer to fail the write transaction instead of waiting for

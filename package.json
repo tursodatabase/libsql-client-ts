@@ -1,6 +1,6 @@
 {
     "name": "@libsql/client",
-    "version": "0.2.3-pre",
+    "version": "0.3.0-pre",
     "keywords": [
         "libsql",
         "database",

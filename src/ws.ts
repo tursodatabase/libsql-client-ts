@@ -10,7 +10,7 @@ import {
 } from "./hrana.js";
 import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "./uri.js";
-import { supportedUrlLink, extractBatchArgs } from "./util.js";
+import { supportedUrlLink } from "./util.js";
 
 export * from "./api.js";
 
@@ -124,11 +124,7 @@ export class WsClient implements Client {
         }
     }
 
-    batch(mode: TransactionMode, stmts: Array<InStatement>): Promise<Array<ResultSet>>;
-    batch(stmts: Array<InStatement>): Promise<Array<ResultSet>>;
-    async batch(arg1: unknown, arg2: unknown = undefined): Promise<Array<ResultSet>> {
-        const {mode, stmts} = extractBatchArgs(arg1, arg2);
-
+    async batch(stmts: Array<InStatement>, mode: TransactionMode = "deferred"): Promise<Array<ResultSet>> {
         const streamState = await this.#openStream();
         try {
             const hranaStmts = stmts.map(stmtToHrana);
