@@ -1,9 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 -- 2023-07-07
 
-- **Changed the order of parameters to `batch()`**, so that the transaction mode is passed as the second parameter.
-- **Changed the default transaction mode to `"deferred"`**.
+- **Changed the order of parameters to `batch()`**, so that the transaction mode is passed as the second parameter. ([#57](https://github.com/libsql/libsql-client-ts/pull/57))
+- **Changed the default transaction mode to `"deferred"`**. ([#57](https://github.com/libsql/libsql-client-ts/pull/57))
 - Added `Client.protocol` property to find out which protocol the client uses ([#54](https://github.com/libsql/libsql-client-ts/pull/54)).
 
 ## 0.2.2 -- 2023-06-22
