@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.3.0 -- 2023-07-07
 
 - **Changed the order of parameters to `batch()`**, so that the transaction mode is passed as the second parameter. ([#57](https://github.com/libsql/libsql-client-ts/pull/57))
