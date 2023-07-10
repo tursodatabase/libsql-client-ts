@@ -269,6 +269,50 @@ describe("values", () => {
     }));
 });
 
+describe("ResultSet.toJSON()", () => {
+    test("simple result set", withClient(async (c) => {
+        const rs = await c.execute("SELECT 1 AS a");
+        const json = rs.toJSON();
+        expect(json["lastInsertRowid"] === null || json["lastInsertRowid"] === "0").toBe(true);
+        expect(json["columns"]).toStrictEqual(["a"]);
+        expect(json["rows"]).toStrictEqual([[1]]);
+        expect(json["rowsAffected"]).toStrictEqual(0);
+
+        const str = JSON.stringify(rs);
+        expect(
+            str === '{"columns":["a"],"rows":[[1]],"rowsAffected":0,"lastInsertRowid":null}' ||
+            str === '{"columns":["a"],"rows":[[1]],"rowsAffected":0,"lastInsertRowid":"0"}'
+        ).toBe(true);
+    }));
+
+    test("lastInsertRowid", withClient(async (c) => {
+        await c.execute("DROP TABLE IF EXISTS t");
+        await c.execute("CREATE TABLE t (id INTEGER PRIMARY KEY NOT NULL)");
+        const rs = await c.execute("INSERT INTO t VALUES (12345)");
+        expect(rs.toJSON()).toStrictEqual({
+            "columns": [],
+            "rows": [],
+            "rowsAffected": 1,
+            "lastInsertRowid": "12345",
+        });
+    }));
+
+    test("row values", withClient(async (c) => {
+        const rs = await c.execute(
+            "SELECT 42 AS integer, 0.5 AS float, NULL AS \"null\", 'foo' AS text, X'626172' AS blob",
+        );
+        const json = rs.toJSON();
+        expect(json["columns"]).toStrictEqual(["integer", "float", "null", "text", "blob"]);
+        expect(json["rows"]).toStrictEqual([[42, 0.5, null, "foo", "YmFy"]]);
+    }));
+
+    test("bigint row value", withClient(async (c) => {
+        const rs = await c.execute("SELECT 42");
+        const json = rs.toJSON();
+        expect(json["rows"]).toStrictEqual([["42"]]);
+    }, {intMode: "bigint"}));
+});
+
 describe("arguments", () => {
     test("? arguments", withClient(async (c) => {
         const rs = await c.execute({
