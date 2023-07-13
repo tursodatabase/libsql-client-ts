@@ -8,7 +8,7 @@ import type {
 import { LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
-import { supportedUrlLink, transactionModeToBegin } from "./util.js";
+import { supportedUrlLink, transactionModeToBegin, ResultSetImpl } from "./util.js";
 
 export * from "./api.js";
 
@@ -226,12 +226,12 @@ function executeStmt(db: Database.Database, stmt: InStatement, intMode: IntMode)
             // TODO: can we get this info from better-sqlite3?
             const rowsAffected = 0;
             const lastInsertRowid = undefined;
-            return { columns, rows, rowsAffected, lastInsertRowid };
+            return new ResultSetImpl(columns, rows, rowsAffected, lastInsertRowid);
         } else {
             const info = sqlStmt.run(args);
             const rowsAffected = info.changes;
             const lastInsertRowid = BigInt(info.lastInsertRowid);
-            return { columns: [], rows: [], rowsAffected, lastInsertRowid };
+            return new ResultSetImpl([], [], rowsAffected, lastInsertRowid);
         }
     } catch (e) {
         throw mapSqliteError(e);

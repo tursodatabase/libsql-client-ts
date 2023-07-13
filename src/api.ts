@@ -355,6 +355,12 @@ export interface ResultSet {
      * table.
      */
     lastInsertRowid: bigint | undefined;
+
+    /** Converts the result set to JSON.
+     *
+     * This is used automatically by `JSON.stringify()`, but you can also call it explicitly.
+     */
+    toJSON(): any;
 }
 
 /** Row returned from an SQL statement.
