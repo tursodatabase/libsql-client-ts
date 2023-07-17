@@ -1,4 +1,4 @@
-import * as libsql from "@libsql/client/web";
+import * as libsql from "@libsql/client";
 
 export default {
     async fetch(request, env, ctx) {
