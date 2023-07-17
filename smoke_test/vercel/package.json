@@ -1,0 +1,9 @@
+{
+    "name": "smoke-test",
+    "dependencies": {
+        "@types/node": "20.4.2",
+        "localtunnel": "^2.0.2",
+        "vercel": "^31.0.3",
+        "typescript": "^4.9.4"
+    }
+}
