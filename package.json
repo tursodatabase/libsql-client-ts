@@ -28,7 +28,13 @@
     "exports": {
         ".": {
             "types": "./lib-esm/index.d.ts",
-            "import": "./lib-esm/index.js",
+            "import": {
+                "workerd": "./lib-esm/web.js",
+                "deno": "./lib-esm/web.js",
+                "edge-light": "./lib-esm/web.js",
+                "netlify": "./lib-esm/web.js",
+                "default": "./lib-esm/index.js"
+            },
             "require": "./lib-cjs/index.js"
         },
         "./http": {

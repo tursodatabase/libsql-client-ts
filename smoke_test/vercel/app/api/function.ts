@@ -1,4 +1,4 @@
-import * as libsql from "@libsql/client/web";
+import * as libsql from "@libsql/client";
 
 export const config = {
     runtime: "edge",
