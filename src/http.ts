@@ -36,7 +36,7 @@ export function _createClient(config: ExpandedConfig): Client {
     }
 
     const url = encodeBaseUrl(config.scheme, config.authority, config.path);
-    return new HttpClient(url, config.authToken, config.intMode);
+    return new HttpClient(url, config.authToken, config.intMode, config.fetch);
 }
 
 const sqlCacheCapacity = 30;
@@ -46,8 +46,13 @@ export class HttpClient implements Client {
     protocol: "http";
 
     /** @private */
-    constructor(url: URL, authToken: string | undefined, intMode: IntMode) {
-        this.#client = hrana.openHttp(url, authToken);
+    constructor(
+        url: URL,
+        authToken: string | undefined,
+        intMode: IntMode,
+        customFetch: unknown | undefined,
+    ) {
+        this.#client = hrana.openHttp(url, authToken, customFetch);
         this.#client.intMode = intMode;
         this.protocol = "http";
     }

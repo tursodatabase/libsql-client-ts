@@ -11,6 +11,7 @@ export interface ExpandedConfig {
     path: string;
     authToken: string | undefined;
     intMode: IntMode;
+    fetch: unknown | undefined;
 }
 
 export type ExpandedScheme = "wss" | "ws" | "https" | "http" | "file";
@@ -99,5 +100,6 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
         path: uri.path,
         authToken,
         intMode,
+        fetch: config.fetch,
     };
 }
