@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 -- 2023-07-20
+
+- Added `ResultSet.toJSON()` to provide better JSON serialization. ([#61](https://github.com/libsql/libsql-client-ts/pull/61))
+- Added conditional exports to `package.json` that redirect the default import of `@libsql/client` to `@libsql/client/web` on a few supported edge platforms. ([#65](https://github.com/libsql/libsql-client-ts/pull/65))
+- Added `Config.fetch` to support overriding the `fetch` implementation from `@libsql/isomorphic-fetch`. ([#66](https://github.com/libsql/libsql-client-ts/pull/66))
 
 ## 0.3.0 -- 2023-07-07
 
