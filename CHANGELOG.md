@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.3.1 -- 2023-07-20
 
 - Added `ResultSet.toJSON()` to provide better JSON serialization. ([#61](https://github.com/libsql/libsql-client-ts/pull/61))
