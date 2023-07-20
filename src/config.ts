@@ -11,7 +11,7 @@ export interface ExpandedConfig {
     path: string;
     authToken: string | undefined;
     intMode: IntMode;
-    fetch: unknown | undefined;
+    fetch: Function | undefined;
 }
 
 export type ExpandedScheme = "wss" | "ws" | "https" | "http" | "file";

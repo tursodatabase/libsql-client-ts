@@ -50,7 +50,7 @@ export class HttpClient implements Client {
         url: URL,
         authToken: string | undefined,
         intMode: IntMode,
-        customFetch: unknown | undefined,
+        customFetch: Function | undefined,
     ) {
         this.#client = hrana.openHttp(url, authToken, customFetch);
         this.#client.intMode = intMode;

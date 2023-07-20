@@ -36,7 +36,7 @@ export interface Config {
      * `@libsql/isomorphic-fetch`, and it must return a promise that resolves to an object that is compatible
      * with the Web `Response`.
      */
-    fetch?: unknown;
+    fetch?: Function;
 }
 
 /** Representation of integers from database as JavaScript values. See {@link Config.intMode}. */
