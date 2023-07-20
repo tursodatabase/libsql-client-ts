@@ -28,6 +28,15 @@ export interface Config {
      * - `"string"`: returns SQLite integers as strings.
      */
     intMode?: IntMode;
+
+    /** Custom `fetch` function to use for the HTTP client.
+     *
+     * By default, the HTTP client uses `fetch` from the `@libsql/isomorphic-fetch` package, but you can pass
+     * your own function here. The argument to this function will be `Request` from
+     * `@libsql/isomorphic-fetch`, and it must return a promise that resolves to an object that is compatible
+     * with the Web `Response`.
+     */
+    fetch?: Function;
 }
 
 /** Representation of integers from database as JavaScript values. See {@link Config.intMode}. */

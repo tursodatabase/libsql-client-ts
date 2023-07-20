@@ -1,5 +1,6 @@
 import { expect } from "@jest/globals";
 import type { MatcherFunction } from "expect";
+import { fetch, Request, Response } from "@libsql/isomorphic-fetch";
 
 import "./helpers.js";
 
@@ -872,5 +873,23 @@ const hasNetworkErrors = isWs && (server == "test_v1" || server == "test_v2");
 
             expect((await c.execute("SELECT 42")).rows[0][0]).toStrictEqual(42);
         }));
+    }
+});
+
+(isHttp ? test : test.skip)("custom fetch", async () => {
+    let fetchCalledCount = 0;
+    function customFetch(request: Request): Promise<Response> {
+        expect(request).toBeInstanceOf(Request);
+        fetchCalledCount += 1;
+        return fetch(request);
+    }
+
+    const c = createClient({...config, fetch: customFetch});
+    try {
+        const rs = await c.execute("SELECT 42");
+        expect(rs.rows[0][0]).toStrictEqual(42);
+        expect(fetchCalledCount).toStrictEqual(1);
+    } finally {
+        c.close();
     }
 });
