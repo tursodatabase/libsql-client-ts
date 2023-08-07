@@ -263,6 +263,7 @@ async def handle_post_pipeline(req):
         elif req["type"] == "close":
             stream.conn.close()
             stream.conn = None
+            return {"type": "close"}
         else:
             raise RuntimeError(f"Unknown req: {req!r}")
 
