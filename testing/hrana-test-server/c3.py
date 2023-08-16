@@ -48,6 +48,8 @@ lib.sqlite3_limit.argtypes = (c_sqlite3_p, c_int, c_int,)
 lib.sqlite3_limit.restype = c_int
 lib.sqlite3_busy_timeout.argtypes = (c_sqlite3_p, c_int,)
 lib.sqlite3_busy_timeout.restype = c_int
+lib.sqlite3_get_autocommit.argtypes = (c_sqlite3_p,)
+lib.sqlite3_get_autocommit.restype = c_int
 
 lib.sqlite3_prepare_v2.argtypes = (
     c_sqlite3_p, c_void_p, c_int, POINTER(c_sqlite3_stmt_p), POINTER(c_void_p),)
@@ -200,6 +202,10 @@ class Conn:
     def busy_timeout(self, ms):
         assert self.db_ptr is not None
         lib.sqlite3_busy_timeout(self.db_ptr, ms)
+
+    def get_autocommit(self):
+        assert self.db_ptr is not None
+        return lib.sqlite3_get_autocommit(self.db_ptr) != 0
 
 class Stmt:
     def __init__(self, conn, stmt_ptr):
