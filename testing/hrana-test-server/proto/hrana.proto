@@ -1,0 +1,121 @@
+syntax = "proto3";
+package hrana;
+
+message Error {
+  string message = 1;
+  optional string code = 2;
+}
+
+message Stmt {
+  optional string sql = 1;
+  optional int32 sql_id = 2;
+  repeated Value args = 3;
+  repeated NamedArg named_args = 4;
+  optional bool want_rows = 5;
+}
+
+message NamedArg {
+  string name = 1;
+  Value value = 2;
+}
+
+message StmtResult {
+  repeated Col cols = 1;
+  repeated Row rows = 2;
+  uint64 affected_row_count = 3;
+  optional sint64 last_insert_rowid = 4;
+}
+
+message Col {
+  optional string name = 1;
+  optional string decltype = 2;
+}
+
+message Row {
+  repeated Value values = 1;
+}
+
+message Batch {
+  repeated BatchStep steps = 1;
+}
+
+message BatchStep {
+  optional BatchCond condition = 1;
+  Stmt stmt = 2;
+}
+
+message BatchCond {
+  oneof cond {
+    uint32 step_ok = 1;
+    uint32 step_error = 2;
+    BatchCond not = 3;
+    CondList and = 4;
+    CondList or = 5;
+    IsAutocommit is_autocommit = 6;
+  }
+
+  message CondList {
+    repeated BatchCond conds = 1;
+  }
+
+  message IsAutocommit {
+  }
+}
+
+message BatchResult {
+  map<uint32, StmtResult> step_results = 1;
+  map<uint32, Error> step_errors = 2;
+}
+
+message CursorEntry {
+  oneof entry {
+    StepBeginEntry step_begin = 1;
+    StepEndEntry step_end = 2;
+    StepErrorEntry step_error = 3;
+    Row row = 4;
+    Error error = 5;
+  }
+}
+
+message StepBeginEntry {
+  uint32 step = 1;
+  repeated Col cols = 2;
+}
+
+message StepEndEntry {
+  uint64 affected_row_count = 1;
+  optional sint64 last_insert_rowid = 2;
+}
+
+message StepErrorEntry {
+  uint32 step = 1;
+  Error error = 2;
+}
+
+message DescribeResult {
+  repeated DescribeParam params = 1;
+  repeated DescribeCol cols = 2;
+  bool is_explain = 3;
+  bool is_readonly = 4;
+}
+
+message DescribeParam {
+  optional string name = 1;
+}
+
+message DescribeCol {
+  string name = 1;
+  optional string decltype = 2;
+}
+
+message Value {
+  oneof value {
+    Null null = 1;
+    sint64 integer = 2;
+    double float = 3;
+    string text = 4;
+    bytes blob = 5;
+  }
+
+  message Null {}
+}

@@ -1,0 +1,171 @@
+syntax = "proto3";
+package hrana.ws;
+import "hrana.proto";
+
+message ClientMsg {
+  oneof msg {
+    HelloMsg hello = 1;
+    RequestMsg request = 2;
+  }
+}
+
+message ServerMsg {
+  oneof msg {
+    HelloOkMsg hello_ok = 1;
+    HelloErrorMsg hello_error = 2;
+    ResponseOkMsg response_ok = 3;
+    ResponseErrorMsg response_error = 4;
+  }
+}
+
+message HelloMsg {
+  optional string jwt = 1;
+}
+
+message HelloOkMsg {
+}
+
+message HelloErrorMsg {
+  Error error = 1;
+}
+
+message RequestMsg {
+  int32 request_id = 1;
+  oneof request {
+    OpenStreamReq open_stream = 2;
+    CloseStreamReq close_stream = 3;
+    ExecuteReq execute = 4;
+    BatchReq batch = 5;
+    OpenCursorReq open_cursor = 6;
+    CloseCursorReq close_cursor = 7;
+    FetchCursorReq fetch_cursor = 8;
+    SequenceReq sequence = 9;
+    DescribeReq describe = 10;
+    StoreSqlReq store_sql = 11;
+    CloseSqlReq close_sql = 12;
+    GetAutocommitReq get_autocommit = 13;
+  }
+}
+
+message ResponseOkMsg {
+  int32 request_id = 1;
+  oneof response {
+    OpenStreamResp open_stream = 2;
+    CloseStreamResp close_stream = 3;
+    ExecuteResp execute = 4;
+    BatchResp batch = 5;
+    OpenCursorResp open_cursor = 6;
+    CloseCursorResp close_cursor = 7;
+    FetchCursorResp fetch_cursor = 8;
+    SequenceResp sequence = 9;
+    DescribeResp describe = 10;
+    StoreSqlResp store_sql = 11;
+    CloseSqlResp close_sql = 12;
+    GetAutocommitResp get_autocommit = 13;
+  }
+}
+
+message ResponseErrorMsg {
+  int32 request_id = 1;
+  Error error = 2;
+}
+
+message OpenStreamReq {
+  int32 stream_id = 1;
+}
+
+message OpenStreamResp {
+}
+
+message CloseStreamReq {
+  int32 stream_id = 1;
+}
+
+message CloseStreamResp {
+}
+
+message ExecuteReq {
+  int32 stream_id = 1;
+  Stmt stmt = 2;
+}
+
+message ExecuteResp {
+  StmtResult result = 1;
+}
+
+message BatchReq {
+  int32 stream_id = 1;
+  Batch batch = 2;
+}
+
+message BatchResp {
+  BatchResult result = 1;
+}
+
+message OpenCursorReq {
+  int32 stream_id = 1;
+  int32 cursor_id = 2;
+  Batch batch = 3;
+}
+
+message OpenCursorResp {
+}
+
+message CloseCursorReq {
+  int32 cursor_id = 1;
+}
+
+message CloseCursorResp {
+}
+
+message FetchCursorReq {
+  int32 cursor_id = 1;
+  uint32 max_count = 2;
+}
+
+message FetchCursorResp {
+  repeated CursorEntry entries = 1;
+  bool done = 2;
+}
+
+message StoreSqlReq {
+  int32 sql_id = 1;
+  string sql = 2;
+}
+
+message StoreSqlResp {
+}
+
+message CloseSqlReq {
+  int32 sql_id = 1;
+}
+
+message CloseSqlResp {
+}
+
+message SequenceReq {
+  int32 stream_id = 1;
+  optional string sql = 2;
+  optional int32 sql_id = 3;
+}
+
+message SequenceResp {
+}
+
+message DescribeReq {
+  int32 stream_id = 1;
+  optional string sql = 2;
+  optional int32 sql_id = 3;
+}
+
+message DescribeResp {
+  DescribeResult result = 1;
+}
+
+message GetAutocommitReq {
+  int32 stream_id = 1;
+}
+
+message GetAutocommitResp {
+  bool is_autocommit = 1;
+}

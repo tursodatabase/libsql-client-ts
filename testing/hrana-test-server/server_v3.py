@@ -12,9 +12,14 @@ import tempfile
 import aiohttp.web
 
 import c3
+import from_proto
+import to_proto
+import proto.hrana.ws_pb2
 
 logger = logging.getLogger("server")
 persistent_db_file = os.getenv("PERSISTENT_DB")
+encoding = os.getenv("ENCODING", "json")
+assert encoding in ("json", "protobuf")
 
 @dataclasses.dataclass
 class HttpStream:
@@ -64,7 +69,11 @@ async def main(command):
     return code
 
 async def handle_get_index(req):
-    ws = aiohttp.web.WebSocketResponse(protocols=("hrana3",))
+    protocol = {
+        "json": "hrana3",
+        "protobuf": "hrana3-protobuf",
+    }[encoding];
+    ws = aiohttp.web.WebSocketResponse(protocols=(protocol,))
     if ws.can_prepare(req):
         await ws.prepare(req)
         try:
@@ -79,7 +88,14 @@ async def handle_websocket(app, ws):
     async def recv_msg():
         ws_msg = await ws.receive()
         if ws_msg.type == aiohttp.WSMsgType.TEXT:
+            assert encoding == "json"
             msg = json.loads(ws_msg.data)
+            return msg
+        elif ws_msg.type == aiohttp.WSMsgType.BINARY:
+            assert encoding == "protobuf"
+            msg_proto = proto.hrana.ws_pb2.ClientMsg()
+            msg_proto.ParseFromString(ws_msg.data)
+            msg = from_proto.ws_client_msg(msg_proto)
             return msg
         elif ws_msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED):
             return None
@@ -87,8 +103,16 @@ async def handle_websocket(app, ws):
             raise RuntimeError(f"Unknown websocket message: {msg!r}")
 
     async def send_msg(msg):
-        msg_str = json.dumps(msg)
-        await ws.send_str(msg_str)
+        if encoding == "json":
+            msg_str = json.dumps(msg)
+            await ws.send_str(msg_str)
+        elif encoding == "protobuf":
+            msg_proto = proto.hrana.ws_pb2.ServerMsg()
+            to_proto.ws_server_msg(msg_proto, msg)
+            msg_bytes = msg_proto.SerializeToString()
+            await ws.send_bytes(msg_bytes)
+        else:
+            assert False
 
     WsStream = collections.namedtuple("WsStream", ["conn"])
     streams = {}
