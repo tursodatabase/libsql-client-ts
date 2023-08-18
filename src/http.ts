@@ -80,6 +80,7 @@ export class HttpClient implements Client {
     async batch(stmts: Array<InStatement>, mode: TransactionMode = "deferred"): Promise<Array<ResultSet>> {
         try {
             const hranaStmts = stmts.map(stmtToHrana);
+            const version = await this.#client.getVersion();
 
             // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the batch and
             // close the stream in a single HTTP request.
@@ -92,7 +93,7 @@ export class HttpClient implements Client {
                 sqlCache.apply(hranaStmts);
 
                 const batch = stream.batch();
-                resultsPromise = executeHranaBatch(mode, batch, hranaStmts);
+                resultsPromise = executeHranaBatch(mode, version, batch, hranaStmts);
             } finally {
                 stream.close();
             }
@@ -105,7 +106,8 @@ export class HttpClient implements Client {
 
     async transaction(mode: TransactionMode = "write"): Promise<HttpTransaction> {
         try {
-            return new HttpTransaction(this.#client.openStream(), mode);
+            const version = await this.#client.getVersion();
+            return new HttpTransaction(this.#client.openStream(), mode, version);
         } catch (e) {
             throw mapHranaError(e);
         }
@@ -143,8 +145,8 @@ export class HttpTransaction extends HranaTransaction implements Transaction {
     #sqlCache: SqlCache;
 
     /** @private */
-    constructor(stream: hrana.HttpStream, mode: TransactionMode) {
-        super(mode);
+    constructor(stream: hrana.HttpStream, mode: TransactionMode, version: hrana.ProtocolVersion) {
+        super(mode, version);
         this.#stream = stream;
         this.#sqlCache = new SqlCache(stream, sqlCacheCapacity);
     }

@@ -35,30 +35,28 @@ jobs:
     - name: "Build"
       run: "npm run build"
 
-    - name: "Test Hrana 1 over WebSockets"
+    - name: "Test Hrana 1 over WebSocket"
       run: "python hrana-test-server/server_v1.py npm test"
-      env:
-        "URL": "ws://localhost:8080"
-        "SERVER": "test_v1"
-    - name: "Test Hrana 2 over WebSockets"
+      env: {"URL": "ws://localhost:8080", "SERVER": "test_v1"}
+    - name: "Test Hrana 2 over WebSocket"
       run: "python hrana-test-server/server_v2.py npm test"
-      env:
-        "URL": "ws://localhost:8080"
-        "SERVER": "test_v2"
+      env: {"URL": "ws://localhost:8080", "SERVER": "test_v2"}
     - name: "Test Hrana 2 over HTTP"
       run: "python hrana-test-server/server_v2.py npm test"
-      env:
-        "URL": "http://localhost:8080"
-        "SERVER": "test_v2"
+      env: {"URL": "http://localhost:8080", "SERVER": "test_v2"}
+    - name: "Test Hrana 3 over WebSocket"
+      run: "python hrana-test-server/server_v3.py npm test"
+      env: {"URL": "ws://localhost:8080", "SERVER": "test_v3"}
+    - name: "Test Hrana 3 over HTTP"
+      run: "python hrana-test-server/server_v3.py npm test"
+      env: {"URL": "http://localhost:8080", "SERVER": "test_v3"}
     - name: "Test local file"
       run: "npm test"
-      env:
-        "URL": "file:///tmp/test.db"
+      env: {"URL": "file:///tmp/test.db"}
 
     - name: "Test example"
       run: "node examples/example.js"
-      env:
-        "URL": "file:///tmp/example.db"
+      env: {"URL": "file:///tmp/example.db"}
 
   "workers-test":
     name: "Build and test with Cloudflare Workers"
@@ -95,37 +93,37 @@ jobs:
     - name: "Install npm dependencies of the Workers test"
       run: "cd smoke_test/workers && npm link ../.."
 
-    - name: "Local test with Hrana 1 over WebSockets"
+    - name: "Local test with Hrana 1 over WebSocket"
       run: "cd smoke_test/workers && python ../../hrana-test-server/server_v1.py node test.js"
-      env:
-        "LOCAL": "1"
-        "URL": "ws://localhost:8080"
-    - name: "Local test with Hrana 2 over WebSockets"
+      env: {"LOCAL": "1", "URL": "ws://localhost:8080"}
+    - name: "Local test with Hrana 2 over WebSocket"
       run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node test.js"
-      env:
-        "LOCAL": "1"
-        "URL": "ws://localhost:8080"
+      env: {"LOCAL": "1", "URL": "ws://localhost:8080"}
     - name: "Local test with Hrana 2 over HTTP"
       run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node test.js"
-      env:
-        "LOCAL": "1"
-        "URL": "http://localhost:8080"
+      env: {"LOCAL": "1", "URL": "http://localhost:8080"}
+    - name: "Local test with Hrana 3 over WebSocket"
+      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v3.py node test.js"
+      env: {"LOCAL": "1", "URL": "ws://localhost:8080"}
+    - name: "Local test with Hrana 3 over HTTP"
+      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v3.py node test.js"
+      env: {"LOCAL": "1", "URL": "http://localhost:8080"}
 
-    - name: "Non-local test with Hrana 1 over WebSockets"
+    - name: "Non-local test with Hrana 1 over WebSocket"
       run: "cd smoke_test/workers && python ../../hrana-test-server/server_v1.py node test.js"
-      env:
-        "LOCAL": "0"
-        "URL": "ws://localhost:8080"
-    - name: "Non-local test with Hrana 2 over WebSockets"
+      env: {"LOCAL": "0", "URL": "ws://localhost:8080"}
+    - name: "Non-local test with Hrana 2 over WebSocket"
       run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node test.js"
-      env:
-        "LOCAL": "0"
-        "URL": "ws://localhost:8080"
+      env: {"LOCAL": "0", "URL": "ws://localhost:8080"}
     - name: "Non-local test with Hrana 2 over HTTP"
       run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node test.js"
-      env:
-        "LOCAL": "0"
-        "URL": "http://localhost:8080"
+      env: {"LOCAL": "0", "URL": "http://localhost:8080"}
+    - name: "Non-local test with Hrana 3 over WebSocket"
+      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v3.py node test.js"
+      env: {"LOCAL": "0", "URL": "ws://localhost:8080"}
+    - name: "Non-local test with Hrana 3 over HTTP"
+      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v3.py node test.js"
+      env: {"LOCAL": "0", "URL": "http://localhost:8080"}
 
   "vercel-test":
     name: "Build and test with Vercel Edge Functions"
@@ -162,15 +160,18 @@ jobs:
     - name: "Install npm dependencies of the Vercel test"
       run: "cd smoke_test/vercel && npm install"
 
-    - name: "Test with Hrana 1 over WebSockets"
+    - name: "Test with Hrana 1 over WebSocket"
       run: "cd smoke_test/vercel && python ../../hrana-test-server/server_v1.py node test.js"
-      env:
-        "URL": "ws://localhost:8080"
-    - name: "Test with Hrana 2 over WebSockets"
+      env: {"URL": "ws://localhost:8080"}
+    - name: "Test with Hrana 2 over WebSocket"
       run: "cd smoke_test/vercel && python ../../hrana-test-server/server_v2.py node test.js"
-      env:
-        "URL": "ws://localhost:8080"
+      env: {"URL": "ws://localhost:8080"}
     - name: "Test with Hrana 2 over HTTP"
       run: "cd smoke_test/vercel && python ../../hrana-test-server/server_v2.py node test.js"
-      env:
-        "URL": "http://localhost:8080"
+      env: {"URL": "http://localhost:8080"}
+    - name: "Test with Hrana 3 over WebSocket"
+      run: "cd smoke_test/vercel && python ../../hrana-test-server/server_v3.py node test.js"
+      env: {"URL": "ws://localhost:8080"}
+    - name: "Test with Hrana 3 over HTTP"
+      run: "cd smoke_test/vercel && python ../../hrana-test-server/server_v3.py node test.js"
+      env: {"URL": "http://localhost:8080"}

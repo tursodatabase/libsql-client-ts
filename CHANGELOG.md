@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Updated `@libsql/hrana-client` to version 0.5.0, which implements Hrana 3
+
 ## 0.3.1 -- 2023-07-20
 
 - Added `ResultSet.toJSON()` to provide better JSON serialization. ([#61](https://github.com/libsql/libsql-client-ts/pull/61))
