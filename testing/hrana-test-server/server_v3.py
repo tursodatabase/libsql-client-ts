@@ -424,12 +424,12 @@ def execute_stmt(conn, sqls, stmt):
         changes_before = conn.total_changes()
         prepared, sql_rest = conn.prepare(sql)
         if not prepared:
-            raise ResponseError(f"SQL string does not contain a valid statement", "SQL_NO_STATEMENT")
+            raise ResponseError("SQL string does not contain a valid statement", "SQL_NO_STATEMENT")
 
         param_count = prepared.param_count()
 
         if len(sql_rest.strip()) != 0:
-            raise ResponseError(f"SQL string contains more than one statement")
+            raise ResponseError("SQL string contains more than one statement")
 
         args = stmt.get("args", [])
         named_args = stmt.get("named_args", [])
