@@ -44,8 +44,8 @@ def ws_batch_resp(p, m):
     batch_result(p.result, m["result"])
 
 def ws_fetch_cursor_resp(p, m):
-    for entry in m["entries"]:
-        cursor_entry(p.entries.add(), entry)
+    for mm in m["entries"]:
+        cursor_entry(p.entries.add(), mm)
     p.done = m["done"]
 
 def ws_describe_resp(p, m):
@@ -53,6 +53,47 @@ def ws_describe_resp(p, m):
 
 def ws_get_autocommit_resp(p, m):
     p.is_autocommit = m["is_autocommit"]
+
+
+
+def http_pipeline_resp_body(p, m):
+    if m["baton"] is not None:
+        p.baton = m["baton"]
+    if m.get("base_url") is not None:
+        p.base_url = m["base_url"]
+    for mm in m["results"]:
+        http_stream_result(p.results.add(), mm)
+
+def http_stream_result(p, m):
+    if m["type"] == "ok":
+        http_stream_response(p.ok, m["response"])
+    elif m["type"] == "error":
+        error(p.error, m["error"])
+
+def http_stream_response(p, m):
+    if m["type"] == "close":
+        p.close.SetInParent()
+    elif m["type"] == "execute":
+        stmt_result(p.execute.result, m["result"])
+    elif m["type"] == "batch":
+        batch_result(p.batch.result, m["result"])
+    elif m["type"] == "sequence":
+        p.sequence.SetInParent()
+    elif m["type"] == "describe":
+        describe_result(p.describe.result, m["result"])
+    elif m["type"] == "store_sql":
+        p.store_sql.SetInParent()
+    elif m["type"] == "close_sql":
+        p.close_sql.SetInParent()
+    elif m["type"] == "get_autocommit":
+        p.get_autocommit.is_autocommit = m["is_autocommit"]
+
+def http_cursor_resp_body(p, m):
+    if m["baton"] is not None:
+        p.baton = m["baton"]
+    if m.get("base_url") is not None:
+        p.base_url = m["base_url"]
+
 
 
 def error(p, m):
@@ -63,8 +104,8 @@ def error(p, m):
 def cursor_entry(p, m):
     if m["type"] == "step_begin":
         p.step_begin.step = m["step"]
-        for c in m["cols"]:
-            col(p.step_begin.cols.add(), c)
+        for mm in m["cols"]:
+            col(p.step_begin.cols.add(), mm)
     elif m["type"] == "step_end":
         p.step_end.affected_row_count = m["affected_row_count"]
         if m["last_insert_rowid"] is not None:
@@ -79,10 +120,10 @@ def cursor_entry(p, m):
     return p
 
 def stmt_result(p, m):
-    for c in m["cols"]:
-        col(p.cols.add(), c)
-    for r in m["rows"]:
-        row(p.rows.add(), r)
+    for mm in m["cols"]:
+        col(p.cols.add(), mm)
+    for mm in m["rows"]:
+        row(p.rows.add(), mm)
     p.affected_row_count = m["affected_row_count"]
     if m["last_insert_rowid"] is not None:
         p.last_insert_rowid = int(m["last_insert_rowid"])
@@ -93,23 +134,23 @@ def col(p, m):
         p.decltype = m["decltype"]
 
 def row(p, m):
-    for v in m:
-        value(p.values.add(), v)
+    for mm in m:
+        value(p.values.add(), mm)
 
 def batch_result(p, m):
     p.SetInParent()
-    for i, r in enumerate(m["step_results"]):
-        if r is not None:
-            stmt_result(p.step_results[i], r)
-    for i, e in enumerate(m["step_errors"]):
-        if e is not None:
-            error(p.step_errors[i], e)
+    for i, mm in enumerate(m["step_results"]):
+        if mm is not None:
+            stmt_result(p.step_results[i], mm)
+    for i, mm in enumerate(m["step_errors"]):
+        if mm is not None:
+            error(p.step_errors[i], mm)
 
 def describe_result(p, m):
-    for r in m["params"]:
-        describe_param(p.params.add(), r)
-    for c in m["cols"]:
-        describe_col(p.cols.add(), c)
+    for mm in m["params"]:
+        describe_param(p.params.add(), mm)
+    for mm in m["cols"]:
+        describe_col(p.cols.add(), mm)
     p.is_explain = m["is_explain"]
     p.is_readonly = m["is_readonly"]
 

@@ -14,6 +14,7 @@ import aiohttp.web
 import c3
 import from_proto
 import to_proto
+import proto.hrana.http_pb2
 import proto.hrana.ws_pb2
 
 logger = logging.getLogger("server")
@@ -30,11 +31,17 @@ class HttpStream:
 async def main(command):
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
+    http_dir = {
+        "json": "v3",
+        "protobuf": "v3-protobuf",
+    }[encoding]
+
     app = aiohttp.web.Application()
     app.add_routes([
         aiohttp.web.get("/", handle_get_index),
-        aiohttp.web.get("/v3", handle_get_index),
-        aiohttp.web.post("/v3/pipeline", handle_post_pipeline),
+        aiohttp.web.get(f"/{http_dir}", handle_get_index),
+        aiohttp.web.post(f"/{http_dir}/pipeline", handle_post_pipeline),
+        aiohttp.web.post(f"/{http_dir}/cursor", handle_post_cursor),
     ])
 
     app["http_streams"] = {}
@@ -104,13 +111,11 @@ async def handle_websocket(app, ws):
 
     async def send_msg(msg):
         if encoding == "json":
-            msg_str = json.dumps(msg)
-            await ws.send_str(msg_str)
+            await ws.send_str(json.dumps(msg))
         elif encoding == "protobuf":
             msg_proto = proto.hrana.ws_pb2.ServerMsg()
             to_proto.ws_server_msg(msg_proto, msg)
-            msg_bytes = msg_proto.SerializeToString()
-            await ws.send_bytes(msg_bytes)
+            await ws.send_bytes(msg_proto.SerializeToString())
         else:
             assert False
 
@@ -236,45 +241,16 @@ async def handle_websocket(app, ws):
         if db_file != persistent_db_file:
             os.unlink(db_file)
 
-async def handle_post_execute(req):
-    req_body = await req.json()
-    conn = await to_thread(lambda: connect(req.app["http_db_file"]))
-    try:
-        async with req.app["db_lock"]:
-            result = await to_thread(lambda: execute_stmt(conn, {}, req_body["stmt"]))
-        return aiohttp.web.json_response({"result": result})
-    except ResponseError as e:
-        return aiohttp.web.json_response(e.tojson(), status=400)
-    finally:
-        conn.close()
-
-async def handle_post_batch(req):
-    req_body = await req.json()
-    conn = await to_thread(lambda: connect(req.app["http_db_file"]))
-    try:
-        async with req.app["db_lock"]:
-            result = await to_thread(lambda: execute_batch(conn, {}, req_body["batch"]))
-        return aiohttp.web.json_response({"result": result})
-    except ResponseError as e:
-        return aiohttp.web.json_response(e.tojson(), status=400)
-    finally:
-        conn.close()
-
 async def handle_post_pipeline(req):
-    req_body = await req.json()
-    app = req.app
+    if encoding == "json":
+        req_body = await req.json()
+    elif encoding == "protobuf":
+        msg_proto = proto.hrana.http_pb2.PipelineReqBody()
+        msg_proto.ParseFromString(await req.read())
+        req_body = from_proto.http_pipeline_req_body(msg_proto)
 
-    if req_body.get("baton") is not None:
-        baton = req_body["baton"]
-        stream_id, _, _ = baton.partition(".")
-        stream = req.app["http_streams"][stream_id]
-        assert stream.baton == baton
-    else:
-        conn = await to_thread(lambda: connect(req.app["http_db_file"]))
-        stream_id = random.randbytes(16).hex()
-        stream = HttpStream(conn, sqls={}, baton=None)
-        req.app["http_streams"][stream_id] = stream
-    stream.baton = f"{stream_id}.{random.randbytes(8).hex()}"
+    app = req.app
+    stream_id, stream = await handle_baton(app, req_body.get("baton"))
 
     async def handle_request(req):
         if req["type"] == "execute":
@@ -308,6 +284,9 @@ async def handle_post_pipeline(req):
             stream.conn.close()
             stream.conn = None
             return {"type": "close"}
+        elif req["type"] == "get_autocommit":
+            is_autocommit = stream.conn.get_autocommit()
+            return {"type": "get_autocommit", "is_autocommit": is_autocommit}
         else:
             raise RuntimeError(f"Unknown req: {req!r}")
 
@@ -330,10 +309,84 @@ async def handle_post_pipeline(req):
             stream.baton = None
             del app["http_streams"][stream_id]
 
-    return aiohttp.web.json_response({
+    resp_body = {
         "baton": stream.baton,
         "results": results,
-    })
+    }
+    if encoding == "json":
+        return aiohttp.web.json_response(resp_body)
+    elif encoding == "protobuf":
+        msg_proto = proto.hrana.http_pb2.PipelineRespBody()
+        to_proto.http_pipeline_resp_body(msg_proto, resp_body)
+        return aiohttp.web.Response(
+            body=msg_proto.SerializeToString(),
+            content_type="application/x-protobuf",
+        )
+
+async def handle_post_cursor(req):
+    if encoding == "json":
+        req_body = await req.json()
+    elif encoding == "protobuf":
+        msg_proto = proto.hrana.http_pb2.CursorReqBody()
+        msg_proto.ParseFromString(await req.read())
+        req_body = from_proto.http_cursor_req_body(msg_proto)
+
+    app = req.app
+    stream_id, stream = await handle_baton(app, req_body.get("baton"))
+
+    resp = aiohttp.web.StreamResponse()
+    resp.headers["content-type"] = {
+        "json": "text/plain",
+        "protobuf": "application/octet-stream",
+    }[encoding]
+    await resp.prepare(req)
+
+    async def send_item(item, proto_class, to_proto_fun):
+        if encoding == "json":
+            await resp.write(json.dumps(item).encode())
+            await resp.write(b"\n")
+        elif encoding == "protobuf":
+            msg_proto = proto_class()
+            to_proto_fun(msg_proto, item)
+            msg_bytes = msg_proto.SerializeToString()
+            await resp.write(encode_varint(len(msg_bytes)))
+            await resp.write(msg_bytes)
+
+    resp_body = {"baton": stream.baton}
+    await send_item(resp_body, proto.hrana.http_pb2.CursorRespBody, to_proto.http_cursor_resp_body)
+
+    async with app["db_lock"]:
+        entries = await to_thread(lambda: execute_cursor(stream.conn, stream.sqls, req_body["batch"]))
+    for entry in entries:
+        await send_item(entry, proto.hrana_pb2.CursorEntry, to_proto.cursor_entry)
+
+    await resp.write_eof()
+    return resp
+
+async def handle_baton(app, baton):
+    if baton is not None:
+        stream_id, _, _ = baton.partition(".")
+        stream = app["http_streams"][stream_id]
+        assert stream.baton == baton
+    else:
+        conn = await to_thread(lambda: connect(app["http_db_file"]))
+        stream_id = random.randbytes(16).hex()
+        stream = HttpStream(conn, sqls={}, baton=None)
+        app["http_streams"][stream_id] = stream
+    stream.baton = f"{stream_id}.{random.randbytes(8).hex()}"
+    return stream_id, stream
+
+def encode_varint(num):
+    bs = []
+    while True:
+        b = num & 0x7f
+        num = num >> 7
+        if num == 0:
+            bs.append(b)
+            break
+        else:
+            bs.append(0x80 | b)
+    return bytes(bs)
 
 def connect(db_file):
     conn = c3.Conn.open(db_file)

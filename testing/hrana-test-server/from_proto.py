@@ -123,6 +123,67 @@ def ws_get_autocommit_req(p):
 
 
 
+def http_pipeline_req_body(p):
+    return {
+        "baton": p.baton if p.HasField("baton") else None,
+        "requests": [http_stream_request(p) for p in p.requests],
+    }
+
+def http_stream_request(p):
+    ty = p.WhichOneof("request")
+    if ty == "close":
+        return {"type": "close"}
+    if ty == "execute":
+        return http_execute_stream_req(p.execute)
+    elif ty == "batch":
+        return http_batch_stream_req(p.batch)
+    elif ty == "sequence":
+        return http_sequence_stream_req(p.sequence)
+    elif ty == "describe":
+        return http_describe_stream_req(p.describe)
+    elif ty == "store_sql":
+        return http_store_sql_stream_req(p.store_sql)
+    elif ty == "close_sql":
+        return http_close_sql_stream_req(p.close_sql)
+    elif ty == "get_autocommit":
+        return {"type": "get_autocommit"}
+    else:
+        raise RuntimeError("Unknown type of StreamRequest")
+
+def http_execute_stream_req(p):
+    return {"type": "execute", "stmt": stmt(p.stmt)}
+
+def http_batch_stream_req(p):
+    return {"type": "batch", "batch": batch(p.batch)}
+
+def http_sequence_stream_req(p):
+    return {
+        "type": "sequence",
+        "sql": p.sql if p.HasField("sql") else None,
+        "sql_id": p.sql_id if p.HasField("sql_id") else None,
+    }
+
+def http_describe_stream_req(p):
+    return {
+        "type": "describe",
+        "sql": p.sql if p.HasField("sql") else None,
+        "sql_id": p.sql_id if p.HasField("sql_id") else None,
+    }
+
+def http_store_sql_stream_req(p):
+    return {"type": "store_sql", "sql_id": p.sql_id, "sql": p.sql}
+
+def http_close_sql_stream_req(p):
+    return {"type": "close_sql", "sql_id": p.sql_id}
+
+def http_cursor_req_body(p):
+    return {
+        "baton": p.baton if p.HasField("baton") else None,
+        "batch": batch(p.batch),
+    }
+
+
+
 def batch(p):
     return {"steps": [batch_step(p) for p in p.steps]}
 
