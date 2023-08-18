@@ -19,7 +19,7 @@ import proto.hrana.ws_pb2
 
 logger = logging.getLogger("server")
 persistent_db_file = os.getenv("PERSISTENT_DB")
-encoding = os.getenv("ENCODING", "json")
+encoding = os.getenv("ENCODING", "protobuf")
 assert encoding in ("json", "protobuf")
 
 @dataclasses.dataclass
