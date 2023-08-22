@@ -114,7 +114,7 @@ export class WsClient implements Client {
             // network roundtrip.
             streamState.conn.sqlCache.apply([hranaStmt]);
             const hranaRowsPromise = streamState.stream.query(hranaStmt);
-            streamState.stream.close();
+            streamState.stream.closeGracefully();
 
             return resultSetFromHrana(await hranaRowsPromise);
         } catch (e) {
@@ -133,9 +133,8 @@ export class WsClient implements Client {
             // Schedule all operations synchronously, so they will be pipelined and executed in a single
             // network roundtrip.
             streamState.conn.sqlCache.apply(hranaStmts);
-            const batch = streamState.stream.batch();
+            const batch = streamState.stream.batch(version >= 3);
             const resultsPromise = executeHranaBatch(mode, version, batch, hranaStmts);
-            streamState.stream.close();
 
             return await resultsPromise;
         } catch (e) {
@@ -164,7 +163,7 @@ export class WsClient implements Client {
             // Schedule all operations synchronously, so they will be pipelined and executed in a single
             // network roundtrip.
             const promise = streamState.stream.sequence(sql);
-            streamState.stream.close();
+            streamState.stream.closeGracefully();
 
             await promise;
         } catch (e) {

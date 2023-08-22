@@ -68,7 +68,7 @@ export class HttpClient implements Client {
             try {
                 rowsPromise = stream.query(hranaStmt);
             } finally {
-                stream.close();
+                stream.closeGracefully();
             }
 
             return resultSetFromHrana(await rowsPromise);
@@ -92,10 +92,14 @@ export class HttpClient implements Client {
                 const sqlCache = new SqlCache(stream, sqlCacheCapacity);
                 sqlCache.apply(hranaStmts);
 
-                const batch = stream.batch();
+                // TODO: we do not use a cursor here, because it would cause three roundtrips:
+                // 1. pipeline request to store SQL texts
+                // 2. cursor request
+                // 3. pipeline request to close the stream
+                const batch = stream.batch(false);
                 resultsPromise = executeHranaBatch(mode, version, batch, hranaStmts);
             } finally {
-                stream.close();
+                stream.closeGracefully();
             }
 
             return await resultsPromise;
@@ -122,7 +126,7 @@ export class HttpClient implements Client {
             try {
                 promise = stream.sequence(sql);
             } finally {
-                stream.close();
+                stream.closeGracefully();
             }
 
             await promise;

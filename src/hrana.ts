@@ -48,7 +48,7 @@ export abstract class HranaTransaction implements Transaction {
                 // `hranaStmts`.
 
                 this._getSqlCache().apply(hranaStmts);
-                const batch = stream.batch();
+                const batch = stream.batch(this.#version >= 3);
                 const beginStep = batch.step();
                 const beginPromise = beginStep.run(transactionModeToBegin(this.#mode));
 
@@ -64,6 +64,7 @@ export abstract class HranaTransaction implements Transaction {
                     }
 
                     const rowsPromise = stmtStep.query(hranaStmt);
+                    rowsPromise.catch(() => undefined); // silence Node warning
                     lastStep = stmtStep;
                     return rowsPromise;
                 });
@@ -94,7 +95,7 @@ export abstract class HranaTransaction implements Transaction {
                 }
 
                 this._getSqlCache().apply(hranaStmts);
-                const batch = stream.batch();
+                const batch = stream.batch(this.#version >= 3);
 
                 let lastStep: hrana.BatchStep | undefined = undefined;
                 rowsPromises = hranaStmts.map((hranaStmt) => {
@@ -106,6 +107,7 @@ export abstract class HranaTransaction implements Transaction {
                         stmtStep.condition(hrana.BatchCond.not(hrana.BatchCond.isAutocommit(batch)));
                     }
                     const rowsPromise = stmtStep.query(hranaStmt);
+                    rowsPromise.catch(() => undefined); // silence Node warning
                     lastStep = stmtStep;
                     return rowsPromise;
                 });
@@ -180,7 +182,7 @@ export abstract class HranaTransaction implements Transaction {
             // Pipeline the ROLLBACK statement and the stream close.
             const promise = stream.run("ROLLBACK")
                 .catch(e => { throw mapHranaError(e); });
-            stream.close();
+            stream.closeGracefully();
 
             await promise;
         } catch (e) {
@@ -214,7 +216,7 @@ export abstract class HranaTransaction implements Transaction {
 
             const promise = stream.run("COMMIT")
                 .catch(e => { throw mapHranaError(e); });
-            stream.close();
+            stream.closeGracefully();
 
             await promise;
         } catch (e) {
@@ -305,23 +307,29 @@ export function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
 
 export function mapHranaError(e: unknown): unknown {
     if (e instanceof hrana.ClientError) {
-        let code = "UNKNOWN";
-        if (e instanceof hrana.ResponseError && e.code !== undefined) {
-            code = e.code;
-        } else if (e instanceof hrana.ProtoError) {
-            code = "HRANA_PROTO_ERROR";
-        } else if (e instanceof hrana.ClosedError) {
-            code = "HRANA_CLOSED_ERROR";
-        } else if (e instanceof hrana.WebSocketError) {
-            code = "HRANA_WEBSOCKET_ERROR";
-        } else if (e instanceof hrana.HttpServerError) {
-            code = "SERVER_ERROR";
-        } else if (e instanceof hrana.ProtocolVersionError) {
-            code = "PROTOCOL_VERSION_ERROR";
-        } else if (e instanceof hrana.InternalError) {
-            code = "INTERNAL_ERROR";
-        }
+        const code = mapHranaErrorCode(e);
         return new LibsqlError(e.message, code, e);
     }
     return e;
+}
+
+function mapHranaErrorCode(e: hrana.ClientError): string {
+    if (e instanceof hrana.ResponseError && e.code !== undefined) {
+        return e.code;
+    } else if (e instanceof hrana.ProtoError) {
+        return "HRANA_PROTO_ERROR";
+    } else if (e instanceof hrana.ClosedError) {
+        return e.cause instanceof hrana.ClientError 
+            ? mapHranaErrorCode(e.cause) : "HRANA_CLOSED_ERROR";
+    } else if (e instanceof hrana.WebSocketError) {
+        return "HRANA_WEBSOCKET_ERROR";
+    } else if (e instanceof hrana.HttpServerError) {
+        return "SERVER_ERROR";
+    } else if (e instanceof hrana.ProtocolVersionError) {
+        return "PROTOCOL_VERSION_ERROR";
+    } else if (e instanceof hrana.InternalError) {
+        return "INTERNAL_ERROR";
+    } else {
+        return "UNKNOWN";
+    }
 }

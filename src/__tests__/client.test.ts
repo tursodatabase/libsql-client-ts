@@ -1,7 +1,8 @@
 import { expect } from "@jest/globals";
 import type { MatcherFunction } from "expect";
-import type { Request, Response } from "@libsql/isomorphic-fetch";
-import { fetch } from "@libsql/isomorphic-fetch";
+
+import type { Request, Response } from "@libsql/hrana-client";
+import { fetch } from "@libsql/hrana-client";
 
 import "./helpers.js";
 
@@ -875,7 +876,7 @@ describe("transaction()", () => {
         test(`${title} in transaction()`, withClient(async (c) => {
             const txn = await c.transaction("read");
             await expect(txn.execute(sql)).rejects.toBeLibsqlError("HRANA_WEBSOCKET_ERROR");
-            await expect(txn.commit()).rejects.toBeLibsqlError("HRANA_WEBSOCKET_ERROR");
+            await expect(txn.commit()).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
             txn.close();
 
             expect((await c.execute("SELECT 42")).rows[0][0]).toStrictEqual(42);

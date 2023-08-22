@@ -8,6 +8,7 @@ jobs:
   "node-test":
     name: "Build and test on Node.js"
     runs-on: ubuntu-latest
+    env: {"NODE_OPTIONS": "--trace-warnings"}
     steps:
     - name: "Checkout this repo"
       uses: actions/checkout@v3
