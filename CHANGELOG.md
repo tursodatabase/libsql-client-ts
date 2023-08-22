@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Updated `@libsql/hrana-client` to version 0.5.0, which implements Hrana 3
+    - Dropped workarounds for broken WebSocket support in Miniflare 2
 
 ## 0.3.1 -- 2023-07-20
 
