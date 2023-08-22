@@ -1,3 +1,4 @@
+import console from "node:console";
 import { expect } from "@jest/globals";
 import type { MatcherFunction } from "expect";
 
