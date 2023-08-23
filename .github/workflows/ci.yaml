@@ -71,7 +71,7 @@ jobs:
     - name: "Setup Node.js"
       uses: actions/setup-node@v3
       with:
-        node-version: "19.x"
+        node-version: "lts/Hydrogen"
         cache: "npm"
     - name: "Install npm dependencies"
       run: "npm ci"
@@ -138,7 +138,7 @@ jobs:
     - name: "Setup Node.js"
       uses: actions/setup-node@v3
       with:
-        node-version: "19.x"
+        node-version: "lts/Hydrogen"
         cache: "npm"
     - name: "Install npm dependencies"
       run: "npm ci"
