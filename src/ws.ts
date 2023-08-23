@@ -114,7 +114,7 @@ export class WsClient implements Client {
             // network roundtrip.
             streamState.conn.sqlCache.apply([hranaStmt]);
             const hranaRowsPromise = streamState.stream.query(hranaStmt);
-            streamState.stream.close();
+            streamState.stream.closeGracefully();
 
             return resultSetFromHrana(await hranaRowsPromise);
         } catch (e) {
@@ -128,13 +128,13 @@ export class WsClient implements Client {
         const streamState = await this.#openStream();
         try {
             const hranaStmts = stmts.map(stmtToHrana);
+            const version = await streamState.conn.client.getVersion();
 
             // Schedule all operations synchronously, so they will be pipelined and executed in a single
             // network roundtrip.
             streamState.conn.sqlCache.apply(hranaStmts);
-            const batch = streamState.stream.batch();
-            const resultsPromise = executeHranaBatch(mode, batch, hranaStmts);
-            streamState.stream.close();
+            const batch = streamState.stream.batch(version >= 3);
+            const resultsPromise = executeHranaBatch(mode, version, batch, hranaStmts);
 
             return await resultsPromise;
         } catch (e) {
@@ -147,9 +147,10 @@ export class WsClient implements Client {
     async transaction(mode: TransactionMode = "write"): Promise<WsTransaction> {
         const streamState = await this.#openStream();
         try {
+            const version = await streamState.conn.client.getVersion();
             // the BEGIN statement will be batched with the first statement on the transaction to save a
             // network roundtrip
-            return new WsTransaction(this, streamState, mode);
+            return new WsTransaction(this, streamState, mode, version);
         } catch (e) {
             this._closeStream(streamState);
             throw mapHranaError(e);
@@ -162,7 +163,7 @@ export class WsClient implements Client {
             // Schedule all operations synchronously, so they will be pipelined and executed in a single
             // network roundtrip.
             const promise = streamState.stream.sequence(sql);
-            streamState.stream.close();
+            streamState.stream.closeGracefully();
 
             await promise;
         } catch (e) {
@@ -292,8 +293,8 @@ export class WsTransaction extends HranaTransaction implements Transaction {
     #streamState: StreamState;
 
     /** @private */
-    constructor(client: WsClient, state: StreamState, mode: TransactionMode) {
-        super(mode);
+    constructor(client: WsClient, state: StreamState, mode: TransactionMode, version: hrana.ProtocolVersion) {
+        super(mode, version);
         this.#client = client;
         this.#streamState = state;
     }

@@ -1,6 +1,6 @@
 {
     "devDependencies": {
         "localtunnel": "^2.0.2",
-        "wrangler": "^2.20.0"
+        "wrangler": "^3.5.1"
     }
 }

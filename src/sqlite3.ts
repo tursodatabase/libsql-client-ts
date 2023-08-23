@@ -91,8 +91,13 @@ export class Sqlite3Client implements Client {
         const db = new Database(this.#path, this.#options);
         try {
             executeStmt(db, transactionModeToBegin(mode), this.#intMode);
-            const resultSets = stmts.map(stmt => executeStmt(db, stmt, this.#intMode));
-            executeStmt(db, "COMMIT", this.#intMode);
+            const resultSets = stmts.map((stmt) => {
+                if (!db.inTransaction) {
+                    throw new LibsqlError("The transaction has been rolled back", "TRANSACTION_CLOSED");
+                }
+                return executeStmt(db, stmt, this.#intMode);
+            });
+            executeStmt(db, "COMMIT", this.#intMode)
             return resultSets;
         } finally {
             db.close();
@@ -148,8 +153,10 @@ export class Sqlite3Transaction implements Transaction {
     }
 
     async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
-        this.#checkNotClosed();
-        return stmts.map(stmt => executeStmt(this.#database, stmt, this.#intMode));
+        return stmts.map((stmt) => {
+            this.#checkNotClosed();
+            return executeStmt(this.#database, stmt, this.#intMode);
+        });
     }
 
     async executeMultiple(sql: string): Promise<void> {
@@ -161,6 +168,7 @@ export class Sqlite3Transaction implements Transaction {
         if (!this.#database.open) {
             return;
         }
+        this.#checkNotClosed();
         executeStmt(this.#database, "ROLLBACK", this.#intMode);
         this.#database.close();
     }
@@ -180,7 +188,7 @@ export class Sqlite3Transaction implements Transaction {
     }
 
     #checkNotClosed(): void {
-        if (!this.#database.open) {
+        if (!this.#database.open || !this.#database.inTransaction) {
             throw new LibsqlError("The transaction is closed", "TRANSACTION_CLOSED");
         }
     }

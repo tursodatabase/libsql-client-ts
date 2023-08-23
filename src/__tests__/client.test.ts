@@ -1,6 +1,9 @@
+import console from "node:console";
 import { expect } from "@jest/globals";
 import type { MatcherFunction } from "expect";
-import { fetch, Request, Response } from "@libsql/isomorphic-fetch";
+
+import type { Request, Response } from "@libsql/hrana-client";
+import { fetch } from "@libsql/hrana-client";
 
 import "./helpers.js";
 
@@ -17,10 +20,15 @@ const isHttp = config.url.startsWith("http:") || config.url.startsWith("https:")
 const isFile = config.url.startsWith("file:");
 
 // This allows us to skip tests based on the Hrana server that we are targeting:
+// - "test_v3" is the v3 test server in Python
 // - "test_v2" is the v2 test server in Python
 // - "test_v1" is the v1 test server in Python
 // - "sqld" is sqld
-const server = process.env.SERVER ?? "test_v2";
+const server = process.env.SERVER ?? "test_v3";
+
+const hasHrana2 = server !== "test_v1";
+const hasHrana3 = server !== "test_v1" && server !== "test_v2";
+const hasNetworkErrors = isWs && (server === "test_v1" || server === "test_v2" || server === "test_v3");
 
 function withClient(
     f: (c: libsql.Client) => Promise<void>,
@@ -161,7 +169,7 @@ describe("execute()", () => {
         expect(Array.from(rs.rows[0])).toStrictEqual([42, "foo"]);
     }));
 
-    (server != "test_v1" ? test : test.skip)("rowsAffected with WITH INSERT", withClient(async (c) => {
+    (hasHrana2 ? test : test.skip)("rowsAffected with WITH INSERT", withClient(async (c) => {
         await c.batch([
             "DROP TABLE IF EXISTS t",
             "CREATE TABLE t (a)",
@@ -525,7 +533,7 @@ describe("batch()", () => {
         expect(Array.from(rs3.rows[0])).toStrictEqual([42]);
     }));
 
-    test.skip("ROLLBACK statement stops execution of batch", withClient(async (c) => {
+    (hasHrana3 ? test : test.skip)("ROLLBACK statement stops execution of batch", withClient(async (c) => {
         await c.execute("DROP TABLE IF EXISTS t");
         await c.execute("CREATE TABLE t (a)");
 
@@ -624,7 +632,10 @@ describe("transaction()", () => {
         expect(rs.rows[0][0]).toStrictEqual(1);
     }));
 
-    test.skip("ROLLBACK statement stops execution of transaction", withClient(async (c) => {
+    (hasHrana3 ? test : test.skip)(
+        "ROLLBACK statement stops execution of transaction",
+        withClient(async (c) =>
+    {
         await c.execute("DROP TABLE IF EXISTS t");
         await c.execute("CREATE TABLE t (a)");
 
@@ -634,16 +645,19 @@ describe("transaction()", () => {
         const prom3 = txn.execute("INSERT INTO t VALUES (4), (5)");
 
         await prom1;
-        await expect(prom2).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
+        await prom2;
         await expect(prom3).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
-        await expect((async () => txn.commit())()).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
+        await expect(txn.commit()).rejects.toBeLibsqlError();
         txn.close();
 
         const rs = await c.execute("SELECT COUNT(*) FROM t");
         expect(rs.rows[0][0]).toStrictEqual(0);
     }));
 
-    test.skip("OR ROLLBACK statement stops execution of transaction", withClient(async (c) => {
+    (hasHrana3 ? test : test.skip)(
+        "OR ROLLBACK statement stops execution of transaction",
+        withClient(async (c) =>
+    {
         await c.execute("DROP TABLE IF EXISTS t");
         await c.execute("CREATE TABLE t (a UNIQUE)");
 
@@ -655,14 +669,17 @@ describe("transaction()", () => {
         await prom1;
         await expect(prom2).rejects.toBeLibsqlError();
         await expect(prom3).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
-        await expect((async () => txn.commit())()).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
+        await expect(txn.commit()).rejects.toBeLibsqlError();
         txn.close();
 
         const rs = await c.execute("SELECT COUNT(*) FROM t");
         expect(rs.rows[0][0]).toStrictEqual(0);
     }));
 
-    test.skip("OR ROLLBACK as the first statement stops execution of transaction", withClient(async (c) => {
+    (hasHrana3 ? test : test.skip)(
+        "OR ROLLBACK as the first statement stops execution of transaction",
+        withClient(async (c) => 
+    {
         await c.execute("DROP TABLE IF EXISTS t");
         await c.execute("CREATE TABLE t (a UNIQUE)");
         await c.execute("INSERT INTO t VALUES (1), (2), (3)");
@@ -673,7 +690,7 @@ describe("transaction()", () => {
 
         await expect(prom1).rejects.toBeLibsqlError();
         await expect(prom2).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
-        await expect((async () => txn.commit())()).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
+        await expect(txn.commit()).rejects.toBeLibsqlError();
         txn.close();
 
         const rs = await c.execute("SELECT COUNT(*) FROM t");
@@ -741,7 +758,7 @@ describe("transaction()", () => {
         }));
     });
 
-    (server !== "test_v1" ? describe : describe.skip)("executeMultiple()", () => {
+    (hasHrana2 ? describe : describe.skip)("executeMultiple()", () => {
         test("as the first operation on transaction", withClient(async (c) => {
             const txn = await c.transaction("write");
 
@@ -788,7 +805,7 @@ describe("transaction()", () => {
     });
 });
 
-(server !== "test_v1" ? describe : describe.skip)("executeMultiple()", () => {
+(hasHrana2 ? describe : describe.skip)("executeMultiple()", () => {
     test("multiple statements", withClient(async (c) => {
         await c.executeMultiple(`
             DROP TABLE IF EXISTS t;
@@ -844,7 +861,6 @@ describe("transaction()", () => {
     }));
 });
 
-const hasNetworkErrors = isWs && (server == "test_v1" || server == "test_v2");
 (hasNetworkErrors ? describe : describe.skip)("network errors", () => {
     const testCases = [
         {title: "WebSocket close", sql: ".close_ws"},
@@ -861,7 +877,7 @@ const hasNetworkErrors = isWs && (server == "test_v1" || server == "test_v2");
         test(`${title} in transaction()`, withClient(async (c) => {
             const txn = await c.transaction("read");
             await expect(txn.execute(sql)).rejects.toBeLibsqlError("HRANA_WEBSOCKET_ERROR");
-            await expect(txn.commit()).rejects.toBeLibsqlError("HRANA_WEBSOCKET_ERROR");
+            await expect(txn.commit()).rejects.toBeLibsqlError("TRANSACTION_CLOSED");
             txn.close();
 
             expect((await c.execute("SELECT 42")).rows[0][0]).toStrictEqual(42);
@@ -879,7 +895,6 @@ const hasNetworkErrors = isWs && (server == "test_v1" || server == "test_v2");
 (isHttp ? test : test.skip)("custom fetch", async () => {
     let fetchCalledCount = 0;
     function customFetch(request: Request): Promise<Response> {
-        expect(request).toBeInstanceOf(Request);
         fetchCalledCount += 1;
         return fetch(request);
     }
@@ -888,7 +903,7 @@ const hasNetworkErrors = isWs && (server == "test_v1" || server == "test_v2");
     try {
         const rs = await c.execute("SELECT 42");
         expect(rs.rows[0][0]).toStrictEqual(42);
-        expect(fetchCalledCount).toStrictEqual(1);
+        expect(fetchCalledCount).toBeGreaterThan(0);
     } finally {
         c.close();
     }

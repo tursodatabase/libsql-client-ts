@@ -6,13 +6,15 @@ import { transactionModeToBegin, ResultSetImpl } from "./util.js";
 
 export abstract class HranaTransaction implements Transaction {
     #mode: TransactionMode;
+    #version: hrana.ProtocolVersion;
     // Promise that is resolved when the BEGIN statement completes, or `undefined` if we haven't executed the
     // BEGIN statement yet.
     #started: Promise<void> | undefined;
 
     /** @private */
-    constructor(mode: TransactionMode) {
+    constructor(mode: TransactionMode, version: hrana.ProtocolVersion) {
         this.#mode = mode;
+        this.#version = version;
         this.#started = undefined;
     }
 
@@ -24,34 +26,48 @@ export abstract class HranaTransaction implements Transaction {
     abstract close(): void;
     abstract get closed(): boolean;
 
-    async execute(stmt: InStatement): Promise<ResultSet> {
+    execute(stmt: InStatement): Promise<ResultSet> {
+        return this.batch([stmt]).then((results) => results[0]);
+    }
+
+    async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
         const stream = this._getStream();
         if (stream.closed) {
             throw new LibsqlError(
-                "Cannot execute a statement because the transaction is closed",
+                "Cannot execute statements because the transaction is closed",
                 "TRANSACTION_CLOSED",
             );
         }
 
         try {
-            const hranaStmt = stmtToHrana(stmt);
+            const hranaStmts = stmts.map(stmtToHrana);
 
-            let rowsPromise: Promise<hrana.RowsResult>;
+            let rowsPromises: Array<Promise<hrana.RowsResult | undefined>>;
             if (this.#started === undefined) {
                 // The transaction hasn't started yet, so we need to send the BEGIN statement in a batch with
-                // `stmt`.
+                // `hranaStmts`.
 
-                this._getSqlCache().apply([hranaStmt]);
-                const batch = stream.batch();
+                this._getSqlCache().apply(hranaStmts);
+                const batch = stream.batch(this.#version >= 3);
                 const beginStep = batch.step();
                 const beginPromise = beginStep.run(transactionModeToBegin(this.#mode));
 
-                // Execute the `stmt` only if the BEGIN succeeded, to make sure that we don't execute it
+                // Execute the `hranaStmts` only if the BEGIN succeeded, to make sure that we don't execute it
                 // outside of a transaction.
-                rowsPromise = batch.step()
-                    .condition(hrana.BatchCond.ok(beginStep))
-                    .query(hranaStmt)
-                    .then((result) => result!);
+                let lastStep = beginStep;
+                rowsPromises = hranaStmts.map((hranaStmt) => {
+                    const stmtStep = batch.step()
+                        .condition(hrana.BatchCond.ok(lastStep));
+                    if (this.#version >= 3) {
+                        // If the Hrana version supports it, make sure that we are still in a transaction
+                        stmtStep.condition(hrana.BatchCond.not(hrana.BatchCond.isAutocommit(batch)));
+                    }
+
+                    const rowsPromise = stmtStep.query(hranaStmt);
+                    rowsPromise.catch(() => undefined); // silence Node warning
+                    lastStep = stmtStep;
+                    return rowsPromise;
+                });
 
                 // `this.#started` is resolved successfully only if the batch and the BEGIN statement inside
                 // of the batch are both successful.
@@ -63,70 +79,23 @@ export abstract class HranaTransaction implements Transaction {
                     await this.#started;
                 } catch (e) {
                     // If the BEGIN failed, the transaction is unusable and we must close it. However, if the
-                    // BEGIN suceeds and `stmt` fails, the transaction is _not_ closed.
+                    // BEGIN suceeds and `hranaStmts` fail, the transaction is _not_ closed.
                     this.close();
                     throw e;
                 }
             } else {
-                // The transaction has started, so we must wait until the BEGIN statement completed to make
-                // sure that we don't execute `stmt` outside of a transaction.
-                await this.#started;
-
-                this._getSqlCache().apply([hranaStmt]);
-                rowsPromise = stream.query(hranaStmt);
-            }
-
-            return resultSetFromHrana(await rowsPromise);
-        } catch (e) {
-            throw mapHranaError(e);
-        }
-    }
-
-    async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
-        const stream = this._getStream();
-        if (stream.closed) {
-            throw new LibsqlError(
-                "Cannot execute a batch because the transaction is closed",
-                "TRANSACTION_CLOSED",
-            );
-        }
-
-        try {
-            const hranaStmts = stmts.map(stmtToHrana);
-
-            // This is analogous to `execute()`, please read the comments there
-
-            let rowsPromises: Array<Promise<hrana.RowsResult | undefined>>;
-            if (this.#started === undefined) {
-                this._getSqlCache().apply(hranaStmts);
-                const batch = stream.batch();
-                const beginStep = batch.step();
-                const beginPromise = beginStep.run(transactionModeToBegin(this.#mode));
-
-                let lastStep = beginStep;
-                rowsPromises = hranaStmts.map((hranaStmt) => {
-                    const stmtStep = batch.step()
-                        .condition(hrana.BatchCond.ok(lastStep));
-                    const rowsPromise = stmtStep.query(hranaStmt);
-                    lastStep = stmtStep;
-                    return rowsPromise;
-                });
-
-                this.#started = batch.execute()
-                    .then(() => beginPromise)
-                    .then(() => undefined);
-
-                try {
+                if (this.#version < 3) {
+                    // The transaction has started, so we must wait until the BEGIN statement completed to make
+                    // sure that we don't execute `hranaStmts` outside of a transaction.
                     await this.#started;
-                } catch (e) {
-                    this.close();
-                    throw e;
+                } else {
+                    // The transaction has started, but we will use `hrana.BatchCond.isAutocommit()` to make
+                    // sure that we don't execute `hranaStmts` outside of a transaction, so we don't have to
+                    // wait for `this.#started`
                 }
-            } else {
-                await this.#started;
 
                 this._getSqlCache().apply(hranaStmts);
-                const batch = stream.batch();
+                const batch = stream.batch(this.#version >= 3);
 
                 let lastStep: hrana.BatchStep | undefined = undefined;
                 rowsPromises = hranaStmts.map((hranaStmt) => {
@@ -134,7 +103,11 @@ export abstract class HranaTransaction implements Transaction {
                     if (lastStep !== undefined) {
                         stmtStep.condition(hrana.BatchCond.ok(lastStep));
                     }
+                    if (this.#version >= 3) {
+                        stmtStep.condition(hrana.BatchCond.not(hrana.BatchCond.isAutocommit(batch)));
+                    }
                     const rowsPromise = stmtStep.query(hranaStmt);
+                    rowsPromise.catch(() => undefined); // silence Node warning
                     lastStep = stmtStep;
                     return rowsPromise;
                 });
@@ -147,8 +120,9 @@ export abstract class HranaTransaction implements Transaction {
                 const rows = await rowsPromise;
                 if (rows === undefined) {
                     throw new LibsqlError(
-                        "Server did not return a result for statement in a batch",
-                        "SERVER_ERROR",
+                        "Statement in a transaction was not executed, " +
+                            "probably because the transaction has been rolled back",
+                        "TRANSACTION_CLOSED",
                     );
                 }
                 resultSets.push(resultSetFromHrana(rows));
@@ -208,7 +182,7 @@ export abstract class HranaTransaction implements Transaction {
             // Pipeline the ROLLBACK statement and the stream close.
             const promise = stream.run("ROLLBACK")
                 .catch(e => { throw mapHranaError(e); });
-            stream.close();
+            stream.closeGracefully();
 
             await promise;
         } catch (e) {
@@ -242,7 +216,7 @@ export abstract class HranaTransaction implements Transaction {
 
             const promise = stream.run("COMMIT")
                 .catch(e => { throw mapHranaError(e); });
-            stream.close();
+            stream.closeGracefully();
 
             await promise;
         } catch (e) {
@@ -255,6 +229,7 @@ export abstract class HranaTransaction implements Transaction {
 
 export async function executeHranaBatch(
     mode: TransactionMode,
+    version: hrana.ProtocolVersion,
     batch: hrana.Batch,
     hranaStmts: Array<hrana.Stmt>,
 ): Promise<Array<ResultSet>> {
@@ -265,14 +240,20 @@ export async function executeHranaBatch(
     const stmtPromises = hranaStmts.map((hranaStmt) => {
         const stmtStep = batch.step()
             .condition(hrana.BatchCond.ok(lastStep));
-        const stmtPromise = stmtStep.query(hranaStmt);
+        if (version >= 3) {
+            stmtStep.condition(hrana.BatchCond.not(hrana.BatchCond.isAutocommit(batch)));
+        }
 
+        const stmtPromise = stmtStep.query(hranaStmt);
         lastStep = stmtStep;
         return stmtPromise;
     });
 
     const commitStep = batch.step()
         .condition(hrana.BatchCond.ok(lastStep));
+    if (version >= 3) {
+        commitStep.condition(hrana.BatchCond.not(hrana.BatchCond.isAutocommit(batch)));
+    }
     const commitPromise = commitStep.run("COMMIT");
 
     const rollbackStep = batch.step()
@@ -287,8 +268,8 @@ export async function executeHranaBatch(
         const hranaRows = await stmtPromise;
         if (hranaRows === undefined) {
             throw new LibsqlError(
-                "Server did not return a result for statement in a batch",
-                "SERVER_ERROR",
+                "Statement in a batch was not executed, probably because the transaction has been rolled back",
+                "TRANSACTION_CLOSED",
             );
         }
         resultSets.push(resultSetFromHrana(hranaRows));
@@ -320,27 +301,35 @@ export function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
     const rows = hranaRows.rows;
     const rowsAffected = hranaRows.affectedRowCount;
     const lastInsertRowid = hranaRows.lastInsertRowid !== undefined
-            ? BigInt(hranaRows.lastInsertRowid) : undefined;
+            ? hranaRows.lastInsertRowid : undefined;
     return new ResultSetImpl(columns, rows, rowsAffected, lastInsertRowid);
 }
 
 export function mapHranaError(e: unknown): unknown {
     if (e instanceof hrana.ClientError) {
-        let code = "UNKNOWN";
-        if (e instanceof hrana.ResponseError && e.code !== undefined) {
-            code = e.code;
-        } else if (e instanceof hrana.ProtoError) {
-            code = "HRANA_PROTO_ERROR";
-        } else if (e instanceof hrana.ClosedError) {
-            code = "HRANA_CLOSED_ERROR";
-        } else if (e instanceof hrana.WebSocketError) {
-            code = "HRANA_WEBSOCKET_ERROR";
-        } else if (e instanceof hrana.HttpServerError) {
-            code = "SERVER_ERROR";
-        } else if (e instanceof hrana.ProtocolVersionError) {
-            code = "PROTOCOL_VERSION_ERROR";
-        }
+        const code = mapHranaErrorCode(e);
         return new LibsqlError(e.message, code, e);
     }
     return e;
+}
+
+function mapHranaErrorCode(e: hrana.ClientError): string {
+    if (e instanceof hrana.ResponseError && e.code !== undefined) {
+        return e.code;
+    } else if (e instanceof hrana.ProtoError) {
+        return "HRANA_PROTO_ERROR";
+    } else if (e instanceof hrana.ClosedError) {
+        return e.cause instanceof hrana.ClientError 
+            ? mapHranaErrorCode(e.cause) : "HRANA_CLOSED_ERROR";
+    } else if (e instanceof hrana.WebSocketError) {
+        return "HRANA_WEBSOCKET_ERROR";
+    } else if (e instanceof hrana.HttpServerError) {
+        return "SERVER_ERROR";
+    } else if (e instanceof hrana.ProtocolVersionError) {
+        return "PROTOCOL_VERSION_ERROR";
+    } else if (e instanceof hrana.InternalError) {
+        return "INTERNAL_ERROR";
+    } else {
+        return "UNKNOWN";
+    }
 }

@@ -1,3 +1,4 @@
+"use strict";
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const fetch = require("node-fetch");
@@ -122,10 +123,13 @@ async function main() {
     console.info(`Creating a tunnel to ${url}...`);
     const tunnel = await localtunnel({
         port: url.port,
-        local_host: url.hostname,
+        // NOTE: if we specify `local_host`, `localtunnel` will try to rewrite the `Host` header in the
+        // tunnelled HTTP requests. Unfortunately, they do it in a very silly way by converting the
+        // tunnelled data to a string, thus corrupting the request body.
+        //local_host: url.hostname,
     });
 
-    clientUrlInsideVercel = new URL(tunnel.url);
+    let clientUrlInsideVercel = new URL(tunnel.url);
     if (url.protocol === "http:") {
         clientUrlInsideVercel.protocol = "https:";
     } else if (url.protocol === "ws:") {
