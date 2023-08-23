@@ -1,3 +1,4 @@
+"use strict";
 const localtunnel = require("localtunnel");
 const wrangler = require("wrangler");
 
@@ -15,7 +16,10 @@ async function main() {
         console.info(`Creating an tunnel to ${url}...`);
         tunnel = await localtunnel({
             port: url.port,
-            local_host: url.hostname,
+            // NOTE: if we specify `local_host`, `localtunnel` will try to rewrite the `Host` header in the
+            // tunnelled HTTP requests. Unfortunately, they do it in a very silly way by converting the
+            // tunnelled data to a string, thus corrupting the request body.
+            //local_host: url.hostname,
         });
 
         clientUrlInsideWorker = new URL(tunnel.url);
