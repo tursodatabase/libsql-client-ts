@@ -22,6 +22,12 @@ import { supportedUrlLink, transactionModeToBegin, ResultSetImpl } from "./util.
 
 export * from "./api.js";
 
+/** https://github.com/oven-sh/bun/issues/1536  */
+const minInteger = -9223372036854775808n;
+const maxInteger = 9223372036854775807n;
+const minSafeBigint = -9007199254740991n;
+const maxSafeBigint = 9007199254740991n;
+
 export function createClient(config: Config): Client {
     return _createClient(expandConfig(config, true));
 }
@@ -313,9 +319,6 @@ function valueFromSql(sqlValue: unknown, intMode: IntMode): Value {
     return sqlValue as Value;
 }
 
-const minSafeBigint = -9007199254740991n;
-const maxSafeBigint = 9007199254740991n;
-
 function valueToSql(value: InValue): unknown {
     if (typeof value === "number") {
         if (!Number.isFinite(value)) {
@@ -341,9 +344,6 @@ function valueToSql(value: InValue): unknown {
         return value;
     }
 }
-
-const minInteger = -9223372036854775808n;
-const maxInteger = 9223372036854775807n;
 
 function mapSqliteError(e: unknown): unknown {
     if (e instanceof RangeError) {

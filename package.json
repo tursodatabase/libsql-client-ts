@@ -32,7 +32,7 @@
                 "deno": "./lib-esm/web.js",
                 "edge-light": "./lib-esm/web.js",
                 "netlify": "./lib-esm/web.js",
-                "bun": "./lib-esm/web.js",
+                "bun": "./lib-esm/bun.js",
                 "default": "./lib-esm/index.js"
             },
             "require": "./lib-cjs/index.js"
@@ -76,6 +76,12 @@
             ],
             "web": [
                 "./lib-esm/web.d.ts"
+            ],
+            "bun": [
+                "./lib-esm/bun.d.ts"
+            ],
+            "bun-sqlite": [
+                "./lib-esm/bun-sqlite.d.ts"
             ]
         }
     },
