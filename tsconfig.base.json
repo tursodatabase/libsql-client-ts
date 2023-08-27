@@ -1,6 +1,7 @@
 {
     "compilerOptions": {
         "moduleResolution": "node",
+        "types": ["bun-types"],
         "lib": ["esnext"],
         "target": "esnext",
         "esModuleInterop": true,
