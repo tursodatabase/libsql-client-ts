@@ -22,20 +22,20 @@
     ],
     "license": "MIT",
     "type": "module",
-    "main": "lib-cjs/index.js",
-    "types": "lib-esm/index.d.ts",
+    "main": "lib-cjs/node.js",
+    "types": "lib-esm/node.d.ts",
     "exports": {
         ".": {
-            "types": "./lib-esm/index.d.ts",
+            "types": "./lib-esm/node.d.ts",
             "import": {
                 "workerd": "./lib-esm/web.js",
                 "deno": "./lib-esm/web.js",
                 "edge-light": "./lib-esm/web.js",
                 "netlify": "./lib-esm/web.js",
                 "bun": "./lib-esm/bun.js",
-                "default": "./lib-esm/index.js"
+                "default": "./lib-esm/node.js"
             },
-            "require": "./lib-cjs/index.js"
+            "require": "./lib-cjs/node.js"
         },
         "./http": {
             "types": "./lib-esm/http.d.ts",

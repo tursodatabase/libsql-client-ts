@@ -35,6 +35,8 @@ export function createClient(config: Config): Client {
 
 /** @private */
 export function _createClient(config: ExpandedConfig): Client {
+    const isBun = !!(globalThis as any).Bun || !!(globalThis as any).process?.versions?.bun;
+    if (!isBun) throw new LibsqlError("Bun is not available", "BUN_NOT_AVAILABLE");
     if (config.scheme !== "file") {
         throw new LibsqlError(
             `URL scheme ${JSON.stringify(

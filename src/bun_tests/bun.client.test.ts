@@ -3,8 +3,8 @@ import { describe, test, expect } from "bun:test";
 import type { Request, Response } from "@libsql/hrana-client";
 import { fetch } from "@libsql/hrana-client";
 
-import type * as libsql from "..";
-import { LibsqlError, createClient } from "..";
+import type * as libsql from "../bun";
+import { LibsqlError, createClient } from "../bun";
 
 const config = {
     url: process.env.URL ?? "file:///tmp/test.db" ?? "ws://localhost:8080",

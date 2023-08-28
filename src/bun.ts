@@ -16,6 +16,8 @@ export function createClient(config: Config): Client {
 
 /** @private */
 export function _createClient(config: ExpandedConfig): Client {
+    const isBun = !!(globalThis as any).Bun || !!(globalThis as any).process?.versions?.bun;
+    if (!isBun) throw new LibsqlError("Bun is not available", "BUN_NOT_AVAILABLE");
     if (config.scheme === "ws" || config.scheme === "wss") {
         return _createWsClient(config);
     } else if (config.scheme === "http" || config.scheme === "https") {
