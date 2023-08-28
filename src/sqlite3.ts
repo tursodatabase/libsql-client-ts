@@ -301,7 +301,7 @@ function valueToSql(value: InValue): unknown {
         }
         return value;
     } else if (typeof value === "boolean") {
-        return value ? 1 : 0;
+        return value ? 1n : 0n;
     } else if (value instanceof ArrayBuffer) {
         return Buffer.from(value);
     } else if (value instanceof Date) {
