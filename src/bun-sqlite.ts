@@ -1,3 +1,4 @@
+// @ts-ignore bun:sqlite is not typed when building
 import { Database, SQLQueryBindings } from "bun:sqlite";
 
 type ConstructorParameters<T> = T extends new (...args: infer P) => any ? P : never;

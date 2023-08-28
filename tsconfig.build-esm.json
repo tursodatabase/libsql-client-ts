@@ -4,6 +4,6 @@
         "module": "esnext",
         "declaration": true,
         "outDir": "./lib-esm/"
-    }
+    },
+    "exclude": ["**/__tests__", "**/bun_tests"]
 }
-

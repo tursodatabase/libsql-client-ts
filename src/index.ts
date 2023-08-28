@@ -16,7 +16,7 @@ export function createClient(config: Config): Client {
     return _createClient(expandConfig(config, true));
 }
 
-const isBun = !!globalThis.Bun || !!globalThis.process?.versions?.bun;
+const isBun = !!(globalThis as any).Bun || !!(globalThis as any).process?.versions?.bun;
 
 function _createClient(config: ExpandedConfig) {
     if (config.scheme === "wss" || config.scheme === "ws") {

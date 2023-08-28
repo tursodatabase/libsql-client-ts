@@ -4,6 +4,6 @@
         "module": "commonjs",
         "declaration": false,
         "outDir": "./lib-cjs/"
-    }
+    },
+    "exclude": ["**/__tests__", "**/bun_tests"]
 }
-
