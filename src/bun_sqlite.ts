@@ -67,7 +67,7 @@ export function _createClient(config: ExpandedConfig): Client {
     }
 
     const path = config.path;
-    const options = undefined; //implement options
+    const options = undefined; //@todo implement options
     const db = new Database(path);
     try {
         executeStmt(db, "SELECT 1 AS checkThatTheDatabaseCanBeOpened", config.intMode);
@@ -315,7 +315,7 @@ function valueToSql(value: InValue): unknown {
         }
         return value;
     } else if (typeof value === "boolean") {
-        return value ? 1 : 0;
+        return value;
     } else if (value instanceof ArrayBuffer) {
         return Buffer.from(value);
     } else if (value instanceof Date) {
