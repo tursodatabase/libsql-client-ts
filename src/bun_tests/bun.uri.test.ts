@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
-import { parseUri, encodeBaseUrl } from "../uri.js";
-import { expectLibSqlError, withPattern } from "./bun.client.test.js";
+import { parseUri, encodeBaseUrl } from "../uri";
+import { expectLibSqlError, withPattern } from "./bun.helpers";
 
 describe("parseUri()", () => {
     test("authority and path", () => {
