@@ -37,6 +37,11 @@
             },
             "require": "./lib-cjs/node.js"
         },
+        "./node": {
+            "types": "./lib-esm/node.d.ts",
+            "import": "./lib-esm/node.js",
+            "require": "./lib-cjs/node.js"
+        },
         "./http": {
             "types": "./lib-esm/http.d.ts",
             "import": "./lib-esm/http.js",
@@ -57,10 +62,15 @@
             "import": "./lib-esm/web.js",
             "require": "./lib-cjs/web.js"
         },
+        "./bun": {
+            "types": "./lib-esm/bun.d.ts",
+            "import": "./lib-esm/bun.js",
+            "require": "./lib-cjs/bun.js"
+        },
         "./bun-sqlite": {
-            "types": "./lib-esm/bun-sqlite.d.ts",
-            "import": "./lib-esm/bun-sqlite.js",
-            "require": "./lib-cjs/bun-sqlite.js"
+            "types": "./lib-esm/bun_sqlite.d.ts",
+            "import": "./lib-esm/bun_sqlite.js",
+            "require": "./lib-cjs/bun_sqlite.js"
         }
     },
     "typesVersions": {
@@ -81,7 +91,7 @@
                 "./lib-esm/bun.d.ts"
             ],
             "bun-sqlite": [
-                "./lib-esm/bun-sqlite.d.ts"
+                "./lib-esm/bun_sqlite.d.ts"
             ]
         }
     },
