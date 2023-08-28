@@ -33,6 +33,7 @@
                 "edge-light": "./lib-esm/web.js",
                 "netlify": "./lib-esm/web.js",
                 "bun": "./lib-esm/bun.js",
+                "node": "./lib-esm/node.js",
                 "default": "./lib-esm/node.js"
             },
             "require": "./lib-cjs/node.js"
@@ -75,6 +76,9 @@
     },
     "typesVersions": {
         "*": {
+            ".": [
+                "./lib-esm/node.d.ts"
+            ],
             "http": [
                 "./lib-esm/http.d.ts"
             ],
