@@ -1004,7 +1004,7 @@ describe("executeMultiple()", () => {
         })
     );
 
-    //@note bun implementation use batch doesn't support manual transactions
+    //@note bun implementation uses batch and doesn't support manual transactions
     test.skip(
         "manual transaction control statements",
         withClient(async (c) => {
@@ -1022,6 +1022,7 @@ describe("executeMultiple()", () => {
         })
     );
 
+    //@note bun implementation uses batch and doesn't support manual transactions
     test.skip(
         "error rolls back a manual transaction",
         withClient(async (c) => {
