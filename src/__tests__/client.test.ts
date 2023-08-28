@@ -7,8 +7,8 @@ import { fetch } from "@libsql/hrana-client";
 
 import "./helpers.js";
 
-import type * as libsql from "..";
-import { createClient } from "..";
+import type * as libsql from "../node.js";
+import { createClient } from "../node.js";
 
 const config = {
     url: process.env.URL ?? "ws://localhost:8080",

@@ -30,16 +30,11 @@ For environments that don't have a local filesystem, but support HTTP or WebSock
 
 - Browsers
 - CloudFlare Workers
+- Vercel Edge Functions
 - Netlify Edge Functions
 
 ```typescript
 import { createClient } from "@libsql/client/web";
-```
-
-For environments that only support HTTP, including Vercel Edge Functions:
-
-```typescript
-import { createClient } from "@libsql/client/http";
 ```
 
 For Deno:

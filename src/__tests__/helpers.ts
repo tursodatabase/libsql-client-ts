@@ -1,7 +1,7 @@
 import { expect } from "@jest/globals";
 import type { MatcherFunction } from "expect";
 
-import { LibsqlError } from "..";
+import { LibsqlError } from "../node.js";
 
 const toBeLibsqlError: MatcherFunction<[code?: string, message?: RegExp]> =
     function (actual, code?, messageRe?) {
