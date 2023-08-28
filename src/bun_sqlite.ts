@@ -278,25 +278,6 @@ function convertSqlResultToRows(results: Record<string, Value>[], intMode: IntMo
     });
 }
 
-function isBufferLike(obj: unknown): obj is Buffer {
-    const bufferLike = [
-        Int8Array,
-        Uint8Array,
-        Uint8ClampedArray,
-        Int16Array,
-        Uint16Array,
-        Int32Array,
-        Uint32Array,
-        Float32Array,
-        Float64Array,
-        BigInt64Array,
-        BigUint64Array,
-        Buffer
-    ];
-
-    return bufferLike.some((b) => obj instanceof b);
-}
-
 function valueFromSql(sqlValue: unknown, intMode: IntMode): Value {
     // https://github.com/oven-sh/bun/issues/1536
     if (typeof sqlValue === "number") {
@@ -314,7 +295,7 @@ function valueFromSql(sqlValue: unknown, intMode: IntMode): Value {
         } else {
             throw new Error("Invalid value for IntMode");
         }
-    } else if (isBufferLike(sqlValue)) {
+    } else if (ArrayBuffer.isView(sqlValue)) {
         return sqlValue.buffer as Value;
     }
     return sqlValue as Value;
