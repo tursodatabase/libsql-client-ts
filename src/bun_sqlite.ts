@@ -141,11 +141,7 @@ export class BunSqliteClient implements Client {
 
     async executeMultiple(sql: string): Promise<void> {
         this.#checkNotClosed();
-        const stmts = sql
-            .split(";")
-            .map((s) => s.trim())
-            .filter(Boolean);
-        await this.batch(stmts);
+        await this.batch(batchStatementsFromSql(sql));
     }
 
     close(): void {
@@ -185,11 +181,7 @@ export class BunSqliteTransaction implements Transaction {
 
     async executeMultiple(sql: string): Promise<void> {
         this.#checkNotClosed();
-        const stmts = sql
-            .split(";")
-            .map((s) => s.trim())
-            .filter(Boolean);
-        await this.batch(stmts);
+        await this.batch(batchStatementsFromSql(sql));
     }
 
     async rollback(): Promise<void> {
@@ -261,6 +253,12 @@ function executeStmt(db: Database, stmt: InStatement, intMode: IntMode): ResultS
         throw mapSqliteError(e);
     }
 }
+
+const batchStatementsFromSql = (sql: string) =>
+    sql
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
 
 function convertSqlResultToRows(results: Record<string, Value>[], intMode: IntMode): Row[] {
     return results.map((result) => {
