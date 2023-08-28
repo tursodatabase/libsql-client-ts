@@ -160,13 +160,13 @@ export class BunSqliteClient implements Client {
 export class BunSqliteTransaction implements Transaction {
     #database: Database;
     #intMode: IntMode;
-    #isClosed: boolean;
+    #closed: boolean;
 
     /** @private */
     constructor(database: Database, intMode: IntMode) {
         this.#database = database;
         this.#intMode = intMode;
-        this.#isClosed = false;
+        this.#closed = false;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
@@ -191,7 +191,7 @@ export class BunSqliteTransaction implements Transaction {
     }
 
     async rollback(): Promise<void> {
-        if (this.closed) {
+        if (this.#closed) {
             return;
         }
         this.#checkNotClosed();
@@ -207,15 +207,15 @@ export class BunSqliteTransaction implements Transaction {
 
     close(): void {
         this.#database.close();
-        this.#isClosed = true;
+        this.#closed = true;
     }
 
     get closed(): boolean {
-        return this.#isClosed;
+        return this.#closed;
     }
 
     #checkNotClosed(): void {
-        if (this.#isClosed || !this.#database.inTransaction) {
+        if (this.#closed || !this.#database.inTransaction) {
             throw new LibsqlError("The transaction is closed", "TRANSACTION_CLOSED");
         }
     }
