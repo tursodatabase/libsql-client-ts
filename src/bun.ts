@@ -6,7 +6,7 @@ import { supportedUrlLink } from "./util.js";
 
 import { _createClient as _createWsClient } from "./ws.js";
 import { _createClient as _createHttpClient } from "./http.js";
-import { _createClient as _createBunSqliteClient } from "./bun-sqlite.js";
+import { _createClient as _createBunSqliteClient } from "./bun_sqlite.js";
 
 export * from "./api.js";
 

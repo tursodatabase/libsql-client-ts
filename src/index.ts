@@ -1,7 +1,7 @@
 import type { Config, Client } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
-import { _createClient as _createBunSqliteClient } from "./bun-sqlite.js";
+import { _createClient as _createBunSqliteClient } from "./bun_sqlite.js";
 import { _createClient as _createSqlite3Client } from "./sqlite3.js";
 import { _createClient as _createWsClient } from "./ws.js";
 import { _createClient as _createHttpClient } from "./http.js";
