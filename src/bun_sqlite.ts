@@ -75,10 +75,10 @@ export function _createClient(config: ExpandedConfig): Client {
         db.close();
     }
 
-    return new Sqlite3Client(path, options, config.intMode);
+    return new BunSqliteClient(path, options, config.intMode);
 }
 
-export class Sqlite3Client implements Client {
+export class BunSqliteClient implements Client {
     #path: string;
     #options: DatabaseOptions;
     #intMode: IntMode;
@@ -130,7 +130,7 @@ export class Sqlite3Client implements Client {
         const db = new Database(this.#path, this.#options);
         try {
             executeStmt(db, transactionModeToBegin(mode), this.#intMode);
-            return new Sqlite3Transaction(db, this.#intMode);
+            return new BunSqliteTransaction(db, this.#intMode);
         } catch (e) {
             db.close();
             throw e;
@@ -157,7 +157,7 @@ export class Sqlite3Client implements Client {
     }
 }
 
-export class Sqlite3Transaction implements Transaction {
+export class BunSqliteTransaction implements Transaction {
     #database: Database;
     #intMode: IntMode;
     #isClosed: boolean;
