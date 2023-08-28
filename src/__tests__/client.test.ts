@@ -216,34 +216,46 @@ describe("values", () => {
     testRoundtrip("string with unicode",
         "žluťoučký kůň úpěl ďábelské ódy", "žluťoučký kůň úpěl ďábelské ódy");
 
-    testRoundtrip("zero number", 0, 0);
-    testRoundtrip("integer number", -2023, -2023);
-    testRoundtrip("float number", 12.345, 12.345);
-
-    describe("'number' int mode", () => {
-        testRoundtrip("zero integer", 0n, 0, "number");
-        testRoundtrip("small integer", -42n, -42, "number");
-        testRoundtrip("largest safe integer", 9007199254740991n, 9007199254740991, "number");
-        testRoundtripError("smallest unsafe integer", 9007199254740992n, RangeError, "number");
-        testRoundtripError("large unsafe integer", -1152921504594532842n, RangeError, "number");
+    describe("number", () => {
+        const intModes: Array<libsql.IntMode> = ["number", "bigint", "string"];
+        for (const intMode of intModes) {
+            testRoundtrip("zero", 0, 0, intMode);
+            testRoundtrip("integer", -2023, -2023, intMode);
+            testRoundtrip("float", 12.345, 12.345, intMode);
+            testRoundtrip("large positive float", 1e18, 1e18, intMode);
+            testRoundtrip("large negative float", -1e18, -1e18, intMode);
+            testRoundtrip("MAX_VALUE", Number.MAX_VALUE, Number.MAX_VALUE, intMode);
+            testRoundtrip("-MAX_VALUE", -Number.MAX_VALUE, -Number.MAX_VALUE, intMode);
+            testRoundtrip("MIN_VALUE", Number.MIN_VALUE, Number.MIN_VALUE, intMode);
+        }
     });
 
-    describe("'bigint' int mode", () => {
-        testRoundtrip("zero integer", 0n, 0n, "bigint");
-        testRoundtrip("small integer", -42n, -42n, "bigint");
-        testRoundtrip("large positive integer", 1152921504608088318n, 1152921504608088318n, "bigint");
-        testRoundtrip("large negative integer", -1152921504594532842n, -1152921504594532842n, "bigint");
-        testRoundtrip("largest positive integer", 9223372036854775807n, 9223372036854775807n, "bigint");
-        testRoundtrip("largest negative integer", -9223372036854775808n, -9223372036854775808n, "bigint");
-    });
+    describe("bigint", () => {
+        describe("'number' int mode", () => {
+            testRoundtrip("zero integer", 0n, 0, "number");
+            testRoundtrip("small integer", -42n, -42, "number");
+            testRoundtrip("largest safe integer", 9007199254740991n, 9007199254740991, "number");
+            testRoundtripError("smallest unsafe integer", 9007199254740992n, RangeError, "number");
+            testRoundtripError("large unsafe integer", -1152921504594532842n, RangeError, "number");
+        });
 
-    describe("'string' int mode", () => {
-        testRoundtrip("zero integer", 0n, "0", "string");
-        testRoundtrip("small integer", -42n, "-42", "string");
-        testRoundtrip("large positive integer", 1152921504608088318n, "1152921504608088318", "string");
-        testRoundtrip("large negative integer", -1152921504594532842n, "-1152921504594532842", "string");
-        testRoundtrip("largest positive integer", 9223372036854775807n, "9223372036854775807", "string");
-        testRoundtrip("largest negative integer", -9223372036854775808n, "-9223372036854775808", "string");
+        describe("'bigint' int mode", () => {
+            testRoundtrip("zero integer", 0n, 0n, "bigint");
+            testRoundtrip("small integer", -42n, -42n, "bigint");
+            testRoundtrip("large positive integer", 1152921504608088318n, 1152921504608088318n, "bigint");
+            testRoundtrip("large negative integer", -1152921504594532842n, -1152921504594532842n, "bigint");
+            testRoundtrip("largest positive integer", 9223372036854775807n, 9223372036854775807n, "bigint");
+            testRoundtrip("largest negative integer", -9223372036854775808n, -9223372036854775808n, "bigint");
+        });
+
+        describe("'string' int mode", () => {
+            testRoundtrip("zero integer", 0n, "0", "string");
+            testRoundtrip("small integer", -42n, "-42", "string");
+            testRoundtrip("large positive integer", 1152921504608088318n, "1152921504608088318", "string");
+            testRoundtrip("large negative integer", -1152921504594532842n, "-1152921504594532842", "string");
+            testRoundtrip("largest positive integer", 9223372036854775807n, "9223372036854775807", "string");
+            testRoundtrip("largest negative integer", -9223372036854775808n, "-9223372036854775808", "string");
+        });
     });
 
     const buf = new ArrayBuffer(256);
@@ -255,11 +267,10 @@ describe("values", () => {
     testRoundtrip("Uint8Array", array, buf);
 
     testRoundtrip("null", null, null);
-    testRoundtrip("true", true, 1);
-    testRoundtrip("false", false, 0);
+    testRoundtrip("true", true, 1n, "bigint");
+    testRoundtrip("false", false, 0n, "bigint");
     
-    testRoundtrip("bigint", -1000n, -1000);
-    testRoundtrip("Date", new Date("2023-01-02T12:34:56Z"), 1672662896000);
+    testRoundtrip("Date", new Date("2023-01-02T12:34:56Z"), 1672662896000, "bigint");
 
     // @ts-expect-error
     testRoundtripError("undefined produces error", undefined, TypeError);
