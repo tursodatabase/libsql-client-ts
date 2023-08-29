@@ -3,6 +3,6 @@
     "compilerOptions": {
         "incremental": true,
         "noEmit": true,
-        "types": ["bun-types"]
+        "types": ["bun-types", "@types/jest"]
     }
 }
