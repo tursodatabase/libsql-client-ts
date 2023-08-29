@@ -22,7 +22,6 @@ import { transactionModeToBegin, ResultSetImpl, validateFileConfig, parseStateme
 
 export * from "./api.js";
 
-/** https://github.com/oven-sh/bun/issues/1536  */
 const minInteger = -9223372036854775808n;
 const maxInteger = 9223372036854775807n;
 const minSafeBigint = -9007199254740991n;
@@ -36,6 +35,8 @@ export function createClient(config: Config): Client {
 export function _createClient(config: ExpandedConfig): Client {
     const isBun = !!(globalThis as any).Bun || !!(globalThis as any).process?.versions?.bun;
     if (!isBun) throw new LibsqlError("Bun is not available", "BUN_NOT_AVAILABLE");
+    // bigint handling https://github.com/oven-sh/bun/issues/1536
+    if (config.intMode !== "number") throw intModeNotImplemented(config.intMode);
     validateFileConfig(config);
 
     const path = config.path;
@@ -182,7 +183,6 @@ export class BunSqliteTransaction implements Transaction {
 
 function executeStmt(db: Database, stmt: InStatement, intMode: IntMode): ResultSet {
     const { sql, args } = parseStatement(stmt, valueToSql);
-
     try {
         const sqlStmt = db.prepare(sql);
         const data = sqlStmt.all(args as SQLQueryBindings) as Record<string, Value>[];
@@ -224,16 +224,16 @@ function convertSqlResultToRows(results: Record<string, Value>[], intMode: IntMo
 
 function valueFromSql(sqlValue: unknown, intMode: IntMode): Value {
     // https://github.com/oven-sh/bun/issues/1536
-    if (typeof sqlValue === "number") {
+    if (typeof sqlValue === "bigint") {
         if (intMode === "number") {
             if (sqlValue < minSafeBigint || sqlValue > maxSafeBigint) {
                 throw new RangeError("Received integer which cannot be safely represented as a JavaScript number");
             }
             return Number(sqlValue);
         } else if (intMode === "bigint") {
-            return BigInt(sqlValue);
+            return sqlValue;
         } else if (intMode === "string") {
-            return "" + sqlValue;
+            return String(sqlValue);
         } else {
             throw new Error("Invalid value for IntMode");
         }
@@ -267,15 +267,20 @@ function valueToSql(value: InValue) {
     }
 }
 
+const BUN_SQLITE_ERROR = "BUN_SQLITE ERROR" as const;
+
 function mapSqliteError(e: unknown): unknown {
     if (e instanceof RangeError) {
         return e;
     }
     if (e instanceof Error) {
-        return new LibsqlError(e.message, "BUN_SQLITE ERROR", e);
+        return new LibsqlError(e.message, BUN_SQLITE_ERROR, e);
     }
     return e;
 }
 
 const executeMultipleNotImplemented = () =>
-    new LibsqlError("bun:sqlite doesn't support executeMultiple. Use batch instead.", "BUN_SQLITE ERROR");
+    new LibsqlError("bun:sqlite doesn't support executeMultiple. Use batch instead.", BUN_SQLITE_ERROR);
+
+const intModeNotImplemented = (mode: string) =>
+    new LibsqlError(`"${mode}" intMode is not supported by bun:sqlite. Only intMode "number" is supported.`, BUN_SQLITE_ERROR);
