@@ -2,15 +2,27 @@ import Database from "better-sqlite3";
 import { Buffer } from "node:buffer";
 
 import type {
-    Config, IntMode, Client, Transaction, TransactionMode,
-    ResultSet, Row, Value, InValue, InStatement,
+    Config,
+    IntMode,
+    Client,
+    Transaction,
+    TransactionMode,
+    ResultSet,
+    Row,
+    Value,
+    InValue,
+    InStatement,
 } from "./api.js";
 import { LibsqlError } from "./api.js";
-import type { ExpandedConfig } from "./config.js";
-import { expandConfig } from "./config.js";
-import { supportedUrlLink, transactionModeToBegin, ResultSetImpl } from "./util.js";
+import { expandConfig, type ExpandedConfig } from "./config.js";
+import { transactionModeToBegin, ResultSetImpl, validateFileConfig, parseStatement } from "./util.js";
 
 export * from "./api.js";
+
+const minInteger = -9223372036854775808n;
+const maxInteger = 9223372036854775807n;
+const minSafeBigint = -9007199254740991n;
+const maxSafeBigint = 9007199254740991n;
 
 export function createClient(config: Config): Client {
     return _createClient(expandConfig(config, true));
@@ -18,34 +30,7 @@ export function createClient(config: Config): Client {
 
 /** @private */
 export function _createClient(config: ExpandedConfig): Client {
-    if (config.scheme !== "file") {
-        throw new LibsqlError(
-            `URL scheme ${JSON.stringify(config.scheme + ":")} is not supported by the local sqlite3 client. ` +
-                `For more information, please read ${supportedUrlLink}`,
-            "URL_SCHEME_NOT_SUPPORTED",
-        );
-    }
-
-    const authority = config.authority;
-    if (authority !== undefined) {
-        const host = authority.host.toLowerCase();
-        if (host !== "" && host !== "localhost") {
-            throw new LibsqlError(
-                `Invalid host in file URL: ${JSON.stringify(authority.host)}. ` +
-                    'A "file:" URL with an absolute path should start with one slash ("file:/absolute/path.db") ' +
-                    'or with three slashes ("file:///absolute/path.db"). ' +
-                    `For more information, please read ${supportedUrlLink}`,
-                "URL_INVALID",
-            );
-        }
-
-        if (authority.port !== undefined) {
-            throw new LibsqlError("File URL cannot have a port", "URL_INVALID");
-        }
-        if (authority.userinfo !== undefined) {
-            throw new LibsqlError("File URL cannot have username and password", "URL_INVALID");
-        }
-    }
+    validateFileConfig(config);
 
     const path = config.path;
     const options = {};
@@ -97,7 +82,7 @@ export class Sqlite3Client implements Client {
                 }
                 return executeStmt(db, stmt, this.#intMode);
             });
-            executeStmt(db, "COMMIT", this.#intMode)
+            executeStmt(db, "COMMIT", this.#intMode);
             return resultSets;
         } finally {
             db.close();
@@ -195,24 +180,8 @@ export class Sqlite3Transaction implements Transaction {
 }
 
 function executeStmt(db: Database.Database, stmt: InStatement, intMode: IntMode): ResultSet {
-    let sql: string;
-    let args: Array<unknown> | Record<string, unknown>;
-    if (typeof stmt === "string") {
-        sql = stmt;
-        args = [];
-    } else {
-        sql = stmt.sql;
-        if (Array.isArray(stmt.args)) {
-            args = stmt.args.map(valueToSql);
-        } else {
-            args = {};
-            for (const name in stmt.args) {
-                const argName = (name[0] === "@" || name[0] === "$" || name[0] === ":")
-                    ? name.substring(1) : name;
-                args[argName] = valueToSql(stmt.args[name]);
-            }
-        }
-    }
+    const transformKeys = (name: string) => (name[0] === "@" || name[0] === "$" || name[0] === ":" ? name.substring(1) : name);
+    const { sql, args } = parseStatement(stmt, valueToSql, transformKeys);
 
     try {
         const sqlStmt = db.prepare(sql);
@@ -227,7 +196,7 @@ function executeStmt(db: Database.Database, stmt: InStatement, intMode: IntMode)
         }
 
         if (returnsData) {
-            const columns = Array.from(sqlStmt.columns().map(col => col.name));
+            const columns = Array.from(sqlStmt.columns().map((col) => col.name));
             const rows = sqlStmt.all(args).map((sqlRow) => {
                 return rowFromSql(sqlRow as Array<unknown>, columns, intMode);
             });
@@ -266,28 +235,23 @@ function valueFromSql(sqlValue: unknown, intMode: IntMode): Value {
     if (typeof sqlValue === "bigint") {
         if (intMode === "number") {
             if (sqlValue < minSafeBigint || sqlValue > maxSafeBigint) {
-                throw new RangeError(
-                    "Received integer which cannot be safely represented as a JavaScript number"
-                );
+                throw new RangeError("Received integer which cannot be safely represented as a JavaScript number");
             }
             return Number(sqlValue);
         } else if (intMode === "bigint") {
             return sqlValue;
         } else if (intMode === "string") {
-            return ""+sqlValue;
+            return "" + sqlValue;
         } else {
             throw new Error("Invalid value for IntMode");
         }
     } else if (sqlValue instanceof Buffer) {
-        return sqlValue.buffer;
+        return sqlValue.buffer as Value;
     }
     return sqlValue as Value;
 }
 
-const minSafeBigint = -9007199254740991n;
-const maxSafeBigint = 9007199254740991n;
-
-function valueToSql(value: InValue): unknown {
+function valueToSql(value: InValue) {
     if (typeof value === "number") {
         if (!Number.isFinite(value)) {
             throw new RangeError("Only finite numbers (not Infinity or NaN) can be passed as arguments");
@@ -295,9 +259,7 @@ function valueToSql(value: InValue): unknown {
         return value;
     } else if (typeof value === "bigint") {
         if (value < minInteger || value > maxInteger) {
-            throw new RangeError(
-                "bigint is too large to be represented as a 64-bit integer and passed as argument"
-            );
+            throw new RangeError("bigint is too large to be represented as a 64-bit integer and passed as argument");
         }
         return value;
     } else if (typeof value === "boolean") {
@@ -312,9 +274,6 @@ function valueToSql(value: InValue): unknown {
         return value;
     }
 }
-
-const minInteger = -9223372036854775808n;
-const maxInteger = 9223372036854775807n;
 
 function executeMultiple(db: Database.Database, sql: string): void {
     try {

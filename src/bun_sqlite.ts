@@ -14,12 +14,11 @@ import type {
     Row,
     Value,
     InValue,
-    InStatement
+    InStatement,
 } from "./api.js";
 import { LibsqlError } from "./api.js";
-import type { ExpandedConfig } from "./config.js";
-import { expandConfig } from "./config.js";
-import { supportedUrlLink, transactionModeToBegin, ResultSetImpl } from "./util.js";
+import { expandConfig, type ExpandedConfig } from "./config.js";
+import { transactionModeToBegin, ResultSetImpl, validateFileConfig, parseStatement } from "./util.js";
 
 export * from "./api.js";
 
@@ -37,36 +36,7 @@ export function createClient(config: Config): Client {
 export function _createClient(config: ExpandedConfig): Client {
     const isBun = !!(globalThis as any).Bun || !!(globalThis as any).process?.versions?.bun;
     if (!isBun) throw new LibsqlError("Bun is not available", "BUN_NOT_AVAILABLE");
-    if (config.scheme !== "file") {
-        throw new LibsqlError(
-            `URL scheme ${JSON.stringify(
-                config.scheme + ":"
-            )} is not supported by the local sqlite3 client. ` +
-                `For more information, please read ${supportedUrlLink}`,
-            "URL_SCHEME_NOT_SUPPORTED"
-        );
-    }
-
-    const authority = config.authority;
-    if (authority !== undefined) {
-        const host = authority.host.toLowerCase();
-        if (host !== "" && host !== "localhost") {
-            throw new LibsqlError(
-                `Invalid host in file URL: ${JSON.stringify(authority.host)}. ` +
-                    'A "file:" URL with an absolute path should start with one slash ("file:/absolute/path.db") ' +
-                    'or with three slashes ("file:///absolute/path.db"). ' +
-                    `For more information, please read ${supportedUrlLink}`,
-                "URL_INVALID"
-            );
-        }
-
-        if (authority.port !== undefined) {
-            throw new LibsqlError("File URL cannot have a port", "URL_INVALID");
-        }
-        if (authority.userinfo !== undefined) {
-            throw new LibsqlError("File URL cannot have username and password", "URL_INVALID");
-        }
-    }
+    validateFileConfig(config);
 
     const path = config.path;
     const options = undefined; //@todo implement options
@@ -106,10 +76,7 @@ export class BunSqliteClient implements Client {
         }
     }
 
-    async batch(
-        stmts: Array<InStatement>,
-        mode: TransactionMode = "deferred"
-    ): Promise<Array<ResultSet>> {
+    async batch(stmts: Array<InStatement>, mode: TransactionMode = "deferred"): Promise<Array<ResultSet>> {
         this.#checkNotClosed();
         const db = new Database(this.#path, this.#options);
         try {
@@ -216,22 +183,7 @@ export class BunSqliteTransaction implements Transaction {
 }
 
 function executeStmt(db: Database, stmt: InStatement, intMode: IntMode): ResultSet {
-    let sql: string;
-    let args: Array<unknown> | Record<string, unknown>;
-    if (typeof stmt === "string") {
-        sql = stmt;
-        args = [];
-    } else {
-        sql = stmt.sql;
-        if (Array.isArray(stmt.args)) {
-            args = stmt.args.map(valueToSql);
-        } else {
-            args = {};
-            for (const name in stmt.args) {
-                args[name] = valueToSql(stmt.args[name]);
-            }
-        }
-    }
+    const { sql, args } = parseStatement(stmt, valueToSql);
 
     try {
         const sqlStmt = db.prepare(sql);
@@ -283,9 +235,7 @@ function valueFromSql(sqlValue: unknown, intMode: IntMode): Value {
     if (typeof sqlValue === "number") {
         if (intMode === "number") {
             if (sqlValue < minSafeBigint || sqlValue > maxSafeBigint) {
-                throw new RangeError(
-                    "Received integer which cannot be safely represented as a JavaScript number"
-                );
+                throw new RangeError("Received integer which cannot be safely represented as a JavaScript number");
             }
             return Number(sqlValue);
         } else if (intMode === "bigint") {
@@ -301,7 +251,7 @@ function valueFromSql(sqlValue: unknown, intMode: IntMode): Value {
     return sqlValue as Value;
 }
 
-function valueToSql(value: InValue): unknown {
+function valueToSql(value: InValue) {
     if (typeof value === "number") {
         if (!Number.isFinite(value)) {
             throw new RangeError("Only finite numbers (not Infinity or NaN) can be passed as arguments");
@@ -309,9 +259,7 @@ function valueToSql(value: InValue): unknown {
         return value;
     } else if (typeof value === "bigint") {
         if (value < minInteger || value > maxInteger) {
-            throw new RangeError(
-                "bigint is too large to be represented as a 64-bit integer and passed as argument"
-            );
+            throw new RangeError("bigint is too large to be represented as a 64-bit integer and passed as argument");
         }
         return value;
     } else if (typeof value === "boolean") {
