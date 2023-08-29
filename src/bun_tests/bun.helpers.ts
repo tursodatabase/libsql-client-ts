@@ -25,14 +25,5 @@ export const expectLibSqlError = async (f: () => any, pattern?: string | RegExp)
     }
 };
 
-export const expectBunSqliteError = async (f: () => any, pattern?: string | RegExp) => {
-    try {
-        await f();
-    } catch (e: any) {
-        expect(e).toBeInstanceOf(LibsqlError);
-        expect(e.code.length).toBeGreaterThan(0);
-        if (pattern !== undefined) {
-            expect(e.message).toMatch(withPattern("BUN_SQLITE ERROR", pattern));
-        }
-    }
-};
+export const expectBunSqliteError = async (f: () => any, pattern?: string | RegExp) =>
+    expectLibSqlError(f, pattern ? withPattern("BUN_SQLITE ERROR", pattern) : withPattern("BUN_SQLITE ERROR"));

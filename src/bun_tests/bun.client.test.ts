@@ -744,7 +744,7 @@ describe("transaction()", () => {
             await prom1;
             await expectBunSqliteError(() => prom2);
             await expectLibSqlError(() => prom3, withPattern("TRANSACTION_CLOSED"));
-            await expectBunSqliteError(() => txn.commit());
+            await expectLibSqlError(() => txn.commit(), withPattern("TRANSACTION_CLOSED"));
             txn.close();
 
             const rs = await c.execute("SELECT COUNT(*) FROM t");
@@ -765,7 +765,7 @@ describe("transaction()", () => {
 
             await expectBunSqliteError(() => prom1);
             await expectLibSqlError(() => prom2, withPattern("TRANSACTION_CLOSED"));
-            await expectBunSqliteError(() => txn.commit());
+            await expectLibSqlError(() => txn.commit(), withPattern("TRANSACTION_CLOSED"));
 
             txn.close();
 
