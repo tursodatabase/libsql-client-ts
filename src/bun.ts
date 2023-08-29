@@ -14,10 +14,14 @@ export function createClient(config: Config): Client {
     return _createClient(expandConfig(config, true));
 }
 
+export const isBun = () => {
+    if ((globalThis as any).Bun || (globalThis as any).process?.versions?.bun) return;
+    throw new LibsqlError("Bun is not available", "BUN_NOT_AVAILABLE");
+};
+
 /** @private */
 export function _createClient(config: ExpandedConfig): Client {
-    const isBun = !!(globalThis as any).Bun || !!(globalThis as any).process?.versions?.bun;
-    if (!isBun) throw new LibsqlError("Bun is not available", "BUN_NOT_AVAILABLE");
+    isBun();
     if (config.scheme === "ws" || config.scheme === "wss") {
         return _createWsClient(config);
     } else if (config.scheme === "http" || config.scheme === "https") {
@@ -27,9 +31,7 @@ export function _createClient(config: ExpandedConfig): Client {
     } else {
         throw new LibsqlError(
             'The Bun client supports "file", "libsql:", "wss:", "ws:", "https:" and "http:" URLs, ' +
-                `got ${JSON.stringify(
-                    config.scheme + ":"
-                )}. For more information, please read ${supportedUrlLink}`,
+                `got ${JSON.stringify(config.scheme + ":")}. For more information, please read ${supportedUrlLink}`,
             "URL_SCHEME_NOT_SUPPORTED"
         );
     }

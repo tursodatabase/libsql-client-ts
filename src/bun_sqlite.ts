@@ -24,24 +24,23 @@ import {
     minInteger,
     maxInteger,
 } from "./util.js";
+import { isBun } from "./bun.js";
 
 export * from "./api.js";
 
 type ConstructorParameters<T> = T extends new (...args: infer P) => any ? P : never;
 type DatabaseOptions = ConstructorParameters<typeof Database>[1];
 
-export function createClient(config: Config): Client {
-    return _createClient(expandConfig(config, true));
+export function createClient(_config: Config): Client {
+    isBun();
+    const config = validateFileConfig(expandConfig(_config, true));
+    //@note bun bigint handling https://github.com/oven-sh/bun/issues/1536
+    if (config.intMode !== "number") throw intModeNotImplemented(config.intMode);
+    return _createClient(config);
 }
 
 /** @private */
 export function _createClient(config: ExpandedConfig): Client {
-    const isBun = !!(globalThis as any).Bun || !!(globalThis as any).process?.versions?.bun;
-    if (!isBun) throw new LibsqlError("Bun is not available", "BUN_NOT_AVAILABLE");
-    // bigint handling https://github.com/oven-sh/bun/issues/1536
-    if (config.intMode !== "number") throw intModeNotImplemented(config.intMode);
-    validateFileConfig(config);
-
     const path = config.path;
     const options = undefined; //@todo implement options
     const db = new Database(path);

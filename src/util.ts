@@ -58,6 +58,7 @@ export function validateFileConfig(config: ExpandedConfig) {
             throw new LibsqlError("File URL cannot have username and password", "URL_INVALID");
         }
     }
+    return config;
 }
 export function transactionModeToBegin(mode: TransactionMode): string {
     if (mode === "write") {

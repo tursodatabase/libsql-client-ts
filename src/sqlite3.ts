@@ -29,13 +29,11 @@ import {
 export * from "./api.js";
 
 export function createClient(config: Config): Client {
-    return _createClient(expandConfig(config, true));
+    return _createClient(validateFileConfig(expandConfig(config, true)));
 }
 
 /** @private */
 export function _createClient(config: ExpandedConfig): Client {
-    validateFileConfig(config);
-
     const path = config.path;
     const options = {};
 
