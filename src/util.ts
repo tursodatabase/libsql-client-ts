@@ -107,3 +107,8 @@ function valueToJson(value: Value): unknown {
         return value;
     }
 }
+
+export const minInteger = -9223372036854775808n;
+export const maxInteger = 9223372036854775807n;
+export const minSafeBigint = -9007199254740991n;
+export const maxSafeBigint = 9007199254740991n;

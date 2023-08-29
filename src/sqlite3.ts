@@ -15,14 +15,18 @@ import type {
 } from "./api.js";
 import { LibsqlError } from "./api.js";
 import { expandConfig, type ExpandedConfig } from "./config.js";
-import { transactionModeToBegin, ResultSetImpl, validateFileConfig, parseStatement } from "./util.js";
+import {
+    transactionModeToBegin,
+    ResultSetImpl,
+    validateFileConfig,
+    parseStatement,
+    minSafeBigint,
+    maxSafeBigint,
+    minInteger,
+    maxInteger,
+} from "./util.js";
 
 export * from "./api.js";
-
-const minInteger = -9223372036854775808n;
-const maxInteger = 9223372036854775807n;
-const minSafeBigint = -9007199254740991n;
-const maxSafeBigint = 9007199254740991n;
 
 export function createClient(config: Config): Client {
     return _createClient(expandConfig(config, true));
