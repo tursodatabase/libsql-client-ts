@@ -107,8 +107,7 @@ export class BunSqliteClient implements Client {
     }
 
     async executeMultiple(sql: string): Promise<void> {
-        this.#checkNotClosed();
-        await this.batch(batchStatementsFromSql(sql));
+        throw executeMultipleNotImplemented();
     }
 
     close(): void {
@@ -147,8 +146,7 @@ export class BunSqliteTransaction implements Transaction {
     }
 
     async executeMultiple(sql: string): Promise<void> {
-        this.#checkNotClosed();
-        await this.batch(batchStatementsFromSql(sql));
+        throw executeMultipleNotImplemented();
     }
 
     async rollback(): Promise<void> {
@@ -205,12 +203,6 @@ function executeStmt(db: Database, stmt: InStatement, intMode: IntMode): ResultS
         throw mapSqliteError(e);
     }
 }
-
-const batchStatementsFromSql = (sql: string) =>
-    sql
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean);
 
 function convertSqlResultToRows(results: Record<string, Value>[], intMode: IntMode): Row[] {
     return results.map((result) => {
@@ -284,3 +276,6 @@ function mapSqliteError(e: unknown): unknown {
     }
     return e;
 }
+
+const executeMultipleNotImplemented = () =>
+    new LibsqlError("bun:sqlite doesn't support executeMultiple. Use batch instead.", "BUN_SQLITE ERROR");

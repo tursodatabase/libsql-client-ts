@@ -9,13 +9,10 @@ import { expectBunSqliteError, expectLibSqlError, withPattern } from "./bun.help
 
 const config = {
     url: process.env.URL ?? "file:///tmp/test.db" ?? "ws://localhost:8080",
-    authToken: process.env.AUTH_TOKEN
+    authToken: process.env.AUTH_TOKEN,
 };
 
-function withClient(
-    f: (c: libsql.Client) => Promise<void>,
-    extraConfig?: Partial<libsql.Config>
-): () => Promise<void> {
+function withClient(f: (c: libsql.Client) => Promise<void>, extraConfig?: Partial<libsql.Config>): () => Promise<void> {
     return async () => {
         const c = createClient({ ...config, ...extraConfig });
         try {
@@ -28,43 +25,26 @@ function withClient(
 
 describe("createClient()", () => {
     test("URL scheme not supported", () => {
-        expectLibSqlError(
-            () => createClient({ url: "ftp://localhost" }),
-            withPattern("URL_SCHEME_NOT_SUPPORTED", /"ftp:"/)
-        );
+        expectLibSqlError(() => createClient({ url: "ftp://localhost" }), withPattern("URL_SCHEME_NOT_SUPPORTED", /"ftp:"/));
     });
 
     test("URL param not supported", () => {
-        expectLibSqlError(
-            () => createClient({ url: "ws://localhost?foo=bar" }),
-            withPattern("URL_PARAM_NOT_SUPPORTED", /"foo"/)
-        );
+        expectLibSqlError(() => createClient({ url: "ws://localhost?foo=bar" }), withPattern("URL_PARAM_NOT_SUPPORTED", /"foo"/));
     });
 
     test("URL scheme incompatible with ?tls", () => {
-        const urls = [
-            "ws://localhost?tls=1",
-            "wss://localhost?tls=0",
-            "http://localhost?tls=1",
-            "https://localhost?tls=0"
-        ];
+        const urls = ["ws://localhost?tls=1", "wss://localhost?tls=0", "http://localhost?tls=1", "https://localhost?tls=0"];
         for (const url of urls) {
             expectLibSqlError(() => createClient({ url }), withPattern("URL_INVALID", /TLS/));
         }
     });
 
     test("missing port in libsql URL with tls=0", () => {
-        expectLibSqlError(
-            () => createClient({ url: "libsql://localhost?tls=0" }),
-            withPattern("URL_INVALID", /port/)
-        );
+        expectLibSqlError(() => createClient({ url: "libsql://localhost?tls=0" }), withPattern("URL_INVALID", /port/));
     });
 
     test("invalid value of tls query param", () => {
-        expectLibSqlError(
-            () => createClient({ url: "libsql://localhost?tls=yes" }),
-            withPattern("URL_INVALID", /"tls".*"yes"/)
-        );
+        expectLibSqlError(() => createClient({ url: "libsql://localhost?tls=yes" }), withPattern("URL_INVALID", /"tls".*"yes"/));
     });
 
     test("passing URL instead of config object", () => {
@@ -103,7 +83,7 @@ describe("execute()", () => {
             expect(Object.entries(r)).toStrictEqual([
                 ["one", 1],
                 ["two", "two"],
-                ["three", 0.5]
+                ["three", 0.5],
             ]);
         })
     );
@@ -141,11 +121,7 @@ describe("execute()", () => {
         "rowsAffected with DELETE",
         withClient(async (c) => {
             await c.batch(
-                [
-                    "DROP TABLE IF EXISTS t",
-                    "CREATE TABLE t (a)",
-                    "INSERT INTO t VALUES (1), (2), (3), (4), (5)"
-                ],
+                ["DROP TABLE IF EXISTS t", "CREATE TABLE t (a)", "INSERT INTO t VALUES (1), (2), (3), (4), (5)"],
                 "write"
             );
             const rs = await c.execute("DELETE FROM t WHERE a >= 3");
@@ -157,19 +133,12 @@ describe("execute()", () => {
     test.skip(
         "lastInsertRowid with INSERT",
         withClient(async (c) => {
-            await c.batch(
-                [
-                    "DROP TABLE IF EXISTS t",
-                    "CREATE TABLE t (a)",
-                    "INSERT INTO t VALUES ('one'), ('two')"
-                ],
-                "write"
-            );
+            await c.batch(["DROP TABLE IF EXISTS t", "CREATE TABLE t (a)", "INSERT INTO t VALUES ('one'), ('two')"], "write");
             const insertRs = await c.execute("INSERT INTO t VALUES ('three')");
             expect(insertRs.lastInsertRowid).not.toBeUndefined();
             const selectRs = await c.execute({
                 sql: "SELECT a FROM t WHERE ROWID = ?",
-                args: [insertRs.lastInsertRowid!]
+                args: [insertRs.lastInsertRowid!],
             });
             expect(Array.from(selectRs.rows[0])).toStrictEqual(["three"]);
         })
@@ -190,10 +159,7 @@ describe("execute()", () => {
     test(
         "rowsAffected with WITH INSERT",
         withClient(async (c) => {
-            await c.batch(
-                ["DROP TABLE IF EXISTS t", "CREATE TABLE t (a)", "INSERT INTO t VALUES (1), (2), (3)"],
-                "write"
-            );
+            await c.batch(["DROP TABLE IF EXISTS t", "CREATE TABLE t (a)", "INSERT INTO t VALUES (1), (2), (3)"], "write");
 
             const rs = await c.execute(`
             WITH x(a) AS (SELECT 2*a FROM t)
@@ -205,12 +171,7 @@ describe("execute()", () => {
 });
 
 describe("values", () => {
-    function testRoundtrip(
-        name: string,
-        passed: libsql.InValue,
-        expected: libsql.Value,
-        intMode?: libsql.IntMode
-    ): void {
+    function testRoundtrip(name: string, passed: libsql.InValue, expected: libsql.Value, intMode?: libsql.IntMode): void {
         test(
             name,
             withClient(
@@ -223,12 +184,7 @@ describe("values", () => {
         );
     }
 
-    function testRoundtripError(
-        name: string,
-        passed: libsql.InValue,
-        expectedError: unknown,
-        intMode?: libsql.IntMode
-    ): void {
+    function testRoundtripError(name: string, passed: libsql.InValue, expectedError: unknown, intMode?: libsql.IntMode): void {
         test(
             name,
             withClient(
@@ -236,7 +192,7 @@ describe("values", () => {
                     await expect(
                         c.execute({
                             sql: "SELECT ?",
-                            args: [passed]
+                            args: [passed],
                         })
                     ).rejects.toBeInstanceOf(expectedError);
                 },
@@ -247,11 +203,7 @@ describe("values", () => {
 
     testRoundtrip("string", "boomerang", "boomerang");
     testRoundtrip("string with weird characters", "a\n\r\t ", "a\n\r\t ");
-    testRoundtrip(
-        "string with unicode",
-        "žluťoučký kůň úpěl ďábelské ódy",
-        "žluťoučký kůň úpěl ďábelské ódy"
-    );
+    testRoundtrip("string with unicode", "žluťoučký kůň úpěl ďábelské ódy", "žluťoučký kůň úpěl ďábelské ódy");
 
     testRoundtrip("zero number", 0, 0);
     testRoundtrip("integer number", -2023, -2023);
@@ -272,12 +224,7 @@ describe("values", () => {
         // testRoundtrip("large positive integer", 1152921504608088318n, 1152921504608088318n, "bigint");
         // testRoundtrip("large negative integer", -1152921504594532842n, -1152921504594532842n, "bigint");
         // testRoundtrip("largest positive integer", 9223372036854775807n, 9223372036854775807n, "bigint");
-        testRoundtrip(
-            "largest negative integer",
-            -9223372036854775808n,
-            -9223372036854775808n,
-            "bigint"
-        );
+        testRoundtrip("largest negative integer", -9223372036854775808n, -9223372036854775808n, "bigint");
     });
 
     describe("'string' int mode", () => {
@@ -362,7 +309,7 @@ describe("ResultSet.toJSON()", () => {
                 columns: [],
                 rows: [],
                 rowsAffected: 1,
-                lastInsertRowid: "0" //@note not implemented with bun
+                lastInsertRowid: "0", //@note not implemented with bun
             });
         })
     );
@@ -370,9 +317,7 @@ describe("ResultSet.toJSON()", () => {
     test(
         "row values",
         withClient(async (c) => {
-            const rs = await c.execute(
-                "SELECT 42 AS integer, 0.5 AS float, NULL AS \"null\", 'foo' AS text, X'626172' AS blob"
-            );
+            const rs = await c.execute("SELECT 42 AS integer, 0.5 AS float, NULL AS \"null\", 'foo' AS text, X'626172' AS blob");
             const json = rs.toJSON();
             expect(json["columns"]).toStrictEqual(["integer", "float", "null", "text", "blob"]);
             expect(json["rows"]).toStrictEqual([[42, 0.5, null, "foo", "YmFy"]]);
@@ -399,7 +344,7 @@ describe("arguments", () => {
         withClient(async (c) => {
             const rs = await c.execute({
                 sql: "SELECT ?1, ?2",
-                args: ["one", "two"]
+                args: ["one", "two"],
             });
             expect(Array.from(rs.rows[0])).toStrictEqual(["one", "two"]);
         })
@@ -410,7 +355,7 @@ describe("arguments", () => {
         withClient(async (c) => {
             const rs = await c.execute({
                 sql: "SELECT ?2, ?3, ?1",
-                args: ["one", "two", "three"]
+                args: ["one", "two", "three"],
             });
             expect(Array.from(rs.rows[0])).toStrictEqual(["two", "three", "one"]);
         })
@@ -421,7 +366,7 @@ describe("arguments", () => {
         withClient(async (c) => {
             const rs = await c.execute({
                 sql: "SELECT ?3, ?1",
-                args: ["one", "two", "three"]
+                args: ["one", "two", "three"],
             });
             expect(Array.from(rs.rows[0])).toStrictEqual(["three", "one"]);
         })
@@ -433,7 +378,7 @@ describe("arguments", () => {
         withClient(async (c) => {
             const rs = await c.execute({
                 sql: "SELECT ?2, ?, ?3",
-                args: ["one", "two", "three"]
+                args: ["one", "two", "three"],
             });
             expect(Array.from(rs.rows[0])).toStrictEqual(["two", "three", "three"]);
         })
@@ -445,7 +390,7 @@ describe("arguments", () => {
             withClient(async (c) => {
                 const rs = await c.execute({
                     sql: `SELECT ${sign}b, ${sign}a`,
-                    args: { [`${sign}a`]: "one", [`${sign}b`]: "two" }
+                    args: { [`${sign}a`]: "one", [`${sign}b`]: "two" },
                 });
                 expect(Array.from(rs.rows[0])).toStrictEqual(["two", "one"]);
             })
@@ -456,7 +401,7 @@ describe("arguments", () => {
             withClient(async (c) => {
                 const rs = await c.execute({
                     sql: `SELECT ${sign}b, ${sign}a, ${sign}b || ${sign}a`,
-                    args: { [`${sign}a`]: "one", [`${sign}b`]: "two" }
+                    args: { [`${sign}a`]: "one", [`${sign}b`]: "two" },
                 });
                 expect(Array.from(rs.rows[0])).toStrictEqual(["two", "one", "twoone"]);
             })
@@ -468,7 +413,7 @@ describe("arguments", () => {
             withClient(async (c) => {
                 const rs = await c.execute({
                     sql: `SELECT ${sign}b, ${sign}a, ?1`,
-                    args: { [`${sign}a`]: "one", [`${sign}b`]: "two" }
+                    args: { [`${sign}a`]: "one", [`${sign}b`]: "two" },
                 });
                 expect(Array.from(rs.rows[0])).toStrictEqual(["two", "one", "two"]);
             })
@@ -485,7 +430,7 @@ describe("batch()", () => {
                     "SELECT 1+1",
                     "SELECT 1 AS one, 2 AS two",
                     { sql: "SELECT ?", args: ["boomerang"] },
-                    { sql: "VALUES (?), (?)", args: ["big", "ben"] }
+                    { sql: "VALUES (?), (?)", args: ["big", "ben"] },
                 ],
                 "read"
             );
@@ -519,7 +464,7 @@ describe("batch()", () => {
                     /* 3 */ "SELECT * FROM t ORDER BY a",
                     /* 4 */ "INSERT INTO t VALUES (2, 'two')",
                     /* 5 */ "SELECT * FROM t ORDER BY a",
-                    /* 6 */ "DROP TABLE t"
+                    /* 6 */ "DROP TABLE t",
                 ],
                 "write"
             );
@@ -528,7 +473,7 @@ describe("batch()", () => {
             expect(rss[3].rows).toEqual([{ a: 1, b: "one" }]);
             expect(rss[5].rows).toEqual([
                 { a: 1, b: "one" },
-                { a: 2, b: "two" }
+                { a: 2, b: "two" },
             ]);
         })
     );
@@ -537,12 +482,7 @@ describe("batch()", () => {
         "statements are executed in a transaction",
         withClient(async (c) => {
             await c.batch(
-                [
-                    "DROP TABLE IF EXISTS t1",
-                    "DROP TABLE IF EXISTS t2",
-                    "CREATE TABLE t1 (a)",
-                    "CREATE TABLE t2 (a)"
-                ],
+                ["DROP TABLE IF EXISTS t1", "DROP TABLE IF EXISTS t2", "CREATE TABLE t1 (a)", "CREATE TABLE t2 (a)"],
                 "write"
             );
 
@@ -557,7 +497,7 @@ describe("batch()", () => {
                                 { sql: "INSERT INTO t1 VALUES (?)", args: [ii] },
                                 { sql: "INSERT INTO t2 VALUES (?)", args: [ii * 10] },
                                 "SELECT SUM(a) FROM t1",
-                                "SELECT SUM(a) FROM t2"
+                                "SELECT SUM(a) FROM t2",
                             ],
                             "write"
                         );
@@ -592,10 +532,7 @@ describe("batch()", () => {
             await c.execute("CREATE TABLE t (a)");
             await c.execute("INSERT INTO t VALUES ('one')");
             await expectBunSqliteError(() =>
-                c.batch(
-                    ["INSERT INTO t VALUES ('two')", "SELECT foobar", "INSERT INTO t VALUES ('three')"],
-                    "write"
-                )
+                c.batch(["INSERT INTO t VALUES ('two')", "SELECT foobar", "INSERT INTO t VALUES ('three')"], "write")
             );
 
             const rs = await c.execute("SELECT COUNT(*) FROM t");
@@ -645,12 +582,7 @@ describe("batch()", () => {
         "deferred batch",
         withClient(async (c) => {
             const rss = await c.batch(
-                [
-                    "SELECT 1+1",
-                    "DROP TABLE IF EXISTS t",
-                    "CREATE TABLE t (a)",
-                    "INSERT INTO t VALUES (21) RETURNING 2*a"
-                ],
+                ["SELECT 1+1", "DROP TABLE IF EXISTS t", "CREATE TABLE t (a)", "INSERT INTO t VALUES (21) RETURNING 2*a"],
                 "deferred"
             );
             expect(rss.length).toStrictEqual(4);
@@ -671,10 +603,7 @@ describe("batch()", () => {
             await c.execute("CREATE TABLE t (a)");
 
             await expectLibSqlError(() =>
-                c.batch(
-                    ["INSERT INTO t VALUES (1), (2), (3)", "ROLLBACK", "INSERT INTO t VALUES (4), (5)"],
-                    "write"
-                )
+                c.batch(["INSERT INTO t VALUES (1), (2), (3)", "ROLLBACK", "INSERT INTO t VALUES (4), (5)"], "write")
             );
 
             const rs = await c.execute("SELECT COUNT(*) FROM t");
@@ -866,7 +795,7 @@ describe("batch()", () => {
                 "CREATE TABLE t (a)",
                 { sql: "INSERT INTO t VALUES (?)", args: [1] },
                 { sql: "INSERT INTO t VALUES (?)", args: [2] },
-                { sql: "INSERT INTO t VALUES (?)", args: [4] }
+                { sql: "INSERT INTO t VALUES (?)", args: [4] },
             ]);
 
             const rs = await txn.execute("SELECT SUM(a) FROM t");
@@ -885,7 +814,7 @@ describe("batch()", () => {
                 "CREATE TABLE t (a)",
                 { sql: "INSERT INTO t VALUES (?)", args: [1] },
                 { sql: "INSERT INTO t VALUES (?)", args: [2] },
-                { sql: "INSERT INTO t VALUES (?)", args: [4] }
+                { sql: "INSERT INTO t VALUES (?)", args: [4] },
             ]);
 
             const rs = await txn.execute("SELECT SUM(a) FROM t");
@@ -905,7 +834,7 @@ describe("batch()", () => {
                     "CREATE TABLE t (a UNIQUE)",
                     "INSERT INTO t VALUES (1), (2), (4)",
                     "INSERT INTO t VALUES (1)",
-                    "INSERT INTO t VALUES (8), (16)"
+                    "INSERT INTO t VALUES (8), (16)",
                 ])
             );
             const rs = await txn.execute("SELECT SUM(a) FROM t");
@@ -916,7 +845,8 @@ describe("batch()", () => {
     );
 });
 
-describe("executeMultiple()", () => {
+//@note Bun:sqlite doesn't implement executeMultiple due to lack of mulitine statement support.
+describe.skip("executeMultiple()", () => {
     test(
         "as the first operation on transaction",
         withClient(async (c) => {
@@ -969,9 +899,7 @@ describe("executeMultiple()", () => {
             await txn.commit();
         })
     );
-});
 
-describe("executeMultiple()", () => {
     test(
         "multiple statements",
         withClient(async (c) => {
@@ -980,7 +908,6 @@ describe("executeMultiple()", () => {
             CREATE TABLE t (a);
             INSERT INTO t VALUES (1), (2), (4), (8);
         `);
-
             const rs = await c.execute("SELECT SUM(a) FROM t");
             expect(rs.rows[0][0]).toStrictEqual(15);
         })
@@ -998,14 +925,11 @@ describe("executeMultiple()", () => {
             INSERT INTO t VALUES (100), (1000);`)
             );
             const rs = await c.execute("SELECT SUM(a) FROM t");
-            const rs2 = await c.execute("SELECT * from t");
-            //@note bun implementation use batch
             expect(rs.rows[0][0]).toStrictEqual(15);
         })
     );
 
-    //@note bun implementation uses batch and doesn't support manual transactions
-    test.skip(
+    test(
         "manual transaction control statements",
         withClient(async (c) => {
             await c.executeMultiple(`
@@ -1022,8 +946,7 @@ describe("executeMultiple()", () => {
         })
     );
 
-    //@note bun implementation uses batch and doesn't support manual transactions
-    test.skip(
+    test(
         "error rolls back a manual transaction",
         withClient(async (c) => {
             await expect(
@@ -1039,7 +962,6 @@ describe("executeMultiple()", () => {
         `)
             ).toThrow();
             // .rejects.toBeLibsqlError();
-
             const rs = await c.execute("SELECT SUM(a) FROM t");
             expect(rs.rows[0][0]).toStrictEqual(0);
         })
@@ -1050,7 +972,7 @@ describe("executeMultiple()", () => {
 describe.skip("network errors", () => {
     const testCases = [
         { title: "WebSocket close", sql: ".close_ws" },
-        { title: "TCP close", sql: ".close_tcp" }
+        { title: "TCP close", sql: ".close_tcp" },
     ];
 
     for (const { title, sql } of testCases) {
