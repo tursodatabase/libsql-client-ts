@@ -92,11 +92,10 @@
 
     "dependencies": {
         "@libsql/hrana-client": "^0.5.0",
-        "better-sqlite3": "^8.0.1",
-        "js-base64": "^3.7.5"
+        "js-base64": "^3.7.5",
+        "libsql": "^0.1.1"
     },
     "devDependencies": {
-        "@types/better-sqlite3": "^7.6.3",
         "@types/jest": "^29.2.5",
         "@types/node": "^18.15.5",
         "jest": "^29.3.1",
