@@ -3,10 +3,12 @@
 [![Node.js CI](https://github.com/libsql/libsql-client-ts/actions/workflows/ci.yaml/badge.svg)](https://github.com/libsql/libsql-client-ts/actions/workflows/ci.yaml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://github.com/libsql/libsql-client-ts/blob/main/LICENSE)
 
-This is the source repository of the JavaScript & TypeScript SDK for libSQL. You can use it to interact with the following types of databases:
+This is the source repository of the JavaScript & TypeScript SDK for libSQL.
 
-- Local SQLite database files
-- [libSQL sqld] instances (including [Turso])
+You can use this SDK to interact with the following types of databases:
+
+- Local SQLite/libSQL database files
+- [Remote libSQL databases], including [Turso]
 
 ## Installation
 
@@ -127,9 +129,8 @@ This project is licensed under the MIT license.
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in `@libsql/client` by you, shall be licensed as MIT, without any additional terms or conditions.
 
-
 [Turso]: https://docs.turso.tech
-[libSQL sqld]: https://github.com/libsql/sqld
+[Remote libSQL databases]: https://github.com/libsql/sqld
 [turso-cli-token]: https://docs.turso.tech/reference/turso-cli#authentication-tokens-for-client-access
 [better-sqlite3]: https://github.com/WiseLibs/better-sqlite3
 [hrana-client-ts]: https://github.com/libsql/hrana-client-ts
