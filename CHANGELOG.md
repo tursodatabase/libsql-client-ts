@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Switched to `libsql` package as a replacement for `better-sqlite3`.
+
 ## 0.3.2 -- 2023-07-29
 
 - Updated `@libsql/hrana-client` to version 0.5.0, which implements Hrana 3
