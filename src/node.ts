@@ -1,5 +1,4 @@
 import type { Config, Client } from "./api.js";
-import { LibsqlError } from "./api.js";
 import type { ExpandedConfig } from "./config.js";
 import { expandConfig } from "./config.js";
 import { _createClient as _createSqlite3Client } from "./sqlite3.js";

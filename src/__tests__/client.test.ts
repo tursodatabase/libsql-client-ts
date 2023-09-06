@@ -1,6 +1,4 @@
-import console from "node:console";
 import { expect } from "@jest/globals";
-import type { MatcherFunction } from "expect";
 
 import type { Request, Response } from "@libsql/hrana-client";
 import { fetch } from "@libsql/hrana-client";
@@ -449,7 +447,7 @@ describe("batch()", () => {
         ], "write");
 
         const n = 100;
-        const promises = [];
+        const promises: Promise<void>[] = [];
         for (let i = 0; i < n; ++i) {
             const ii = i;
             promises.push((async () => {
@@ -495,7 +493,7 @@ describe("batch()", () => {
     }));
 
     test("batch with a lot of different statements", withClient(async (c) => {
-        const stmts = [];
+        const stmts: string[] = [];
         for (let i = 0; i < 1000; ++i) {
             stmts.push(`SELECT ${i}`);
         }
@@ -509,7 +507,7 @@ describe("batch()", () => {
         const n = 20;
         const m = 200;
 
-        const stmts = [];
+        const stmts: libsql.InStatement[] = [];
         for (let i = 0; i < n; ++i) {
             for (let j = 0; j < m; ++j) {
                 stmts.push({sql: `SELECT ?, ${j}`, args: [i]});

@@ -1,6 +1,5 @@
-import Database from "libsql";
-import { Buffer } from "node:buffer";
-
+// @ts-ignore bun:sqlite is not typed when building
+import { Database, SQLQueryBindings } from "bun:sqlite";
 import type {
     Config,
     IntMode,
@@ -25,37 +24,44 @@ import {
     minInteger,
     maxInteger,
 } from "./util.js";
+import { isBun } from "./bun.js";
 
 export * from "./api.js";
 
-export function createClient(config: Config): Client {
-    return _createClient(validateFileConfig(expandConfig(config, true)));
+type ConstructorParameters<T> = T extends new (...args: infer P) => any ? P : never;
+type DatabaseOptions = ConstructorParameters<typeof Database>[1];
+
+export function createClient(_config: Config): Client {
+    isBun();
+    const config = validateFileConfig(expandConfig(_config, true));
+    //@note bun bigint handling https://github.com/oven-sh/bun/issues/1536
+    if (config.intMode !== "number") throw intModeNotImplemented(config.intMode);
+    return _createClient(config);
 }
 
 /** @private */
 export function _createClient(config: ExpandedConfig): Client {
     const path = config.path;
-    const options = {};
-
-    const db = new Database(path, options);
+    const options = undefined; //@todo implement options
+    const db = new Database(path);
     try {
         executeStmt(db, "SELECT 1 AS checkThatTheDatabaseCanBeOpened", config.intMode);
     } finally {
         db.close();
     }
 
-    return new Sqlite3Client(path, options, config.intMode);
+    return new BunSqliteClient(path, options, config.intMode);
 }
 
-export class Sqlite3Client implements Client {
+export class BunSqliteClient implements Client {
     #path: string;
-    #options: Database.Options;
+    #options: DatabaseOptions;
     #intMode: IntMode;
     closed: boolean;
     protocol: "file";
 
     /** @private */
-    constructor(path: string, options: Database.Options, intMode: IntMode) {
+    constructor(path: string, options: DatabaseOptions, intMode: IntMode) {
         this.#path = path;
         this.#options = options;
         this.#intMode = intMode;
@@ -96,7 +102,7 @@ export class Sqlite3Client implements Client {
         const db = new Database(this.#path, this.#options);
         try {
             executeStmt(db, transactionModeToBegin(mode), this.#intMode);
-            return new Sqlite3Transaction(db, this.#intMode);
+            return new BunSqliteTransaction(db, this.#intMode);
         } catch (e) {
             db.close();
             throw e;
@@ -104,13 +110,7 @@ export class Sqlite3Client implements Client {
     }
 
     async executeMultiple(sql: string): Promise<void> {
-        this.#checkNotClosed();
-        const db = new Database(this.#path, this.#options);
-        try {
-            return executeMultiple(db, sql);
-        } finally {
-            db.close();
-        }
+        throw executeMultipleNotImplemented();
     }
 
     close(): void {
@@ -124,14 +124,16 @@ export class Sqlite3Client implements Client {
     }
 }
 
-export class Sqlite3Transaction implements Transaction {
-    #database: Database.Database;
+export class BunSqliteTransaction implements Transaction {
+    #database: Database;
     #intMode: IntMode;
+    #closed: boolean;
 
     /** @private */
-    constructor(database: Database.Database, intMode: IntMode) {
+    constructor(database: Database, intMode: IntMode) {
         this.#database = database;
         this.#intMode = intMode;
+        this.#closed = false;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
@@ -147,69 +149,56 @@ export class Sqlite3Transaction implements Transaction {
     }
 
     async executeMultiple(sql: string): Promise<void> {
-        this.#checkNotClosed();
-        return executeMultiple(this.#database, sql);
+        throw executeMultipleNotImplemented();
     }
 
     async rollback(): Promise<void> {
-        if (!this.#database.open) {
+        if (this.#closed) {
             return;
         }
         this.#checkNotClosed();
         executeStmt(this.#database, "ROLLBACK", this.#intMode);
-        this.#database.close();
+        this.close();
     }
 
     async commit(): Promise<void> {
         this.#checkNotClosed();
         executeStmt(this.#database, "COMMIT", this.#intMode);
-        this.#database.close();
+        this.close();
     }
 
     close(): void {
         this.#database.close();
+        this.#closed = true;
     }
 
     get closed(): boolean {
-        return !this.#database.open;
+        return this.#closed;
     }
 
     #checkNotClosed(): void {
-        if (!this.#database.open || !this.#database.inTransaction) {
+        if (this.#closed || !this.#database.inTransaction) {
             throw new LibsqlError("The transaction is closed", "TRANSACTION_CLOSED");
         }
     }
 }
 
-function executeStmt(db: Database.Database, stmt: InStatement, intMode: IntMode): ResultSet {
-    const transformKeys = (name: string) => (name[0] === "@" || name[0] === "$" || name[0] === ":" ? name.substring(1) : name);
-    const { sql, args } = parseStatement(stmt, valueToSql, transformKeys);
-
+function executeStmt(db: Database, stmt: InStatement, intMode: IntMode): ResultSet {
+    const { sql, args } = parseStatement(stmt, valueToSql);
     try {
         const sqlStmt = db.prepare(sql);
-        sqlStmt.safeIntegers(true);
-
-        let returnsData = true;
-        try {
-            sqlStmt.raw(true);
-        } catch {
-            // raw() throws an exception if the statement does not return data
-            returnsData = false;
-        }
-
-        if (returnsData) {
-            const columns = Array.from(sqlStmt.columns().map((col) => col.name));
-            const rows = sqlStmt.all(args).map((sqlRow) => {
-                return rowFromSql(sqlRow as Array<unknown>, columns, intMode);
-            });
-            // TODO: can we get this info from better-sqlite3?
+        const data = sqlStmt.all(args as SQLQueryBindings) as Record<string, Value>[];
+        sqlStmt.finalize();
+        if (Array.isArray(data) && data.length > 0) {
+            const columns = sqlStmt.columnNames;
+            const rows = convertSqlResultToRows(data, intMode);
+            //@note info about the last insert rowid is not available with bun:sqlite
             const rowsAffected = 0;
             const lastInsertRowid = undefined;
             return new ResultSetImpl(columns, rows, rowsAffected, lastInsertRowid);
         } else {
-            const info = sqlStmt.run(args);
-            const rowsAffected = info.changes;
-            const lastInsertRowid = BigInt(info.lastInsertRowid);
+            const rowsAffected = typeof data === "number" ? data : 0;
+            const lastInsertRowid = BigInt(0);
             return new ResultSetImpl([], [], rowsAffected, lastInsertRowid);
         }
     } catch (e) {
@@ -217,23 +206,26 @@ function executeStmt(db: Database.Database, stmt: InStatement, intMode: IntMode)
     }
 }
 
-function rowFromSql(sqlRow: Array<unknown>, columns: Array<string>, intMode: IntMode): Row {
-    const row = {};
-    // make sure that the "length" property is not enumerable
-    Object.defineProperty(row, "length", { value: sqlRow.length });
-    for (let i = 0; i < sqlRow.length; ++i) {
-        const value = valueFromSql(sqlRow[i], intMode);
-        Object.defineProperty(row, i, { value });
+function convertSqlResultToRows(results: Record<string, Value>[], intMode: IntMode): Row[] {
+    return results.map((result) => {
+        const entries = Object.entries(result);
+        const row: Partial<Row> = {};
 
-        const column = columns[i];
-        if (!Object.hasOwn(row, column)) {
-            Object.defineProperty(row, column, { value, enumerable: true });
-        }
-    }
-    return row as Row;
+        //We use Object.defineProperty to make the properties non-enumerable
+        entries.forEach(([name, v], index) => {
+            const value = valueFromSql(v, intMode);
+            Object.defineProperty(row, name, { value, enumerable: true, configurable: true });
+            Object.defineProperty(row, index, { value, configurable: true });
+        });
+
+        Object.defineProperty(row, "length", { value: entries.length, configurable: true });
+
+        return row as Row;
+    });
 }
 
 function valueFromSql(sqlValue: unknown, intMode: IntMode): Value {
+    // https://github.com/oven-sh/bun/issues/1536
     if (typeof sqlValue === "bigint") {
         if (intMode === "number") {
             if (sqlValue < minSafeBigint || sqlValue > maxSafeBigint) {
@@ -243,11 +235,11 @@ function valueFromSql(sqlValue: unknown, intMode: IntMode): Value {
         } else if (intMode === "bigint") {
             return sqlValue;
         } else if (intMode === "string") {
-            return "" + sqlValue;
+            return String(sqlValue);
         } else {
             throw new Error("Invalid value for IntMode");
         }
-    } else if (sqlValue instanceof Buffer) {
+    } else if (ArrayBuffer.isView(sqlValue)) {
         return sqlValue.buffer as Value;
     }
     return sqlValue as Value;
@@ -265,7 +257,7 @@ function valueToSql(value: InValue) {
         }
         return value;
     } else if (typeof value === "boolean") {
-        return value ? 1n : 0n;
+        return value;
     } else if (value instanceof ArrayBuffer) {
         return Buffer.from(value);
     } else if (value instanceof Date) {
@@ -277,17 +269,20 @@ function valueToSql(value: InValue) {
     }
 }
 
-function executeMultiple(db: Database.Database, sql: string): void {
-    try {
-        db.exec(sql);
-    } catch (e) {
-        throw mapSqliteError(e);
-    }
-}
+const BUN_SQLITE_ERROR = "BUN_SQLITE ERROR" as const;
 
 function mapSqliteError(e: unknown): unknown {
-    if (e instanceof Database.SqliteError) {
-        return new LibsqlError(e.message, e.code, e);
+    if (e instanceof RangeError) {
+        return e;
+    }
+    if (e instanceof Error) {
+        return new LibsqlError(e.message, BUN_SQLITE_ERROR, e);
     }
     return e;
 }
+
+const executeMultipleNotImplemented = () =>
+    new LibsqlError("bun:sqlite doesn't support executeMultiple. Use batch instead.", BUN_SQLITE_ERROR);
+
+const intModeNotImplemented = (mode: string) =>
+    new LibsqlError(`"${mode}" intMode is not supported by bun:sqlite. Only intMode "number" is supported.`, BUN_SQLITE_ERROR);

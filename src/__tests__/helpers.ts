@@ -10,7 +10,7 @@ const toBeLibsqlError: MatcherFunction<[code?: string, message?: RegExp]> =
             && (messageRe === undefined || actual.message.match(messageRe) !== null);
 
         const message = (): string => {
-            const parts = [];
+            const parts: string[] = [];
             parts.push("expected ");
             parts.push(this.utils.printReceived(actual));
             parts.push(pass ? " not to be " : " to be ");

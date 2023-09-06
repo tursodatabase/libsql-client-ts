@@ -21,7 +21,6 @@
         "Jan Plhak <jp@chiselstrike.com>"
     ],
     "license": "MIT",
-
     "type": "module",
     "main": "lib-cjs/node.js",
     "types": "lib-esm/node.d.ts",
@@ -33,6 +32,7 @@
                 "deno": "./lib-esm/web.js",
                 "edge-light": "./lib-esm/web.js",
                 "netlify": "./lib-esm/web.js",
+                "bun": "./lib-esm/bun.js",
                 "node": "./lib-esm/node.js",
                 "default": "./lib-esm/node.js"
             },
@@ -62,22 +62,47 @@
             "types": "./lib-esm/web.d.ts",
             "import": "./lib-esm/web.js",
             "require": "./lib-cjs/web.js"
+        },
+        "./bun": {
+            "types": "./lib-esm/bun.d.ts",
+            "import": "./lib-esm/bun.js",
+            "require": "./lib-cjs/bun.js"
+        },
+        "./bun-sqlite": {
+            "types": "./lib-esm/bun_sqlite.d.ts",
+            "import": "./lib-esm/bun_sqlite.js",
+            "require": "./lib-cjs/bun_sqlite.js"
         }
     },
     "typesVersions": {
         "*": {
-            ".": ["./lib-esm/node.d.ts"],
-            "http": ["./lib-esm/http.d.ts"],
-            "hrana": ["./lib-esm/hrana.d.ts"],
-            "sqlite3": ["./lib-esm/sqlite3.d.ts"],
-            "web": ["./lib-esm/web.d.ts"]
+            ".": [
+                "./lib-esm/node.d.ts"
+            ],
+            "http": [
+                "./lib-esm/http.d.ts"
+            ],
+            "hrana": [
+                "./lib-esm/hrana.d.ts"
+            ],
+            "sqlite3": [
+                "./lib-esm/sqlite3.d.ts"
+            ],
+            "web": [
+                "./lib-esm/web.d.ts"
+            ],
+            "bun": [
+                "./lib-esm/bun.d.ts"
+            ],
+            "bun-sqlite": [
+                "./lib-esm/bun_sqlite.d.ts"
+            ]
         }
     },
     "files": [
         "lib-cjs/**",
         "lib-esm/**"
     ],
-
     "scripts": {
         "prepublishOnly": "npm run build",
         "prebuild": "rm -rf ./lib-cjs ./lib-esm",
@@ -86,10 +111,10 @@
         "build:esm": "tsc -p tsconfig.build-esm.json",
         "postbuild": "cp package-cjs.json ./lib-cjs/package.json",
         "test": "jest --runInBand",
+        "test:bun": "bun test bun",
         "typecheck": "tsc --noEmit",
         "typedoc": "rm -rf ./docs && typedoc"
     },
-
     "dependencies": {
         "@libsql/hrana-client": "^0.5.0",
         "js-base64": "^3.7.5",
@@ -98,6 +123,7 @@
     "devDependencies": {
         "@types/jest": "^29.2.5",
         "@types/node": "^18.15.5",
+        "bun-types": "^0.8.1",
         "jest": "^29.3.1",
         "ts-jest": "^29.0.5",
         "typedoc": "^0.23.28",

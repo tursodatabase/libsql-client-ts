@@ -1,7 +1,8 @@
 {
     "extends": "./tsconfig.base.json",
     "compilerOptions": {
+        "incremental": true,
         "noEmit": true,
-        "incremental": true
+        "types": ["bun-types", "@types/jest"]
     }
 }
