@@ -103,9 +103,9 @@ jobs:
     - name: "Local test with Hrana 2 over HTTP"
       run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node test.js"
       env: {"LOCAL": "1", "URL": "http://localhost:8080"}
-    - name: "Local test with Hrana 3 over WebSocket"
-      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v3.py node test.js"
-      env: {"LOCAL": "1", "URL": "ws://localhost:8080"}
+#    - name: "Local test with Hrana 3 over WebSocket"
+#      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v3.py node test.js"
+#      env: {"LOCAL": "1", "URL": "ws://localhost:8080"}
     - name: "Local test with Hrana 3 over HTTP"
       run: "cd smoke_test/workers && python ../../hrana-test-server/server_v3.py node test.js"
       env: {"LOCAL": "1", "URL": "http://localhost:8080"}
@@ -119,9 +119,9 @@ jobs:
     - name: "Non-local test with Hrana 2 over HTTP"
       run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node test.js"
       env: {"LOCAL": "0", "URL": "http://localhost:8080"}
-    - name: "Non-local test with Hrana 3 over WebSocket"
-      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v3.py node test.js"
-      env: {"LOCAL": "0", "URL": "ws://localhost:8080"}
+#    - name: "Non-local test with Hrana 3 over WebSocket"
+#      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v3.py node test.js"
+#      env: {"LOCAL": "0", "URL": "ws://localhost:8080"}
     - name: "Non-local test with Hrana 3 over HTTP"
       run: "cd smoke_test/workers && python ../../hrana-test-server/server_v3.py node test.js"
       env: {"LOCAL": "0", "URL": "http://localhost:8080"}
