@@ -1,6 +1,6 @@
 {
     "name": "@libsql/client",
-    "version": "0.3.3-pre",
+    "version": "0.3.3-pre.1",
     "keywords": [
         "libsql",
         "database",
@@ -21,7 +21,6 @@
         "Jan Plhak <jp@chiselstrike.com>"
     ],
     "license": "MIT",
-
     "type": "module",
     "main": "lib-cjs/node.js",
     "types": "lib-esm/node.d.ts",
@@ -66,18 +65,27 @@
     },
     "typesVersions": {
         "*": {
-            ".": ["./lib-esm/node.d.ts"],
-            "http": ["./lib-esm/http.d.ts"],
-            "hrana": ["./lib-esm/hrana.d.ts"],
-            "sqlite3": ["./lib-esm/sqlite3.d.ts"],
-            "web": ["./lib-esm/web.d.ts"]
+            ".": [
+                "./lib-esm/node.d.ts"
+            ],
+            "http": [
+                "./lib-esm/http.d.ts"
+            ],
+            "hrana": [
+                "./lib-esm/hrana.d.ts"
+            ],
+            "sqlite3": [
+                "./lib-esm/sqlite3.d.ts"
+            ],
+            "web": [
+                "./lib-esm/web.d.ts"
+            ]
         }
     },
     "files": [
         "lib-cjs/**",
         "lib-esm/**"
     ],
-
     "scripts": {
         "prepublishOnly": "npm run build",
         "prebuild": "rm -rf ./lib-cjs ./lib-esm",
@@ -89,7 +97,6 @@
         "typecheck": "tsc --noEmit",
         "typedoc": "rm -rf ./docs && typedoc"
     },
-
     "dependencies": {
         "@libsql/hrana-client": "^0.5.0",
         "js-base64": "^3.7.5",
