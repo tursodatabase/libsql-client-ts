@@ -1,4 +1,4 @@
-import Database from "libsql";
+import Database from "better-sqlite3";
 import { Buffer } from "node:buffer";
 
 import type {

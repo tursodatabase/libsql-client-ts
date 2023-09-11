@@ -86,7 +86,7 @@ The client can connect to the database using different methods depending on the 
 
 ### Local SQLite file URLs
 
-A `file:` URL connects to a local SQLite database (using [libsql]).
+A `file:` URL connects to a local SQLite database (using [better-sqlite3]).
 
 - This is only supported on Node.js. It will not work in the browser or with most hosted environments that don't provide access to a local filesystem.
 - `file:/absolute/path` or `file:///absolute/path` is an absolute path on local filesystem.
@@ -132,7 +132,7 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 [Turso]: https://docs.turso.tech
 [Remote libSQL databases]: https://github.com/libsql/sqld
 [turso-cli-token]: https://docs.turso.tech/reference/turso-cli#authentication-tokens-for-client-access
-[libsql]: https://github.com/libsql/libsql
+[better-sqlite3]: https://github.com/WiseLibs/better-sqlite3
 [hrana-client-ts]: https://github.com/libsql/hrana-client-ts
 [Web fetch API]: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
 [turso-js-ts]: https://docs.turso.tech/reference/client-access/javascript-typescript-sdk
