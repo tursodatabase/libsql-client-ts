@@ -17,17 +17,20 @@ export function transactionModeToBegin(mode: TransactionMode): string {
 
 export class ResultSetImpl implements ResultSet {
     columns: Array<string>;
+    columnTypes: Array<string>;
     rows: Array<Row>;
     rowsAffected: number;
     lastInsertRowid: bigint | undefined;
 
     constructor(
         columns: Array<string>,
+        columnTypes: Array<string>,
         rows: Array<Row>,
         rowsAffected: number,
         lastInsertRowid: bigint | undefined,
     ) {
         this.columns = columns;
+        this.columnTypes = columnTypes;
         this.rows = rows;
         this.rowsAffected = rowsAffected;
         this.lastInsertRowid = lastInsertRowid;
@@ -36,6 +39,7 @@ export class ResultSetImpl implements ResultSet {
     toJSON(): any {
         return {
             "columns": this.columns,
+            "columnTypes": this.columnTypes,
             "rows": this.rows.map(rowToJson),
             "rowsAffected": this.rowsAffected,
             "lastInsertRowid": this.lastInsertRowid !== undefined ? ""+this.lastInsertRowid : null,

@@ -298,11 +298,12 @@ export function stmtToHrana(stmt: InStatement): hrana.Stmt {
 
 export function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
     const columns = hranaRows.columnNames.map(c => c ?? "");
+    const columnTypes = hranaRows.columnDecltypes.map(c => c ?? "");
     const rows = hranaRows.rows;
     const rowsAffected = hranaRows.affectedRowCount;
     const lastInsertRowid = hranaRows.lastInsertRowid !== undefined
             ? hranaRows.lastInsertRowid : undefined;
-    return new ResultSetImpl(columns, rows, rowsAffected, lastInsertRowid);
+    return new ResultSetImpl(columns, columnTypes, rows, rowsAffected, lastInsertRowid);
 }
 
 export function mapHranaError(e: unknown): unknown {
