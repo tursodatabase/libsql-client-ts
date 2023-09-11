@@ -98,7 +98,7 @@
         "typedoc": "rm -rf ./docs && typedoc"
     },
     "dependencies": {
-        "@libsql/hrana-client": "^0.5.0",
+        "@libsql/hrana-client": "^0.5.1",
         "better-sqlite3": "^8.0.1",
         "js-base64": "^3.7.5"
     },

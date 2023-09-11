@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Updated `@libsql/hrana-client` to version 0.5.1, which has Bun support.
+
 ## 0.3.2 -- 2023-07-29
 
 - Updated `@libsql/hrana-client` to version 0.5.0, which implements Hrana 3
