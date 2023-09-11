@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.4 -- 2023-09-11
 
 - Switch to Hrana 2 by default to let Hrana 3 cook some more.
 
