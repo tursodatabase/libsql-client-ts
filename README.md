@@ -18,6 +18,20 @@ npm install @libsql/client
 
 This step is not required if using the Deno style import shown below.
 
+### Using the library with Next.js
+
+To use `libsql-client`, you need to add the following to your Next configuration:
+
+```javascript
+const nextConfig = {
+  experimental: {
+    serverComponentsExternalPackages: ["libsql"],
+  },
+}
+
+module.exports = nextConfig
+```
+
 ## Create a database client object
 
 ### Importing
