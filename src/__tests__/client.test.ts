@@ -93,6 +93,7 @@ describe("execute()", () => {
     test("query a single value", withClient(async (c) => {
         const rs = await c.execute("SELECT 42");
         expect(rs.columns.length).toStrictEqual(1);
+        expect(rs.columnTypes.length).toStrictEqual(1);
         expect(rs.rows.length).toStrictEqual(1);
         expect(rs.rows[0].length).toStrictEqual(1);
         expect(rs.rows[0][0]).toStrictEqual(42);
@@ -101,6 +102,7 @@ describe("execute()", () => {
     test("query a single row", withClient(async (c) => {
         const rs = await c.execute("SELECT 1 AS one, 'two' AS two, 0.5 AS three");
         expect(rs.columns).toStrictEqual(["one", "two", "three"]);
+        expect(rs.columnTypes).toStrictEqual(["", "", ""]);
         expect(rs.rows.length).toStrictEqual(1);
         
         const r = rs.rows[0];
@@ -112,6 +114,7 @@ describe("execute()", () => {
     test("query multiple rows", withClient(async (c) => {
         const rs = await c.execute("VALUES (1, 'one'), (2, 'two'), (3, 'three')");
         expect(rs.columns.length).toStrictEqual(2);
+        expect(rs.columnTypes.length).toStrictEqual(2);
         expect(rs.rows.length).toStrictEqual(3);
         
         expect(Array.from(rs.rows[0])).toStrictEqual([1, "one"]);
@@ -165,6 +168,7 @@ describe("execute()", () => {
 
         const rs = await c.execute("INSERT INTO t VALUES (1) RETURNING 42 AS x, 'foo' AS y");
         expect(rs.columns).toStrictEqual(["x", "y"]);
+        expect(rs.columnTypes).toStrictEqual(["", ""]);
         expect(rs.rows.length).toStrictEqual(1);
         expect(Array.from(rs.rows[0])).toStrictEqual([42, "foo"]);
     }));
@@ -295,13 +299,14 @@ describe("ResultSet.toJSON()", () => {
         const json = rs.toJSON();
         expect(json["lastInsertRowid"] === null || json["lastInsertRowid"] === "0").toBe(true);
         expect(json["columns"]).toStrictEqual(["a"]);
+        expect(json["columnTypes"]).toStrictEqual([""]);
         expect(json["rows"]).toStrictEqual([[1]]);
         expect(json["rowsAffected"]).toStrictEqual(0);
 
         const str = JSON.stringify(rs);
         expect(
-            str === '{"columns":["a"],"rows":[[1]],"rowsAffected":0,"lastInsertRowid":null}' ||
-            str === '{"columns":["a"],"rows":[[1]],"rowsAffected":0,"lastInsertRowid":"0"}'
+            str === '{"columns":["a"],"columnTypes":[""],"rows":[[1]],"rowsAffected":0,"lastInsertRowid":null}' ||
+            str === '{"columns":["a"],"columnTypes":[""],"rows":[[1]],"rowsAffected":0,"lastInsertRowid":"0"}'
         ).toBe(true);
     }));
 
@@ -311,19 +316,34 @@ describe("ResultSet.toJSON()", () => {
         const rs = await c.execute("INSERT INTO t VALUES (12345)");
         expect(rs.toJSON()).toStrictEqual({
             "columns": [],
+            "columnTypes": [],
             "rows": [],
             "rowsAffected": 1,
             "lastInsertRowid": "12345",
         });
     }));
 
-    test("row values", withClient(async (c) => {
+    test("computed values", withClient(async (c) => {
         const rs = await c.execute(
             "SELECT 42 AS integer, 0.5 AS float, NULL AS \"null\", 'foo' AS text, X'626172' AS blob",
         );
         const json = rs.toJSON();
         expect(json["columns"]).toStrictEqual(["integer", "float", "null", "text", "blob"]);
+        expect(json["columnTypes"]).toStrictEqual(["", "", "", "", ""]);
         expect(json["rows"]).toStrictEqual([[42, 0.5, null, "foo", "YmFy"]]);
+    }));
+
+    (hasHrana2 ? test : test.skip)("row values", withClient(async (c) => {
+        await c.execute("DROP TABLE IF EXISTS t");
+        await c.execute("CREATE TABLE t (i INTEGER, f FLOAT, t TEXT, b BLOB)");
+        await c.execute("INSERT INTO t VALUES (42, 0.5, 'foo', X'626172')");
+        const rs = await c.execute(
+            "SELECT i, f, t, b FROM t LIMIT 1",
+        );
+        const json = rs.toJSON();
+        expect(json["columns"]).toStrictEqual(["i", "f", "t", "b"]);
+        expect(json["columnTypes"]).toStrictEqual(["INTEGER", "FLOAT", "TEXT", "BLOB"]);
+        expect(json["rows"]).toStrictEqual([[42, 0.5, "foo", "YmFy"]]);
     }));
 
     test("bigint row value", withClient(async (c) => {
@@ -565,6 +585,7 @@ describe("transaction()", () => {
 
         const rs = await txn.execute("VALUES (1, 'one'), (2, 'two'), (3, 'three')");
         expect(rs.columns.length).toStrictEqual(2);
+        expect(rs.columnTypes.length).toStrictEqual(2);
         expect(rs.rows.length).toStrictEqual(3);
 
         expect(Array.from(rs.rows[0])).toStrictEqual([1, "one"]);

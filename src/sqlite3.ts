@@ -228,18 +228,19 @@ function executeStmt(db: Database.Database, stmt: InStatement, intMode: IntMode)
 
         if (returnsData) {
             const columns = Array.from(sqlStmt.columns().map(col => col.name));
+            const columnTypes = Array.from(sqlStmt.columns().map(col => col.type ?? ""));
             const rows = sqlStmt.all(args).map((sqlRow) => {
                 return rowFromSql(sqlRow as Array<unknown>, columns, intMode);
             });
             // TODO: can we get this info from better-sqlite3?
             const rowsAffected = 0;
             const lastInsertRowid = undefined;
-            return new ResultSetImpl(columns, rows, rowsAffected, lastInsertRowid);
+            return new ResultSetImpl(columns, columnTypes, rows, rowsAffected, lastInsertRowid);
         } else {
             const info = sqlStmt.run(args);
             const rowsAffected = info.changes;
             const lastInsertRowid = BigInt(info.lastInsertRowid);
-            return new ResultSetImpl([], [], rowsAffected, lastInsertRowid);
+            return new ResultSetImpl([], [], [], rowsAffected, lastInsertRowid);
         }
     } catch (e) {
         throw mapSqliteError(e);

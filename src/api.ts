@@ -349,6 +349,14 @@ export interface ResultSet {
      */
     columns: Array<string>;
 
+    /** Types of columns.
+     *
+     * The types are currently shown for types declared in a SQL table. For
+     * column types of function calls, for example, an empty string is
+     * returned.
+     */
+    columnTypes: Array<string>;
+    
     /** Rows produced by the statement. */
     rows: Array<Row>;
 
