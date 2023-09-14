@@ -12,6 +12,9 @@ export interface Config {
     /** Authentication token for the database. */
     authToken?: string;
 
+    /** URL of a remote server to synchronize database with. */
+    syncUrl?: string;
+
     /** Enables or disables TLS for `libsql:` URLs.
      *
      * By default, `libsql:` URLs use TLS. You can set this option to `false` to disable TLS.
@@ -173,6 +176,8 @@ export interface Client {
      * ```
      */
     executeMultiple(sql: string): Promise<void>;
+
+    sync(): Promise<void>;
 
     /** Close the client and release resources.
      *

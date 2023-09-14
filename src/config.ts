@@ -10,6 +10,7 @@ export interface ExpandedConfig {
     authority: Authority | undefined;
     path: string;
     authToken: string | undefined;
+    syncUrl: string | undefined;
     intMode: IntMode;
     fetch: Function | undefined;
 }
@@ -49,6 +50,7 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
             );
         }
     }
+    let syncUrl = config.syncUrl;
 
     const uriScheme = uri.scheme.toLowerCase();
     let scheme: ExpandedScheme;
@@ -99,6 +101,7 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
         authority: uri.authority,
         path: uri.path,
         authToken,
+        syncUrl,
         intMode,
         fetch: config.fetch,
     };

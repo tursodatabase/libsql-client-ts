@@ -48,7 +48,10 @@ export function _createClient(config: ExpandedConfig): Client {
     }
 
     const path = config.path;
-    const options = {};
+    const options = {
+        authToken: config.authToken,
+        syncUrl: config.syncUrl,
+    };
 
     const db = new Database(path, options);
     try {
@@ -121,6 +124,17 @@ export class Sqlite3Client implements Client {
         const db = new Database(this.#path, this.#options);
         try {
             return executeMultiple(db, sql);
+        } finally {
+            db.close();
+        }
+    }
+
+
+    async sync(): Promise<void> {
+        this.#checkNotClosed();
+        const db = new Database(this.#path, this.#options);
+        try {
+            await db.sync();
         } finally {
             db.close();
         }

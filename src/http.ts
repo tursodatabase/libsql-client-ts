@@ -135,6 +135,10 @@ export class HttpClient implements Client {
         }
     }
 
+    sync(): Promise<void> {
+        return Promise.resolve();
+    }
+
     close(): void {
         this.#client.close();
     }
