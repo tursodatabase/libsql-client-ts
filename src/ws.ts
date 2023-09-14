@@ -173,6 +173,10 @@ export class WsClient implements Client {
         }
     }
 
+    sync(): Promise<void> {
+        return Promise.resolve();
+    }
+
     async #openStream(): Promise<StreamState> {
         if (this.closed) {
             throw new LibsqlError("The client is closed", "CLIENT_CLOSED");
