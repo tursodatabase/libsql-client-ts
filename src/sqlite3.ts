@@ -54,26 +54,21 @@ export function _createClient(config: ExpandedConfig): Client {
     };
 
     const db = new Database(path, options);
-    try {
-        executeStmt(db, "SELECT 1 AS checkThatTheDatabaseCanBeOpened", config.intMode);
-    } finally {
-        db.close();
-    }
 
-    return new Sqlite3Client(path, options, config.intMode);
+    executeStmt(db, "SELECT 1 AS checkThatTheDatabaseCanBeOpened", config.intMode);
+
+    return new Sqlite3Client(db, config.intMode);
 }
 
 export class Sqlite3Client implements Client {
-    #path: string;
-    #options: Database.Options;
+    #db: Database.Database;
     #intMode: IntMode;
     closed: boolean;
     protocol: "file";
 
     /** @private */
-    constructor(path: string, options: Database.Options, intMode: IntMode) {
-        this.#path = path;
-        this.#options = options;
+    constructor(db: Database.Database, intMode: IntMode) {
+        this.#db = db;
         this.#intMode = intMode;
         this.closed = false;
         this.protocol = "file";
@@ -81,67 +76,53 @@ export class Sqlite3Client implements Client {
 
     async execute(stmt: InStatement): Promise<ResultSet> {
         this.#checkNotClosed();
-        const db = new Database(this.#path, this.#options);
-        try {
-            return executeStmt(db, stmt, this.#intMode);
-        } finally {
-            db.close();
-        }
+        return executeStmt(this.#db, stmt, this.#intMode);
     }
 
     async batch(stmts: Array<InStatement>, mode: TransactionMode = "deferred"): Promise<Array<ResultSet>> {
         this.#checkNotClosed();
-        const db = new Database(this.#path, this.#options);
         try {
-            executeStmt(db, transactionModeToBegin(mode), this.#intMode);
+            executeStmt(this.#db, transactionModeToBegin(mode), this.#intMode);
             const resultSets = stmts.map((stmt) => {
-                if (!db.inTransaction) {
+                if (!this.#db.inTransaction) {
                     throw new LibsqlError("The transaction has been rolled back", "TRANSACTION_CLOSED");
                 }
-                return executeStmt(db, stmt, this.#intMode);
+                return executeStmt(this.#db, stmt, this.#intMode);
             });
-            executeStmt(db, "COMMIT", this.#intMode)
+            executeStmt(this.#db, "COMMIT", this.#intMode)
             return resultSets;
         } finally {
-            db.close();
+            if (this.#db.inTransaction) {
+                executeStmt(this.#db, "ROLLBACK", this.#intMode);
+            }
         }
     }
 
     async transaction(mode: TransactionMode = "write"): Promise<Transaction> {
-        this.#checkNotClosed();
-        const db = new Database(this.#path, this.#options);
-        try {
-            executeStmt(db, transactionModeToBegin(mode), this.#intMode);
-            return new Sqlite3Transaction(db, this.#intMode);
-        } catch (e) {
-            db.close();
-            throw e;
-        }
+        executeStmt(this.#db, transactionModeToBegin(mode), this.#intMode);
+        return new Sqlite3Transaction(this.#db, this.#intMode);
     }
 
     async executeMultiple(sql: string): Promise<void> {
         this.#checkNotClosed();
-        const db = new Database(this.#path, this.#options);
         try {
-            return executeMultiple(db, sql);
+            return executeMultiple(this.#db, sql);
         } finally {
-            db.close();
+            if (this.#db.inTransaction) {
+                executeStmt(this.#db, "ROLLBACK", this.#intMode);
+            }
         }
     }
 
 
     async sync(): Promise<void> {
         this.#checkNotClosed();
-        const db = new Database(this.#path, this.#options);
-        try {
-            await db.sync();
-        } finally {
-            db.close();
-        }
+        await this.#db.sync();
     }
 
     close(): void {
         this.closed = true;
+        this.#db.close();
     }
 
     #checkNotClosed(): void {
@@ -184,25 +165,25 @@ export class Sqlite3Transaction implements Transaction {
         }
         this.#checkNotClosed();
         executeStmt(this.#database, "ROLLBACK", this.#intMode);
-        this.#database.close();
     }
 
     async commit(): Promise<void> {
         this.#checkNotClosed();
         executeStmt(this.#database, "COMMIT", this.#intMode);
-        this.#database.close();
     }
 
     close(): void {
-        this.#database.close();
+        if (this.#database.inTransaction) {
+            executeStmt(this.#database, "ROLLBACK", this.#intMode);
+        }
     }
 
     get closed(): boolean {
-        return !this.#database.open;
+        return !this.#database.inTransaction;
     }
 
     #checkNotClosed(): void {
-        if (!this.#database.open || !this.#database.inTransaction) {
+        if (this.closed) {
             throw new LibsqlError("The transaction is closed", "TRANSACTION_CLOSED");
         }
     }
