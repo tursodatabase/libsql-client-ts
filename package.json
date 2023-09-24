@@ -100,7 +100,7 @@
     "dependencies": {
         "@libsql/hrana-client": "^0.5.5",
         "js-base64": "^3.7.5",
-        "libsql": "^0.1.21"
+        "libsql": "^0.1.22"
     },
     "devDependencies": {
         "@types/jest": "^29.2.5",
