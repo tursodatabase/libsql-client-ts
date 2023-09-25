@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.5 -- 2023-09-25
+
+* Performance improvements for local database access by reusing connection in `Client`.
+* Embedded replica support.
+* Column introspection support via ResultSet.columnTypes property.
+
 ## 0.3.4 -- 2023-09-11
 
 - Switch to Hrana 2 by default to let Hrana 3 cook some more.
