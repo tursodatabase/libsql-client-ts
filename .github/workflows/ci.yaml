@@ -130,8 +130,8 @@ jobs:
     name: "Build and test with Vercel Edge Functions"
     runs-on: ubuntu-latest
     env:
-      "VERCEL_TOKEN": "${{ secrets.VERCEL_TOKEN }}"
-      "VERCEL_PROJECT_NAME": "smoke-test"
+      VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}"
+      VERCEL_PROJECT_NAME: "smoke-test"
     steps:
     - name: "Checkout this repo"
       uses: actions/checkout@v3
