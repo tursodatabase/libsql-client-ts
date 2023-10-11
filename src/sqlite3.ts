@@ -340,7 +340,7 @@ function executeMultiple(db: Database.Database, sql: string): void {
 
 function mapSqliteError(e: unknown): unknown {
     if (e instanceof Database.SqliteError) {
-        return new LibsqlError(e.message, e.code, e);
+        return new LibsqlError(e.message, e.code, e.rawCode, e);
     }
     return e;
 }

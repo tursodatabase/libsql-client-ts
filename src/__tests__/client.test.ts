@@ -940,3 +940,10 @@ describe("transaction()", () => {
         c.close();
     }
 });
+
+test('raw error codes', async () => {
+    const c = createClient(config)
+    await expect(c.execute('NOT A VALID SQL')).rejects.toThrow(
+        expect.toBeLibsqlError({ code: 'SQLITE_ERROR', rawCode: 1})
+    )
+})

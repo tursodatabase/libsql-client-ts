@@ -3,10 +3,15 @@ import type { MatcherFunction } from "expect";
 
 import { LibsqlError } from "../node.js";
 
-const toBeLibsqlError: MatcherFunction<[code?: string, message?: RegExp]> =
+type CodeMatch = {
+    code: string,
+    rawCode: number
+}
+
+const toBeLibsqlError: MatcherFunction<[code?: string | CodeMatch, message?: RegExp]> =
     function (actual, code?, messageRe?) {
         const pass = actual instanceof LibsqlError
-            && (code === undefined || actual.code === code)
+            && isValidCode(actual, code)
             && (messageRe === undefined || actual.message.match(messageRe) !== null);
 
         const message = (): string => {
@@ -29,12 +34,21 @@ const toBeLibsqlError: MatcherFunction<[code?: string, message?: RegExp]> =
         return {pass, message};
     };
 
+const isValidCode = (error: LibsqlError, code?: string | CodeMatch) => {
+    if (code === undefined) {
+        return true
+    }
+    if (typeof code === 'string') {
+        return error.code === code
+    }
+    return error.code === code.code && error.rawCode === code.rawCode
+}
 expect.extend({toBeLibsqlError});
 declare module "expect" {
     interface AsymmetricMatchers {
-        toBeLibsqlError(code?: string, messageRe?: RegExp): void;
+        toBeLibsqlError(code?: string | CodeMatch, messageRe?: RegExp): void;
     }
     interface Matchers<R> {
-        toBeLibsqlError(code?: string, messageRe?: RegExp): R;
+        toBeLibsqlError(code?: string | CodeMatch, messageRe?: RegExp): R;
     }
 }

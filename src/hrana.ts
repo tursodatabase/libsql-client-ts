@@ -309,7 +309,7 @@ export function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
 export function mapHranaError(e: unknown): unknown {
     if (e instanceof hrana.ClientError) {
         const code = mapHranaErrorCode(e);
-        return new LibsqlError(e.message, code, e);
+        return new LibsqlError(e.message, code, undefined, e);
     }
     return e;
 }
