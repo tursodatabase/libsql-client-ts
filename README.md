@@ -32,6 +32,10 @@ const nextConfig = {
 module.exports = nextConfig
 ```
 
+> [!NOTE]
+> If you are using Next.js v13.5.5 or above, this is done automatically for you.
+
+
 ## Create a database client object
 
 ### Importing
