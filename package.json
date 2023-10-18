@@ -33,6 +33,7 @@
                 "edge-light": "./lib-esm/web.js",
                 "netlify": "./lib-esm/web.js",
                 "node": "./lib-esm/node.js",
+                "browser": "./lib-esm/web.js",
                 "default": "./lib-esm/node.js"
             },
             "require": "./lib-cjs/node.js"
