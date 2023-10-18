@@ -56,7 +56,7 @@ jobs:
       env: {"URL": "file:///tmp/test.db"}
 
     - name: "Test example"
-      run: "node examples/example.js"
+      run: "cd examples && npm i && node example.js"
       env: {"URL": "file:///tmp/example.db"}
 
   "workers-test":
