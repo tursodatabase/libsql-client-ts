@@ -941,7 +941,7 @@ describe("transaction()", () => {
     }
 });
 
-(hasHrana2 ? test : test.skip)('raw error codes', async () => {
+(isFile ? test : test.skip)('raw error codes', async () => {
     const c = createClient(config)
     try {
         await expect(c.execute('NOT A VALID SQL')).rejects.toThrow(
