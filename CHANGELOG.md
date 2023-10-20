@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.6 -- 2023-10-20
+
+* Fix import problems on Cloudflare Workers.
+* Add `rawCode` property to errors for local databases.
+* Update the `libsql` package to version 0.1.28.
+
 ## 0.3.5 -- 2023-09-25
 
 * Performance improvements for local database access by reusing connection in `Client`.
