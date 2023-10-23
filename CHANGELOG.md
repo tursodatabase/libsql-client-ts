@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.7 -- unreleased
+
+* Fix Bun on Linux/arm64.
+
 ## 0.3.6 -- 2023-10-20
 
 * Fix import problems on Cloudflare Workers.
