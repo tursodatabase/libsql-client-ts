@@ -136,6 +136,8 @@ export class HttpClient implements Client {
     }
 
     sync(): Promise<void> {
+        throw new LibsqlError("sync not supported in http mode");
+
         return Promise.resolve();
     }
 
