@@ -4,18 +4,17 @@ import reader from "readline-sync";
 async function example() {
   const config = {
     url: process.env.URL ?? "file:local.db",
-    syncUrl: process.env.SYNC_URL,
-    authToken: process.env.AUTH_TOKEN,
+    syncUrl: process.env.TURSO_DATABASE_URL,
+    authToken: process.env.TURSO_AUTH_TOKEN,
   };
   const db = createClient(config);
 
-  const txn = await db.transaction();
-
+  const txn = await db.transaction("deferred");
   await txn.execute("select 1");
 
-  await txn.commit();
+  // await txn.commit();
 
-  await txn.execute("select 1");
+  // await txn.execute("select 1");
 
 
 //   await db.execute("BEGIN IMMEDIATE");
