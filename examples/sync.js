@@ -8,20 +8,33 @@ async function example() {
     authToken: process.env.AUTH_TOKEN,
   };
   const db = createClient(config);
-  await db.sync();
-  await db.execute("CREATE TABLE IF NOT EXISTS guest_book_entries (comment TEXT)");
-  await db.sync();
 
-  const comment = reader.question("Enter your comment: ");
+  const txn = await db.transaction();
 
-  await db.execute({ sql: "INSERT INTO guest_book_entries (comment) VALUES (?)", args: [comment]});
-  await db.sync();
+  await txn.execute("select 1");
 
-  console.log("Guest book entries:");
-  const rs = await db.execute("SELECT * FROM guest_book_entries");
-  for (const row of rs.rows) {
-    console.log(" - " + row.comment);
-  }
+  await txn.commit();
+
+  await txn.execute("select 1");
+
+
+//   await db.execute("BEGIN IMMEDIATE");
+//   await db.batch(["BEGIN IMMEDIATE", "SELECT 1"]);
+
+//   await db.sync();
+//   await db.execute("CREATE TABLE IF NOT EXISTS guest_book_entries (comment TEXT)");
+//   await db.sync();
+
+//   const comment = reader.question("Enter your comment: ");
+
+//   await db.execute({ sql: "INSERT INTO guest_book_entries (comment) VALUES (?)", args: [comment]});
+//   await db.sync();
+
+  // console.log("Guest book entries:");
+  // const rs = await db.execute("SELECT * FROM guest_book_entries");
+  // for (const row of rs.rows) {
+  //   console.log(" - " + row.comment);
+  // }
 }
 
 example()
