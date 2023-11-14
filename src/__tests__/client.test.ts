@@ -12,6 +12,7 @@ import { createClient } from "../node.js";
 
 const config = {
     url: process.env.URL ?? "ws://localhost:8080",
+    syncUrl: process.env.SYNC_URL,
     authToken: process.env.AUTH_TOKEN,
 };
 
