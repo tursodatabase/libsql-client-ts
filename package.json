@@ -1,6 +1,6 @@
 {
     "name": "@libsql/client",
-    "version": "0.3.7-pre.2",
+    "version": "0.4.0-pre.1",
     "keywords": [
         "libsql",
         "database",
@@ -101,7 +101,7 @@
     "dependencies": {
         "@libsql/hrana-client": "^0.5.5",
         "js-base64": "^3.7.5",
-        "libsql": "^0.1.32"
+        "libsql": "^0.2.0-pre.1"
     },
     "devDependencies": {
         "@types/jest": "^29.2.5",
