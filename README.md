@@ -1,5 +1,6 @@
 # JavaScript & TypeScript SDK for libSQL
 
+[![npm version](https://badge.fury.io/js/@libsql%2Fclient.svg)](https://badge.fury.io/js/@libsql%2Fclient)
 [![Node.js CI](https://github.com/libsql/libsql-client-ts/actions/workflows/ci.yaml/badge.svg)](https://github.com/libsql/libsql-client-ts/actions/workflows/ci.yaml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://github.com/libsql/libsql-client-ts/blob/main/LICENSE)
 
