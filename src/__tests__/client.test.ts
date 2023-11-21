@@ -45,6 +45,19 @@ function withClient(
     };
 }
 
+function withInMemoryClient(
+    f: (c: libsql.Client) => Promise<void>,
+): () => Promise<void> {
+    return async () => {
+        const c = createClient({url: ":memory:"});
+        try {
+            await f(c);
+        } finally {
+            c.close();
+        }
+    };
+}
+
 describe("createClient()", () => {
     test("URL scheme not supported", () => {
         expect(() => createClient({url: "ftp://localhost"}))
@@ -190,6 +203,21 @@ describe("execute()", () => {
             INSERT INTO t SELECT a+1 FROM x
         `);
         expect(rs.rowsAffected).toStrictEqual(3);
+    }));
+
+    test("query a single value", withInMemoryClient(async (c) => {
+        await c.batch([
+            "DROP TABLE IF EXISTS t",
+            "CREATE TABLE t (a)",
+            "INSERT INTO t VALUES ('one'), ('two')",
+        ], "write");
+        const insertRs = await c.execute("INSERT INTO t VALUES ('three')");
+        expect(insertRs.lastInsertRowid).not.toBeUndefined();
+        const selectRs = await c.execute({
+            sql: "SELECT a FROM t WHERE ROWID = ?",
+            args: [insertRs.lastInsertRowid!],
+        });
+        expect(Array.from(selectRs.rows[0])).toStrictEqual(["three"]);
     }));
 });
 
