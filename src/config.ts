@@ -24,10 +24,32 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
         throw new TypeError(`Expected client configuration as object, got ${typeof config}`);
     }
 
-    const uri = parseUri(config.url);
-
     let tls: boolean | undefined = config.tls;
     let authToken = config.authToken;
+    let syncUrl = config.syncUrl;
+    const intMode = ""+(config.intMode ?? "number");
+    if (intMode !== "number" && intMode !== "bigint" && intMode !== "string") {
+        throw new TypeError(
+            `Invalid value for intMode, expected "number", "bigint" or "string", \
+            got ${JSON.stringify(intMode)}`
+        );
+    }
+
+
+    if(config.url === ':memory:') {
+      return {
+        path: ':memory:',
+        scheme: 'file',
+        syncUrl,
+        intMode,
+        fetch: config.fetch,
+        tls: false,
+        authToken: undefined,
+        authority: undefined,
+      };
+    }
+
+    const uri = parseUri(config.url);
     for (const {key, value} of uri.query?.pairs ?? []) {
         if (key === "authToken") {
             authToken = value ? value : undefined;
@@ -50,7 +72,6 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
             );
         }
     }
-    let syncUrl = config.syncUrl;
 
     const uriScheme = uri.scheme.toLowerCase();
     let scheme: ExpandedScheme;
@@ -84,14 +105,6 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
         throw new LibsqlError(
             `URL fragments are not supported: ${JSON.stringify("#" + uri.fragment)}`,
             "URL_INVALID",
-        );
-    }
-
-    const intMode = ""+(config.intMode ?? "number");
-    if (intMode !== "number" && intMode !== "bigint" && intMode !== "string") {
-        throw new TypeError(
-            `Invalid value for intMode, expected "number", "bigint" or "string", \
-            got ${JSON.stringify(intMode)}`
         );
     }
 
