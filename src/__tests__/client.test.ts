@@ -49,7 +49,7 @@ function withInMemoryClient(
     f: (c: libsql.Client) => Promise<void>,
 ): () => Promise<void> {
     return async () => {
-        const c = createClient({url: ":memory:"});
+        const c = createClient({ url: ":memory:" });
         try {
             await f(c);
         } finally {
@@ -205,7 +205,7 @@ describe("execute()", () => {
         expect(rs.rowsAffected).toStrictEqual(3);
     }));
 
-    test("query a single value", withInMemoryClient(async (c) => {
+    test("query a single value using an in memory database", withInMemoryClient(async (c) => {
         await c.batch([
             "DROP TABLE IF EXISTS t",
             "CREATE TABLE t (a)",
