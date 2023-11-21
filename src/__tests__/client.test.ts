@@ -88,6 +88,10 @@ describe("createClient()", () => {
         // @ts-expect-error
         expect(() => createClient({...config, intMode: "foo"})).toThrow(/"foo"/);
     });
+
+    test("supports in-memory database", () => {
+      expect(() => createClient({url: ":memory:"})).not.toThrow();
+    });
 });
 
 describe("execute()", () => {
