@@ -24,8 +24,6 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
         throw new TypeError(`Expected client configuration as object, got ${typeof config}`);
     }
 
-    const uri = parseUri(config.url);
-
     let tls: boolean | undefined = config.tls;
     let authToken = config.authToken;
     let syncUrl = config.syncUrl;
@@ -51,6 +49,7 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
       };
     }
 
+    const uri = parseUri(config.url);
     for (const {key, value} of uri.query?.pairs ?? []) {
         if (key === "authToken") {
             authToken = value ? value : undefined;
