@@ -216,13 +216,13 @@ function executeStmt(db: Database.Database, stmt: InStatement, intMode: IntMode)
     } else {
         sql = stmt.sql;
         if (Array.isArray(stmt.args)) {
-            args = stmt.args.map(valueToSql);
+            args = stmt.args.map((value) => valueToSql(value, intMode));
         } else {
             args = {};
             for (const name in stmt.args) {
                 const argName = (name[0] === "@" || name[0] === "$" || name[0] === ":")
                     ? name.substring(1) : name;
-                args[argName] = valueToSql(stmt.args[name]);
+                args[argName] = valueToSql(stmt.args[name], intMode);
             }
         }
     }
@@ -301,7 +301,7 @@ function valueFromSql(sqlValue: unknown, intMode: IntMode): Value {
 const minSafeBigint = -9007199254740991n;
 const maxSafeBigint = 9007199254740991n;
 
-function valueToSql(value: InValue): unknown {
+function valueToSql(value: InValue, intMode: IntMode): unknown {
     if (typeof value === "number") {
         if (!Number.isFinite(value)) {
             throw new RangeError("Only finite numbers (not Infinity or NaN) can be passed as arguments");
@@ -315,7 +315,14 @@ function valueToSql(value: InValue): unknown {
         }
         return value;
     } else if (typeof value === "boolean") {
-        return value ? 1 : 0;
+      switch(intMode) {
+        case "bigint":
+          return value ? 1n : 0n;
+        case "string":
+          return value ? "1" : "0";
+        default:
+          return value ? 1 : 0;
+      }
     } else if (value instanceof ArrayBuffer) {
         return Buffer.from(value);
     } else if (value instanceof Date) {

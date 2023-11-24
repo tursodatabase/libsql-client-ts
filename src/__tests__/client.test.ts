@@ -304,8 +304,14 @@ describe("values", () => {
     testRoundtrip("Uint8Array", array, buf);
 
     testRoundtrip("null", null, null);
-    testRoundtrip("true", true, 1, "bigint");
-    testRoundtrip("false", false, 0, "bigint");
+    testRoundtrip("true", true, 1n, "bigint");
+    testRoundtrip("false", false, 0n, "bigint");
+    testRoundtrip("true", true, 1, "number");
+    testRoundtrip("false", false, 0, "number");
+    testRoundtrip("true", true, "1", "string");
+    testRoundtrip("false", false, "0", "string");
+    testRoundtrip("true", true, 1);
+    testRoundtrip("false", false, 0);
     
     testRoundtrip("Date", new Date("2023-01-02T12:34:56Z"), 1672662896000, "bigint");
 
