@@ -76,6 +76,7 @@ const db = createClient(config);
 const rs = await db.execute("SELECT * FROM users");
 console.log(rs);
 ```
+You can also create an in-memory database by passing ':memory:' as url. This is useful for for testing purposes.
 
 ### libSQL sqld instance
 
