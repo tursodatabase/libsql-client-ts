@@ -8,6 +8,9 @@ jobs:
   "node-test":
     name: "Build and test on Node.js"
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./packages/libsql-client
     env: {"NODE_OPTIONS": "--trace-warnings"}
     steps:
     - name: "Checkout this repo"
@@ -17,6 +20,7 @@ jobs:
       with:
         node-version: "16.x"
         cache: "npm"
+        cache-dependency-path: "packages/libsql-client"
     - name: "Install npm dependencies"
       run: "npm ci"
 
@@ -24,7 +28,7 @@ jobs:
       uses: actions/checkout@v3
       with:
         repository: "libsql/hrana-test-server"
-        path: "hrana-test-server"
+        path: "packages/libsql-client/hrana-test-server"
     - name: "Setup Python"
       uses: actions/setup-python@v4
       with:
@@ -62,6 +66,9 @@ jobs:
   "workers-test":
     name: "Build and test with Cloudflare Workers"
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./packages/libsql-client
     env:
       "CLOUDFLARE_API_TOKEN": "${{ secrets.CLOUDFLARE_API_TOKEN }}"
       "CLOUDFLARE_ACCOUNT_ID": "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
@@ -73,6 +80,7 @@ jobs:
       with:
         node-version: "lts/Hydrogen"
         cache: "npm"
+        cache-dependency-path: "packages/libsql-client"
     - name: "Install npm dependencies"
       run: "npm ci"
 
@@ -80,7 +88,7 @@ jobs:
       uses: actions/checkout@v3
       with:
         repository: "libsql/hrana-test-server"
-        path: "hrana-test-server"
+        path: "packages/libsql-client/hrana-test-server"
     - name: "Setup Python"
       uses: actions/setup-python@v4
       with:
