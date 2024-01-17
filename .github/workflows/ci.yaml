@@ -5,6 +5,33 @@ on:
   pull_request:
 
 jobs:
+  "wasm-test":
+    name: "Build and test Wasm on Node.js"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./packages/libsql-client-wasm
+    env: {"NODE_OPTIONS": "--trace-warnings"}
+    steps:
+    - name: "Checkout this repo"
+      uses: actions/checkout@v3
+    - name: "Setup Node.js"
+      uses: actions/setup-node@v3
+      with:
+        node-version: "16.x"
+        cache: "npm"
+        cache-dependency-path: "packages/libsql-client-wasm"
+    - name: "Build core"
+      run: "npm ci && npm run build"
+      working-directory: ./packages/libsql-core
+    - name: "Install npm dependencies"
+      run: "npm ci"
+    - name: "Build"
+      run: "npm run build"
+    - name: "Test example"
+      run: "cd examples/node && npm i && node index.js"
+      env: {"URL": "file:///tmp/example.db"}
+
   "node-test":
     name: "Build and test on Node.js"
     runs-on: ubuntu-latest
