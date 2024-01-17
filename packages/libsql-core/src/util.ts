@@ -1,5 +1,5 @@
 import { Base64 } from "js-base64";
-import { ResultSet, Row, Value, TransactionMode, InStatement, LibsqlError } from "./api.js";
+import { ResultSet, Row, Value, TransactionMode, InStatement, LibsqlError } from "./api";
 
 export const supportedUrlLink = "https://github.com/libsql/libsql-client-ts#supported-urls";
 

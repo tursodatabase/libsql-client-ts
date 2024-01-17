@@ -21,9 +21,11 @@ jobs:
         node-version: "16.x"
         cache: "npm"
         cache-dependency-path: "packages/libsql-client"
+    - name: "Build core"
+      run: "npm ci && npm run build"
+      working-directory: ./packages/libsql-core
     - name: "Install npm dependencies"
       run: "npm ci"
-
     - name: "Checkout hrana-test-server"
       uses: actions/checkout@v3
       with:
@@ -81,6 +83,9 @@ jobs:
         node-version: "lts/Hydrogen"
         cache: "npm"
         cache-dependency-path: "packages/libsql-client"
+    - name: "Build core"
+      run: "npm ci && npm run build"
+      working-directory: ./packages/libsql-core
     - name: "Install npm dependencies"
       run: "npm ci"
 

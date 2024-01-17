@@ -3,7 +3,7 @@ import type { MatcherFunction } from "expect";
 
 import "./helpers.js";
 
-import { parseUri, encodeBaseUrl } from "../uri.js";
+import { parseUri, encodeBaseUrl } from "@libsql/core/uri";
 
 describe("parseUri()", () => {
     test("authority and path", () => {
