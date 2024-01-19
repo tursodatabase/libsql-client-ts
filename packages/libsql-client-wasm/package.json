@@ -22,7 +22,7 @@
     ],
     "license": "MIT",
     "type": "module",
-    "main": "lib-cjs/wasm.js",
+    "main": "lib-esm/wasm.js",
     "types": "lib-esm/wasm.d.ts",
     "exports": {
         ".": {
@@ -35,28 +35,23 @@
                 "wasm": "./lib-esm/wasm.js",
                 "browser": "./lib-esm/web.js",
                 "default": "./lib-esm/wasm.js"
-            },
-            "require": "./lib-cjs/wasm.js"
+            }
         },
         "./http": {
             "types": "./lib-esm/http.d.ts",
-            "import": "./lib-esm/http.js",
-            "require": "./lib-cjs/http.js"
+            "import": "./lib-esm/http.js"
         },
         "./ws": {
             "types": "./lib-esm/ws.d.ts",
-            "import": "./lib-esm/ws.js",
-            "require": "./lib-cjs/ws.js"
+            "import": "./lib-esm/ws.js"
         },
         "./wasm": {
             "types": "./lib-esm/wasm.d.ts",
-            "import": "./lib-esm/wasm.js",
-            "require": "./lib-cjs/wasm.js"
+            "import": "./lib-esm/wasm.js"
         },
         "./web": {
             "types": "./lib-esm/web.d.ts",
-            "import": "./lib-esm/web.js",
-            "require": "./lib-cjs/web.js"
+            "import": "./lib-esm/web.js"
         }
     },
     "typesVersions": {
@@ -79,16 +74,13 @@
         }
     },
     "files": [
-        "lib-cjs/**",
         "lib-esm/**"
     ],
     "scripts": {
         "prepublishOnly": "npm run build",
-        "prebuild": "rm -rf ./lib-cjs ./lib-esm",
-        "build": "npm run build:cjs && npm run build:esm",
-        "build:cjs": "tsc -p tsconfig.build-cjs.json",
+        "prebuild": "rm -rf ./lib-esm",
+        "build": "npm run build:esm",
         "build:esm": "tsc -p tsconfig.build-esm.json",
-        "postbuild": "cp package-cjs.json ./lib-cjs/package.json",
         "test": "jest --runInBand",
         "typecheck": "tsc --noEmit",
         "typedoc": "rm -rf ./docs && typedoc"

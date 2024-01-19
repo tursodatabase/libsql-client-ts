@@ -13,7 +13,6 @@ export interface ExpandedConfig {
     syncUrl: string | undefined;
     intMode: IntMode;
     fetch: Function | undefined;
-    sqliteWasmPath?: string;
 }
 
 export type ExpandedScheme = "wss" | "ws" | "https" | "http" | "file";
@@ -47,7 +46,6 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
         tls: false,
         authToken: undefined,
         authority: undefined,
-	sqliteWasmPath: config.sqliteWasmPath,
       };
     }
 
@@ -119,6 +117,5 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
         syncUrl,
         intMode,
         fetch: config.fetch,
-	sqliteWasmPath: config.sqliteWasmPath,
     };
 }

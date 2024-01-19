@@ -40,11 +40,6 @@ export interface Config {
      * with the Web `Response`.
      */
     fetch?: Function;
-
-    /**
-     * Location of the sqlite3.wasm binary path.
-     */
-    sqliteWasmPath?: string;
 }
 
 /** Representation of integers from database as JavaScript values. See {@link Config.intMode}. */
