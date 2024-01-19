@@ -1,8 +1,9 @@
 {
     "compilerOptions": {
+        "module": "es2022",
         "moduleResolution": "node",
         "lib": ["esnext", "dom"],
-        "target": "esnext",
+        "target": "es2022",
         "esModuleInterop": true,
         "isolatedModules": true,
         "rootDir": "src/",

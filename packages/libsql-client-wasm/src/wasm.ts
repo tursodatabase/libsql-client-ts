@@ -13,12 +13,14 @@ import { supportedUrlLink, transactionModeToBegin, ResultSetImpl } from "@libsql
 
 export * from "@libsql/core/api";
 
-export async function createClient(config: Config): Promise<Client> {
+const sqlite3 = await sqlite3InitModule();
+
+export function createClient(config: Config): Client {
     return _createClient(expandConfig(config, true));
 }
 
 /** @private */
-export async function _createClient(config: ExpandedConfig): Promise<Client> {
+export function _createClient(config: ExpandedConfig): Client {
     if (config.scheme !== "file") {
         throw new LibsqlError(
             `URL scheme ${JSON.stringify(config.scheme + ":")} is not supported by the local sqlite3 client. ` +
@@ -53,15 +55,6 @@ export async function _createClient(config: ExpandedConfig): Promise<Client> {
         authToken: config.authToken,
         syncUrl: config.syncUrl,
     };
-
-    const initOptions: InitOptions = {};
-    if(config.sqliteWasmPath) {
-        initOptions.locateFile = function() {
-            return config.sqliteWasmPath!;
-        };
-    }
-
-    const sqlite3 = await sqlite3InitModule(initOptions);
 
     const db: Database = new sqlite3.oo1.DB('/mydb.sqlite3', 'ct');
 
