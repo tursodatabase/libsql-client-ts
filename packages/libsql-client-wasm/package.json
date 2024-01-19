@@ -1,6 +1,6 @@
 {
     "name": "@libsql/client-wasm",
-    "version": "0.4.0-pre.8",
+    "version": "0.4.0-pre.9",
     "keywords": [
         "libsql",
         "database",
@@ -94,7 +94,7 @@
         "typedoc": "rm -rf ./docs && typedoc"
     },
     "dependencies": {
-        "@libsql/core": "0.4.0-pre.7",
+        "@libsql/core": "0.4.0-pre.9",
         "@libsql/libsql-wasm-experimental": "^0.0.1",
         "js-base64": "^3.7.5"
     },
