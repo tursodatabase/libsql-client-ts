@@ -7,6 +7,9 @@ jobs:
   "build":
     name: "Build the docs"
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./packages/libsql-client
     steps:
     - name: "Checkout this repo"
       uses: actions/checkout@v3
