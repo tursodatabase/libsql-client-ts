@@ -10,7 +10,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@libsql/client": "../../"
+    "@libsql/client-wasm": "../.."
   },
   "devDependencies": {
     "esbuild": "0.19.11"

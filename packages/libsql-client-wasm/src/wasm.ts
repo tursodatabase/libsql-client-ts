@@ -310,8 +310,6 @@ function valueFromSql(sqlValue: unknown, intMode: IntMode): Value {
         } else {
             throw new Error("Invalid value for IntMode");
         }
-    } else if (sqlValue instanceof Buffer) {
-        return sqlValue.buffer;
     }
     return sqlValue as Value;
 }
@@ -341,8 +339,6 @@ function valueToSql(value: InValue, intMode: IntMode): SqlValue {
         default:
           return value ? 1 : 0;
       }
-    } else if (value instanceof ArrayBuffer) {
-        return Buffer.from(value);
     } else if (value instanceof Date) {
         return value.valueOf();
     } else if (value === undefined) {

@@ -28,48 +28,14 @@
         ".": {
             "types": "./lib-esm/wasm.d.ts",
             "import": {
-                "workerd": "./lib-esm/web.js",
-                "deno": "./lib-esm/web.js",
-                "edge-light": "./lib-esm/web.js",
-                "netlify": "./lib-esm/web.js",
-                "wasm": "./lib-esm/wasm.js",
-                "browser": "./lib-esm/web.js",
                 "default": "./lib-esm/wasm.js"
             }
-        },
-        "./http": {
-            "types": "./lib-esm/http.d.ts",
-            "import": "./lib-esm/http.js"
-        },
-        "./ws": {
-            "types": "./lib-esm/ws.d.ts",
-            "import": "./lib-esm/ws.js"
-        },
-        "./wasm": {
-            "types": "./lib-esm/wasm.d.ts",
-            "import": "./lib-esm/wasm.js"
-        },
-        "./web": {
-            "types": "./lib-esm/web.d.ts",
-            "import": "./lib-esm/web.js"
         }
     },
     "typesVersions": {
         "*": {
             ".": [
                 "./lib-esm/wasm.d.ts"
-            ],
-            "http": [
-                "./lib-esm/http.d.ts"
-            ],
-            "hrana": [
-                "./lib-esm/hrana.d.ts"
-            ],
-            "wasm": [
-                "./lib-esm/wasm.d.ts"
-            ],
-            "web": [
-                "./lib-esm/web.d.ts"
             ]
         }
     },
