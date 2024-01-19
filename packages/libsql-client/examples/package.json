@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@libsql/client": "..",
+    "@libsql/core": "../../libsql-core",
     "readline-sync": "^1.4.10"
   }
 }

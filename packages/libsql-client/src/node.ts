@@ -1,12 +1,12 @@
-import type { Config, Client } from "./api.js";
-import { LibsqlError } from "./api.js";
-import type { ExpandedConfig } from "./config.js";
-import { expandConfig } from "./config.js";
+import type { Config, Client } from "@libsql/core/api";
+import { LibsqlError } from "@libsql/core/api";
+import type { ExpandedConfig } from "@libsql/core/config";
+import { expandConfig } from "@libsql/core/config";
 import { _createClient as _createSqlite3Client } from "./sqlite3.js";
 import { _createClient as _createWsClient } from "./ws.js";
 import { _createClient as _createHttpClient } from "./http.js";
 
-export * from "./api.js";
+export * from "@libsql/core/api";
 
 /** Creates a {@link Client} object.
  *

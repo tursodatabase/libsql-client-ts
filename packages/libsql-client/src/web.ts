@@ -1,13 +1,13 @@
-import type { Config, Client } from "./api.js";
-import { LibsqlError } from "./api.js";
-import type { ExpandedConfig } from "./config.js";
-import { expandConfig } from "./config.js";
-import { supportedUrlLink } from "./util.js";
+import type { Config, Client } from "@libsql/core/api";
+import { LibsqlError } from "@libsql/core/api";
+import type { ExpandedConfig } from "@libsql/core/config";
+import { expandConfig } from "@libsql/core/config";
+import { supportedUrlLink } from "@libsql/core/util";
 
 import { _createClient as _createWsClient } from "./ws.js";
 import { _createClient as _createHttpClient } from "./http.js";
 
-export * from "./api.js";
+export * from "@libsql/core/api";
 
 export function createClient(config: Config): Client {
     return _createClient(expandConfig(config, true));

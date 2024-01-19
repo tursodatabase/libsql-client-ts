@@ -1,18 +1,18 @@
 import * as hrana from "@libsql/hrana-client";
 
-import type { Config, IntMode, Client, Transaction, ResultSet, InStatement } from "./api.js";
-import { TransactionMode, LibsqlError } from "./api.js";
-import type { ExpandedConfig } from "./config.js";
-import { expandConfig } from "./config.js";
+import type { Config, IntMode, Client, Transaction, ResultSet, InStatement } from "@libsql/core/api";
+import { TransactionMode, LibsqlError } from "@libsql/core/api";
+import type { ExpandedConfig } from "@libsql/core/config";
+import { expandConfig } from "@libsql/core/config";
 import {
     HranaTransaction, executeHranaBatch,
     stmtToHrana, resultSetFromHrana, mapHranaError,
 } from "./hrana.js";
 import { SqlCache } from "./sql_cache.js";
-import { encodeBaseUrl } from "./uri.js";
-import { supportedUrlLink } from "./util.js";
+import { encodeBaseUrl } from "@libsql/core/uri";
+import { supportedUrlLink } from "@libsql/core/util";
 
-export * from "./api.js";
+export * from "@libsql/core/api";
 
 export function createClient(config: Config): WsClient {
     return _createClient(expandConfig(config, false));
