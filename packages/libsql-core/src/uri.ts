@@ -90,7 +90,7 @@ const AUTHORITY_RE = (() => {
     const USERINFO = '(?<username>[^:]*)(:(?<password>.*))?';
     const HOST = '((?<host>[^:\\[\\]]*)|(\\[(?<host_br>[^\\[\\]]*)\\]))';
     const PORT = '(?<port>[0-9]*)';
-    return new RegExp(`^(${USERINFO}@)?${HOST}(:${PORT})?$`, "su");
+    return new RegExp("^(" + USERINFO + "@)?" + HOST + "(:" + PORT + ")?$", "su");
 })();
 
 // Query string is parsed as application/x-www-form-urlencoded according to the Web URL standard:
