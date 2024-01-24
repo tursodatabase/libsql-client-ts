@@ -51,7 +51,7 @@ export function parseUri(text: string): Uri {
             port: url.port ? parseInt(url.port) : undefined,
         },
         path: url.pathname,
-        query: { pairs: [...url.searchParams.values()].map(([key, value]) => ({ key, value })) },
+        query: { pairs: [...url.searchParams.entries()].map(([key, value]) => ({ key, value })) },
         fragment: url.hash || undefined ? percentDecode(url.hash) : undefined,
     };
 }
