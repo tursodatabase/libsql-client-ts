@@ -1,7 +1,9 @@
 # Changelog
 
-## 0.3.7 -- unreleased
+## 0.4.0 -- 2024-01-26
 
+* Update hrana-client package to 0.5.6.
+* Add a `@libsql/client-wasm` package.
 * Fix Bun on Linux/arm64.
 
 ## 0.3.6 -- 2023-10-20
