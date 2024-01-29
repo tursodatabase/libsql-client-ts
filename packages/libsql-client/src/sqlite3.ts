@@ -270,7 +270,7 @@ function rowFromSql(sqlRow: Array<unknown>, columns: Array<string>, intMode: Int
 
         const column = columns[i];
         if (!Object.hasOwn(row, column)) {
-            Object.defineProperty(row, column, { value, enumerable: true });
+            Object.defineProperty(row, column, { value, enumerable: true, configurable: true, writable: true });
         }
     }
     return row as Row;
