@@ -1,3 +1,7 @@
 {
-  "workspaces": [ "packages/libsql-core", "packages/libsql-client", "packages/libsql-client-wasm" ]
+  "workspaces": [
+    "packages/libsql-core",
+    "packages/libsql-client",
+    "packages/libsql-client-wasm"
+  ]
 }
