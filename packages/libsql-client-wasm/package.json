@@ -22,6 +22,7 @@
     ],
     "license": "MIT",
     "type": "module",
+    "bundledDependencies": ["@libsql/libsql-wasm-experimental"],
     "main": "lib-esm/wasm.js",
     "types": "lib-esm/wasm.d.ts",
     "exports": {
