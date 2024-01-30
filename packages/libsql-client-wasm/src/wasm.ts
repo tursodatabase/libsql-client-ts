@@ -244,7 +244,7 @@ function executeStmt(db: Database, stmt: InStatement, intMode: IntMode): ResultS
         if (Array.isArray(args)) {
             for (let i = 0; i < args.length; ++i) {
                 const value = args[i];
-                sqlStmt.bind(i, value);
+                sqlStmt.bind(i + 1, value);
             }
         } else {
             for (const argName in args) {
