@@ -227,12 +227,28 @@ export abstract class HranaTransaction implements Transaction {
     }
 }
 
+export function isHranaPragmaStmt(stmt: hrana.Stmt): boolean {
+    if (typeof stmt.sql === "string") {
+        return stmt.sql.toUpperCase().startsWith("PRAGMA ");
+    }
+    throw new Error("unexpected");
+}
+
 export async function executeHranaBatch(
     mode: TransactionMode,
     version: hrana.ProtocolVersion,
     batch: hrana.Batch,
     hranaStmts: Array<hrana.Stmt>,
 ): Promise<Array<ResultSet>> {
+    if (hranaStmts.length == 0) {
+        return [];
+    }
+    let pragmaPromise = undefined;
+    if (isHranaPragmaStmt(hranaStmts[0])) {
+        const pragmaStmt = hranaStmts.shift()!;
+        const pragmaStep = batch.step();
+        const pragmaPromise = pragmaStep.run(pragmaStmt);
+    }
     const beginStep = batch.step();
     const beginPromise = beginStep.run(transactionModeToBegin(mode));
 
@@ -263,6 +279,9 @@ export async function executeHranaBatch(
     await batch.execute();
 
     const resultSets = [];
+    if (pragmaPromise !== undefined) {
+        await pragmaPromise;
+    }
     await beginPromise;
     for (const stmtPromise of stmtPromises) {
         const hranaRows = await stmtPromise;

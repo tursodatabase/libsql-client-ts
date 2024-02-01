@@ -1,4 +1,5 @@
 import type * as hrana from "@libsql/hrana-client";
+import { isHranaPragmaStmt } from "./hrana.js";
 
 export class SqlCache {
     #owner: hrana.SqlOwner;
@@ -27,6 +28,9 @@ export class SqlCache {
 
         for (const hranaStmt of hranaStmts) {
             if (typeof hranaStmt.sql !== "string") {
+                continue;
+            }
+            if (isHranaPragmaStmt(hranaStmt)) {
                 continue;
             }
             const sqlText = hranaStmt.sql;
