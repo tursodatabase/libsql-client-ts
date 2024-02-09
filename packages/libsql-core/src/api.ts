@@ -12,6 +12,9 @@ export interface Config {
     /** Authentication token for the database. */
     authToken?: string;
 
+    /** Encryption key for the database. */
+    encryptionKey?: string;
+
     /** URL of a remote server to synchronize database with. */
     syncUrl?: string;
 

@@ -50,6 +50,7 @@ export function _createClient(config: ExpandedConfig): Client {
     const path = config.path;
     const options = {
         authToken: config.authToken,
+        encryptionKey: config.encryptionKey,
         syncUrl: config.syncUrl,
     };
 
