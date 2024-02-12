@@ -1,157 +1,159 @@
-# JavaScript & TypeScript SDK for libSQL
+<p align="center">
+  <a href="https://docs.turso.tech/sdk/ts/quickstart">
+    <img alt="Turso + TypeScript cover" src="https://github.com/tursodatabase/libsql-client-ts/assets/950181/293186fa-ffe4-4dfb-84fa-3f668b991253" width="1000">
+    <h3 align="center">Turso + TypeScript / JS</h3>
+  </a>
+</p>
 
-[![npm version](https://badge.fury.io/js/@libsql%2Fclient.svg)](https://badge.fury.io/js/@libsql%2Fclient)
-[![Node.js CI](https://github.com/libsql/libsql-client-ts/actions/workflows/ci.yaml/badge.svg)](https://github.com/libsql/libsql-client-ts/actions/workflows/ci.yaml)
-[![License](https://img.shields.io/badge/license-MIT-blue)](https://github.com/libsql/libsql-client-ts/blob/main/LICENSE)
+<p align="center">
+  Turso is a SQLite-compatible database built on libSQL.
+</p>
 
-This is the source repository of the JavaScript & TypeScript SDK for libSQL.
+<p align="center">
+  <a href="https://turso.tech"><strong>Turso</strong></a> ·
+  <a href="https://docs.turso.tech/quickstart"><strong>Quickstart</strong></a> ·
+  <a href="/examples"><strong>Examples</strong></a> ·
+  <a href="https://docs.turso.tech"><strong>Docs</strong></a> ·
+  <a href="https://discord.com/invite/4B5D7hYwub"><strong>Discord</strong></a> ·
+  <a href="https://blog.turso.tech/"><strong>Tutorials</strong></a>
+</p>
 
-You can use this SDK to interact with the following types of databases:
+<p align="center">
+  <a href="https://www.npmjs.com/@libsql/client">
+    <img src="https://badge.fury.io/js/@libsql%2Fclient.svg" alt="npm version" title="npm version" />
+  </a>
+</p>
 
-- Local SQLite/libSQL database files
-- [Remote libSQL databases], including [Turso]
+---
 
-## Installation
+## Install
 
-```shell
+```bash
 npm install @libsql/client
 ```
 
-This step is not required if using the Deno style import shown below.
+## Import
 
-### Using the library with Next.js
+This library supports multiple runtimes, including Node.js, Cloudflare Workers, and Deno.
 
-To use `libsql-client`, you need to add the following to your Next configuration:
+**Make sure you import the correct client for your environment:**
 
-```javascript
-const nextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ["libsql"],
-  },
-}
+|                                | Example                                                                      |
+| ------------------------------ | ---------------------------------------------------------------------------- |
+| Node                           | `import { createClient } from "@libsql/client"`                              |
+| Browsers                       | `import { createClient } from "@libsql/client/web"`                          |
+| Edge <br />(Cloudflare/Vercel) | `import { createClient } from "@libsql/client/web"`                          |
+| Deno                           | `import { createClient } from "https://esm.sh/@libsql/client@[version]/web"` |
 
-module.exports = nextConfig
-```
+## Connect
 
-> [!NOTE]
-> If you are using Next.js v13.5.5 or above, this is done automatically for you.
+You can use this library to connect to [Turso](#turso), [local SQLite](#local-sqlite), [Embedded Replicas](#embedded-replicas), and [libSQL server](#libsql-server).
 
-## Create a database client object
+### Turso
 
-### Importing
+Follow the [Turso Quickstart](https://docs.turso.tech/quickstart) to create an account, database, auth token, and connect to the shell to create a database schema.
 
-There are multiple ways to import the module. For Node.js and other environments where you need to use a local SQLite [file URL](#local-sqlite-file-urls), as well as network access to `sqld`:
-
-```typescript
+```ts
 import { createClient } from "@libsql/client";
+
+const client = createClient({
+  url: "libsql://...",
+  authToken: "...",
+});
 ```
 
-For environments that don't have a local filesystem, but support HTTP or WebSockets, including:
+### Local SQLite
 
-- Browsers
-- CloudFlare Workers
-- Vercel Edge Functions
-- Netlify Edge Functions
+You can use a local sqlite file on your machine
 
-```typescript
-import { createClient } from "@libsql/client/web";
+```ts
+import { createClient } from "@libsql/client";
+
+const client = createClient({
+  url: "file:dev.db",
+});
 ```
 
-For Deno:
+### Embedded Replicas
 
-```typescript
-// replace [version] with the client version
-import { createClient } from "https://esm.sh/@libsql/client@[version]/web";
+You can achieve zero-latency queries by using [Embedded Replicas](https://docs.turso.tech/features/embedded-replicas) that are local-first, and sync with a remote database (Turso or [libSQL Server](#libsql-server)).
+
+```ts
+import { createClient } from "@libsql/client";
+
+const client = createClient({
+  url: "file:replica.db",
+  syncUrl: "libsql://...",
+  authToken: "...",
+});
 ```
 
-### Local SQLite files
+Embedded Replicas aren'require access to the filesystem, serverless environments aren't compatible.
 
-To connect to a local SQLite database file using a [local file URL](#local-sqlite-file-urls):
+### libSQL Server
 
-```typescript
-const config = {
-  url: "file:local.db"
-};
-const db = createClient(config);
-const rs = await db.execute("SELECT * FROM users");
-console.log(rs);
-```
-You can also create an in-memory database by passing ':memory:' as url. This is useful for for testing purposes.
+You can use this package with [libSQL server](https://github.com/tursodatabase/libsql/tree/main/libsql-server) directly using one of the methods [here](https://github.com/tursodatabase/libsql/blob/main/docs/BUILD-RUN.md).
 
-### libSQL sqld instance
+```ts
+import { createClient } from "@libsql/client";
 
-To connect to a [libSQL sqld] instance using a [libsql: URL](#libsql-urls):
-
-```typescript
-import { createClient } from "@libsql/client"
-
-const config = {
-  url: "libsql://[your-sqld-host]",
-  authToken: "[your-token]"
-};
-const db = createClient(config);
-const rs = await db.execute("SELECT * FROM users");
-console.log(rs);
+const client = createClient({
+  url: "http://127.0.0.1:8080",
+});
 ```
 
-If you are querying a `sqld` instance on your local machine, add `?tls=0` to the URL to disable TLS.
+## Execute
 
-`authToken` in the config object is a token that your sqld instance recognizes to allow client access. For Turso databases, [a token is obtained using the Turso CLI][turso-cli-token]. No token is required by default when running `sqld` on its own.
+### Simple query
 
+You can execute a SQL query against your existing database by calling `execute()`:
 
-## Supported URLs
+```ts
+const result = await client.execute("SELECT * FROM users");
+```
 
-The client can connect to the database using different methods depending on the scheme (protocol) of the passed URL:
+### Arguments
 
-### Local SQLite file URLs
+If you need to use placeholders for values, you can do that using positional and named `args`:
 
-A `file:` URL connects to a local SQLite database (using [libsql]).
+```ts
+const result = await client.execute({
+  sql: "SELECT * FROM users WHERE id = ?",
+  args: [1],
+});
 
-- This is only supported on Node.js. It will not work in the browser or with most hosted environments that don't provide access to a local filesystem.
-- `file:/absolute/path` or `file:///absolute/path` is an absolute path on local filesystem.
-- `file:relative/path` is a relative path on local filesystem.
-- `file://path` is not a valid URL.
+const result = await client.execute({
+  sql: "INSERT INTO users VALUES (:name)",
+  args: { name: "Iku" },
+});
+```
 
-### libSQL sqld instances
+### Sync
 
-The client can connect to `sqld` using HTTP or WebSockets. Internally, it uses the Hrana protocol implemented by [hrana-client-ts].
+If you're using [Embedded Replicas](#embedded-replicas), you should call `sync()` in the background whenever your application wants to sync the remote and local embedded replica. For example, you can call it every 5 minutes or every time the application starts.
 
-#### libsql URLs
+```ts
+import { createClient } from "@libsql/client";
 
-`libsql:` URL leaves the choice of protocol to the client. We are now using HTTP by default, but this may change in the future.
+const client = createClient({
+  url: "file:replica.db",
+  syncUrl: "libsql://...",
+  authToken: "...",
+});
 
-- By default, a `libsql:` URL uses TLS (i.e. `https:` or `wss:`).
-- To disable TLS, you can pass the query parameter `?tls=0`. You will also need to specify the port.
+await client.sync();
+```
 
-#### HTTP URLs
+## Quickstart Guides
 
-`http:` or `https:` URLs connect to `sqld` using HTTP.
-
-- This is supported in Node.js and in every environment that supports the [Web fetch API].
-
-#### WebSocket URLs
-
-`ws:` or `wss:` URLs use a stateful WebSocket to connect to `sqld`.
-
-- WebSockets are supported in Node.js and browser.
-- If you are running in a cloud or edge hosted environments, you should check to see if WebSockets are supported. If not, change the URL to use an [HTTP URL](#http-urls).
-
-## Additional documentation
-
-You can find more examples of how to use this library using the [Turso docs for JS&TS][turso-js-ts].
+- [Next.js](https://docs.turso.tech/sdk/ts/guides/nextjs)
+- [Remix](https://docs.turso.tech/sdk/ts/guides/remix)
+- [Astro](https://docs.turso.tech/sdk/ts/guides/astro)
+- [Nuxt](https://docs.turso.tech/sdk/ts/guides/nuxt)
+- [Qwik](https://docs.turso.tech/sdk/ts/guides/qwik)
+- [SvelteKit](https://docs.turso.tech/sdk/ts/guides/sveltekit)
+- [Quasar](https://docs.turso.tech/sdk/ts/guides/quasar)
 
 ## License
 
 This project is licensed under the MIT license.
-
-### Contribution
-
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in `@libsql/client` by you, shall be licensed as MIT, without any additional terms or conditions.
-
-[Turso]: https://docs.turso.tech
-[Remote libSQL databases]: https://github.com/libsql/sqld
-[turso-cli-token]: https://docs.turso.tech/reference/turso-cli#authentication-tokens-for-client-access
-[libsql]: https://github.com/libsql/libsql
-[hrana-client-ts]: https://github.com/libsql/hrana-client-ts
-[Web fetch API]: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
-[turso-js-ts]: https://docs.turso.tech/reference/client-access/javascript-typescript-sdk
