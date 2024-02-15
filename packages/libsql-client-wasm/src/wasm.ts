@@ -29,6 +29,10 @@ export function _createClient(config: ExpandedConfig): Client {
         );
     }
 
+    if (config.encryptionKey !== undefined) {
+        throw new LibsqlError("Encryption key is not supported by the Wasm client.", "ENCRYPTION_KEY_NOT_SUPPORTED");
+    }
+
     const authority = config.authority;
     if (authority !== undefined) {
         const host = authority.host.toLowerCase();
