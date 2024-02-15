@@ -10,6 +10,7 @@ export interface ExpandedConfig {
     authority: Authority | undefined;
     path: string;
     authToken: string | undefined;
+    encryptionKey: string | undefined;
     syncUrl: string | undefined;
     intMode: IntMode;
     fetch: Function | undefined;
@@ -26,6 +27,7 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
 
     let tls: boolean | undefined = config.tls;
     let authToken = config.authToken;
+    let encryptionKey = config.encryptionKey;
     let syncUrl = config.syncUrl;
     const intMode = ""+(config.intMode ?? "number");
     if (intMode !== "number" && intMode !== "bigint" && intMode !== "string") {
@@ -45,6 +47,7 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
         fetch: config.fetch,
         tls: false,
         authToken: undefined,
+        encryptionKey: undefined,
         authority: undefined,
       };
     }
@@ -114,6 +117,7 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
         authority: uri.authority,
         path: uri.path,
         authToken,
+        encryptionKey,
         syncUrl,
         intMode,
         fetch: config.fetch,

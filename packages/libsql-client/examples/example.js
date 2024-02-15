@@ -3,6 +3,7 @@ import { createClient } from "@libsql/client";
 async function example() {
   const config = {
     url: process.env.URL ?? "file:local.db",
+    encryptionKey: process.env.ENCRYPTION_KEY,
   };
   const db = createClient(config);
   await db.batch([

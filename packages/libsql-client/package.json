@@ -101,10 +101,8 @@
     "dependencies": {
         "@libsql/core": "^0.4.3",
         "@libsql/hrana-client": "^0.5.6",
-        "js-base64": "^3.7.5"
-    },
-    "optionalDependencies": {
-        "libsql": "^0.2.0"
+        "js-base64": "^3.7.5",
+        "libsql": "^0.3.1"
     },
     "devDependencies": {
         "@types/jest": "^29.2.5",
