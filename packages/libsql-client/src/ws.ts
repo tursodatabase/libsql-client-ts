@@ -28,6 +28,10 @@ export function _createClient(config: ExpandedConfig): WsClient {
         );
     }
 
+    if (config.encryptionKey !== undefined) {
+        throw new LibsqlError("Encryption key is not supported by the remote client.", "ENCRYPTION_KEY_NOT_SUPPORTED");
+    }
+
     if (config.scheme === "ws" && config.tls) {
         throw new LibsqlError(`A "ws:" URL cannot opt into TLS by using ?tls=1`, "URL_INVALID");
     } else if (config.scheme === "wss" && !config.tls) {
