@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0 -- 2024-02-15
+
+* Add a `encryptionKey` config option, which enables encryption at rest for local database files.
+
 ## 0.4.0 -- 2024-01-26
 
 * Update hrana-client package to 0.5.6.
