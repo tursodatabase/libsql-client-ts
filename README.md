@@ -34,7 +34,7 @@ npm install @libsql/client
 
 ## Import
 
-This library supports multiple runtimes, including Node.js, Cloudflare Workers, and Deno.
+This library supports multiple runtimes, including Node.js, Cloudflare Workers, Deno, and experimental WebAssembly.
 
 **Make sure you import the correct client for your environment:**
 
@@ -44,6 +44,7 @@ This library supports multiple runtimes, including Node.js, Cloudflare Workers, 
 | Browsers                       | `import { createClient } from "@libsql/client/web"`                          |
 | Edge <br />(Cloudflare/Vercel) | `import { createClient } from "@libsql/client/web"`                          |
 | Deno                           | `import { createClient } from "https://esm.sh/@libsql/client@[version]/web"` |
+| WebAssembly (Experimental)     | `import { createClient } from "@libsql/client-wasm"`                         |
 
 ## Connect
 
@@ -88,7 +89,7 @@ const client = createClient({
 });
 ```
 
-Embedded Replicas aren'require access to the filesystem, serverless environments aren't compatible.
+Embedded Replicas require access to the filesystem, **serverless environments aren't compatible**.
 
 ### libSQL Server
 
@@ -130,7 +131,7 @@ const result = await client.execute({
 
 ### Sync
 
-If you're using [Embedded Replicas](#embedded-replicas), you should call `sync()` in the background whenever your application wants to sync the remote and local embedded replica. For example, you can call it every 5 minutes or every time the application starts.
+If you're using [Embedded Replicas](#embedded-replicas), you should call `sync()` in the background whenever your application wants to sync local embedded replica with the remote database. For example, you can call it every 5 minutes or every time the application starts.
 
 ```ts
 import { createClient } from "@libsql/client";
