@@ -38,13 +38,13 @@ This library supports multiple runtimes, including Node.js, Cloudflare Workers, 
 
 **Make sure you import the correct client for your environment:**
 
-|                                | Example                                                                      |
-| ------------------------------ | ---------------------------------------------------------------------------- |
-| Node                           | `import { createClient } from "@libsql/client"`                              |
-| Browsers                       | `import { createClient } from "@libsql/client/web"`                          |
-| Edge <br />(Cloudflare/Vercel) | `import { createClient } from "@libsql/client/web"`                          |
-| Deno                           | `import { createClient } from "https://esm.sh/@libsql/client@[version]/web"` |
-| WebAssembly (Experimental)     | `import { createClient } from "@libsql/client-wasm"`                         |
+|                                  | Example                                                                      |
+| -------------------------------- | ---------------------------------------------------------------------------- |
+| Node                             | `import { createClient } from "@libsql/client"`                              |
+| Browsers                         | `import { createClient } from "@libsql/client/web"`                          |
+| Edge <br />(Cloudflare/Vercel)   | `import { createClient } from "@libsql/client/web"`                          |
+| Deno                             | `import { createClient } from "https://esm.sh/@libsql/client@[version]/web"` |
+| WebAssembly <br />(Experimental) | `import { createClient } from "@libsql/client-wasm"`                         |
 
 ## Connect
 
