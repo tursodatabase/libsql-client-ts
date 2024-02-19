@@ -65,7 +65,7 @@ const client = createClient({
 
 ### Local SQLite
 
-You can use a local sqlite file on your machine
+You can use a new or existing local SQLite file on your machine:
 
 ```ts
 import { createClient } from "@libsql/client";
@@ -77,7 +77,7 @@ const client = createClient({
 
 ### Embedded Replicas
 
-You can achieve zero-latency queries by using [Embedded Replicas](https://docs.turso.tech/features/embedded-replicas) that are local-first, and sync with a remote database (Turso or [libSQL Server](#libsql-server)).
+You can achieve zero-latency network requests by using [Embedded Replicas](https://docs.turso.tech/features/embedded-replicas) that are local-first, and sync with a remote database (Turso or [libSQL Server](#libsql-server)):
 
 ```ts
 import { createClient } from "@libsql/client";
@@ -93,7 +93,7 @@ Embedded Replicas require access to the filesystem, **serverless environments ar
 
 ### libSQL Server
 
-You can use this package with [libSQL server](https://github.com/tursodatabase/libsql/tree/main/libsql-server) directly using one of the methods [here](https://github.com/tursodatabase/libsql/blob/main/docs/BUILD-RUN.md).
+You can use this package with [libSQL server](https://github.com/tursodatabase/libsql/tree/main/libsql-server) directly using one of the methods [here](https://github.com/tursodatabase/libsql/blob/main/docs/BUILD-RUN.md):
 
 ```ts
 import { createClient } from "@libsql/client";
