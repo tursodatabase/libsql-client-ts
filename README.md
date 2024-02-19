@@ -129,6 +129,8 @@ const result = await client.execute({
 });
 ```
 
+_You can use `:` (shown above), `@` and `$` to declare named arguments._
+
 ### Sync
 
 If you're using [Embedded Replicas](#embedded-replicas), you should call `sync()` in the background whenever your application wants to sync local embedded replica with the remote database. For example, you can call it every 5 minutes or every time the application starts.
@@ -143,6 +145,76 @@ const client = createClient({
 });
 
 await client.sync();
+```
+
+## Transaction Modes
+
+| Mode       | SQLite command               | Description                                                                                                                                                                                             |
+| ---------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `write`    | `BEGIN IMMEDIATE`            | The transaction may execute statements that read and write data.<br />Write transactions executed on a replica are forwarded to the primary instance, and can't operate in parallel.                    |
+| `read`     | `BEGIN TRANSACTION READONLY` | The transaction may only execute statements that read data (select).<br />Read transactions can occur on replicas, and can operate in parallel with other read transactions.                            |
+| `deferred` | `BEGIN DEFERRED`             | The transaction starts in read mode, then changes to write as soon as a write statement is executed.<br />This mode change may fail if there is a write transaction currently executing on the primary. |
+
+### Batch
+
+A batch runs multiple SQL statements in a row, managed by the backend in an automatic transaction. Success commits all changes; failure triggers a complete rollback without alterations:
+
+```ts
+const result = await client.batch(
+  [
+    {
+      sql: "INSERT INTO users VALUES (?)",
+      args: ["Iku"],
+    },
+    {
+      sql: "INSERT INTO users VALUES (?)",
+      args: ["Iku 2"],
+    },
+  ],
+  "write"
+);
+```
+
+### Interactive Transactions
+
+SQLite's interactive transactions maintain data consistency for read-write operations, allowing controlled commits or rollbacks and isolating changes from other client activities.
+
+| Method       | Description                                                         |
+| ------------ | ------------------------------------------------------------------- |
+| `execute()`  | Similar to `execute()` except within the context of the transaction |
+| `commit()`   | Commits all write statements in the transaction                     |
+| `rollback()` | Rolls back the entire transaction                                   |
+| `close()`    | Immediately stops the transaction                                   |
+
+```ts
+try {
+  const userId = "user123";
+  const withdrawalAmount = 500;
+
+  const transaction = await client.transaction("write");
+
+  const balanceResult = await transaction.execute({
+    sql: "SELECT balance FROM accounts WHERE userId = ?",
+    args: [userId],
+  });
+
+  const currentBalance = balanceResult.rows[0]["balance"] as number;
+
+  if (currentBalance >= withdrawalAmount) {
+    await transaction.execute({
+      sql: "UPDATE accounts SET balance = balance - ? WHERE userId = ?",
+      args: [withdrawalAmount, userId],
+    });
+  } else {
+    console.log("Insufficient funds");
+    await transaction.rollback();
+    return;
+  }
+
+  await transaction.commit();
+} catch (e) {
+  console.error(e);
+}
 ```
 
 ## Quickstart Guides
