@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1 -- 2024-02-19
+
+* Update `libsql` package to 0.3.2, add `encryptionCipher` option, and switch default cipher to SQLCipher.
+
 ## 0.5.0 -- 2024-02-15
 
 * Add a `encryptionKey` config option, which enables encryption at rest for local database files.
