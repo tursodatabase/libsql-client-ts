@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2 -- 2024-02-24
+
+* Disable SQL statemen tracing in Wasm.
+
 ## 0.5.1 -- 2024-02-19
 
 * Update `libsql` package to 0.3.2, add `encryptionCipher` option, and switch default cipher to SQLCipher.
