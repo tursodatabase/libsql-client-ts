@@ -60,7 +60,7 @@ export function _createClient(config: ExpandedConfig): Client {
         syncUrl: config.syncUrl,
     };
 
-    const db: Database = new sqlite3.oo1.DB(path, 'ct');
+    const db: Database = new sqlite3.oo1.DB(path, 'c');
 
     executeStmt(db, "SELECT 1 AS checkThatTheDatabaseCanBeOpened", config.intMode);
 
