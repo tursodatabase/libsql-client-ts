@@ -85,7 +85,8 @@
     },
     "files": [
         "lib-cjs/**",
-        "lib-esm/**"
+        "lib-esm/**",
+        "README.md"
     ],
     "scripts": {
         "prepublishOnly": "npm run build",
