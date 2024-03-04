@@ -103,7 +103,7 @@
         "@libsql/core": "^0.5.2",
         "@libsql/hrana-client": "^0.5.6",
         "js-base64": "^3.7.5",
-        "libsql": "^0.3.2"
+        "libsql": "^0.3.5"
     },
     "devDependencies": {
         "@types/jest": "^29.2.5",
