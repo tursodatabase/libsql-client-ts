@@ -12,7 +12,7 @@ export interface ExpandedConfig {
     authToken: string | undefined;
     encryptionKey: string | undefined;
     syncUrl: string | undefined;
-    syncPeriod: number | undefined;
+    syncInterval: number | undefined;
     intMode: IntMode;
     fetch: Function | undefined;
 }
@@ -30,7 +30,7 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
     let authToken = config.authToken;
     let encryptionKey = config.encryptionKey;
     let syncUrl = config.syncUrl;
-    let syncPeriod = config.syncPeriod;
+    let syncInterval = config.syncInterval;
     const intMode = ""+(config.intMode ?? "number");
     if (intMode !== "number" && intMode !== "bigint" && intMode !== "string") {
         throw new TypeError(
@@ -45,7 +45,7 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
         path: ':memory:',
         scheme: 'file',
         syncUrl,
-        syncPeriod,
+        syncInterval,
         intMode,
         fetch: config.fetch,
         tls: false,
@@ -122,7 +122,7 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
         authToken,
         encryptionKey,
         syncUrl,
-        syncPeriod,
+        syncInterval,
         intMode,
         fetch: config.fetch,
     };

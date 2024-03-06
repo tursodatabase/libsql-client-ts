@@ -18,8 +18,8 @@ export interface Config {
     /** URL of a remote server to synchronize database with. */
     syncUrl?: string;
 
-    /** Sync period in seconds. */
-    syncPeriod?: number;
+    /** Sync interval in seconds. */
+    syncInterval?: number;
 
     /** Enables or disables TLS for `libsql:` URLs.
      *
