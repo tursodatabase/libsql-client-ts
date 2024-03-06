@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+* Bump `libsql` dependency to 0.3.7, which switches default encryption cipher to aes256cbs.
+
 ## 0.5.2 -- 2024-02-24
 
 * Disable SQL statemen tracing in Wasm.
