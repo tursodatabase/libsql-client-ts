@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.5.3 -- 2024-03-06
 
+* Add `syncInterval` config option to enable periodic sync.
 * Bump `libsql` dependency to 0.3.7, which switches default encryption cipher to aes256cbs.
 
 ## 0.5.2 -- 2024-02-24
