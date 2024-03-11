@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+* Bump `libsql` dependency to 0.3.9, which fixes symbol not found errors on Alpine.
+
 ## 0.5.3 -- 2024-03-06
 
 * Add `syncInterval` config option to enable periodic sync.
