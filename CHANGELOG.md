@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.5 -- 2024-03-11
+
+* Bump `@libsql/libsql-wasm-experimental"` dependency to 0.0.2, which
+  fixes a broken sqlite3_get_autocommit() export.
+
 ## 0.5.4 -- 2024-03-11
 
 * Bump `libsql` dependency to 0.3.9, which fixes symbol not found errors on Alpine.
