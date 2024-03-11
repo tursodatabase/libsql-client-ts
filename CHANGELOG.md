@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.4 -- 2024-03-11
 
 * Bump `libsql` dependency to 0.3.9, which fixes symbol not found errors on Alpine.
 
