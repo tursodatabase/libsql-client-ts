@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.6 -- 2024-03-12
+
+* Bump `libsql` package dependency to 0.3.10 that adds `wasm32` as
+  supported CPU, which is needed for StackBlitz compatibility.
+
 ## 0.5.5 -- 2024-03-11
 
 * Bump `@libsql/libsql-wasm-experimental"` dependency to 0.0.2, which
