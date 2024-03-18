@@ -1,12 +1,12 @@
 <p align="center">
   <a href="https://docs.turso.tech/sdk/ts/quickstart">
-    <img alt="Turso + TypeScript cover" src="https://github.com/tursodatabase/libsql-client-ts/assets/950181/293186fa-ffe4-4dfb-84fa-3f668b991253" width="1000">
+    <img alt="Turso + TypeScript" src="https://github.com/tursodatabase/libsql-client-ts/assets/950181/5d3a2693-75f9-4c56-9107-8ccaa96785fd" width="1000">
     <h3 align="center">Turso + TypeScript / JS</h3>
   </a>
 </p>
 
 <p align="center">
-  Turso is a SQLite-compatible database built on libSQL.
+  SQLite for Production. Powered by <a href="https://turso.tech/libsql">libSQL</a>.
 </p>
 
 <p align="center">
