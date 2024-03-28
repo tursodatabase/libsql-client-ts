@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+* Bump hrana client to 0.6.0, which uses native Node fetch().
+
 ## 0.5.6 -- 2024-03-12
 
 * Bump `libsql` package dependency to 0.3.10 that adds `wasm32` as
