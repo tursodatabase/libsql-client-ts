@@ -18,7 +18,7 @@ jobs:
     - name: "Setup Node.js"
       uses: actions/setup-node@v3
       with:
-        node-version: "16.x"
+        node-version: "18.x"
         cache: "npm"
         cache-dependency-path: "packages/libsql-client-wasm"
     - name: "Build core"
@@ -45,7 +45,7 @@ jobs:
     - name: "Setup Node.js"
       uses: actions/setup-node@v3
       with:
-        node-version: "16.x"
+        node-version: "18.x"
         cache: "npm"
         cache-dependency-path: "packages/libsql-client"
     - name: "Build core"
