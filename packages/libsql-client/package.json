@@ -1,6 +1,6 @@
 {
     "name": "@libsql/client",
-    "version": "0.5.6",
+    "version": "0.6.0",
     "keywords": [
         "libsql",
         "database",
@@ -100,7 +100,7 @@
         "typedoc": "rm -rf ./docs && typedoc"
     },
     "dependencies": {
-        "@libsql/core": "^0.5.6",
+        "@libsql/core": "^0.6.0",
         "@libsql/hrana-client": "^0.6.0",
         "js-base64": "^3.7.5",
         "libsql": "^0.3.10"

@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 -- 2024-04-28
 
-* Bump hrana client to 0.6.0, which uses native Node fetch().
+* Bump hrana client to 0.6.0, which uses native Node fetch(). Note that
+  `@libsql/client` now requires Node 18 or later.
 
 ## 0.5.6 -- 2024-03-12
 
