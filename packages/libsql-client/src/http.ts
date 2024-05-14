@@ -1,183 +1,315 @@
 import * as hrana from "@libsql/hrana-client";
 
 import type { Config, Client } from "@libsql/core/api";
-import type { InStatement, ResultSet, Transaction, IntMode } from "@libsql/core/api";
-import { TransactionMode, LibsqlError } from "@libsql/core/api";
+import type {
+  InStatement,
+  ResultSet,
+  Transaction,
+  IntMode,
+} from "@libsql/core/api";
+import { TransactionMode, BatchConfig, LibsqlError } from "@libsql/core/api";
 import type { ExpandedConfig } from "@libsql/core/config";
 import { expandConfig } from "@libsql/core/config";
 import {
-    HranaTransaction, executeHranaBatch,
-    stmtToHrana, resultSetFromHrana, mapHranaError,
+  HranaTransaction,
+  executeHranaBatch,
+  stmtToHrana,
+  resultSetFromHrana,
+  mapHranaError,
 } from "./hrana.js";
 import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "@libsql/core/uri";
 import { supportedUrlLink } from "@libsql/core/util";
 
+type MigrationResult = {
+  schema_version: number;
+  migrations: Array<{ job_id: number; status: string }>;
+};
+
 export * from "@libsql/core/api";
 
 export function createClient(config: Config): Client {
-    return _createClient(expandConfig(config, true));
+  return _createClient(expandConfig(config, true));
 }
 
 /** @private */
 export function _createClient(config: ExpandedConfig): Client {
-    if (config.scheme !== "https" && config.scheme !== "http") {
-        throw new LibsqlError(
-            'The HTTP client supports only "libsql:", "https:" and "http:" URLs, ' +
-                `got ${JSON.stringify(config.scheme + ":")}. For more information, please read ${supportedUrlLink}`,
-            "URL_SCHEME_NOT_SUPPORTED",
-        );
-    }
+  if (config.scheme !== "https" && config.scheme !== "http") {
+    throw new LibsqlError(
+      'The HTTP client supports only "libsql:", "https:" and "http:" URLs, ' +
+        `got ${JSON.stringify(
+          config.scheme + ":"
+        )}. For more information, please read ${supportedUrlLink}`,
+      "URL_SCHEME_NOT_SUPPORTED"
+    );
+  }
 
-    if (config.encryptionKey !== undefined) {
-        throw new LibsqlError("Encryption key is not supported by the remote client.", "ENCRYPTION_KEY_NOT_SUPPORTED");
-    }
+  if (config.encryptionKey !== undefined) {
+    throw new LibsqlError(
+      "Encryption key is not supported by the remote client.",
+      "ENCRYPTION_KEY_NOT_SUPPORTED"
+    );
+  }
 
-    if (config.scheme === "http" && config.tls) {
-        throw new LibsqlError(`A "http:" URL cannot opt into TLS by using ?tls=1`, "URL_INVALID");
-    } else if (config.scheme === "https" && !config.tls) {
-        throw new LibsqlError(`A "https:" URL cannot opt out of TLS by using ?tls=0`, "URL_INVALID");
-    }
+  if (config.scheme === "http" && config.tls) {
+    throw new LibsqlError(
+      `A "http:" URL cannot opt into TLS by using ?tls=1`,
+      "URL_INVALID"
+    );
+  } else if (config.scheme === "https" && !config.tls) {
+    throw new LibsqlError(
+      `A "https:" URL cannot opt out of TLS by using ?tls=0`,
+      "URL_INVALID"
+    );
+  }
 
-    const url = encodeBaseUrl(config.scheme, config.authority, config.path);
-    return new HttpClient(url, config.authToken, config.intMode, config.fetch);
+  const url = encodeBaseUrl(config.scheme, config.authority, config.path);
+  return new HttpClient(url, config.authToken, config.intMode, config.fetch);
 }
 
 const sqlCacheCapacity = 30;
 
+async function sleep(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 export class HttpClient implements Client {
-    #client: hrana.HttpClient;
-    protocol: "http";
+  #client: hrana.HttpClient;
+  protocol: "http";
+  url: URL;
+  authToken: string | undefined;
 
-    /** @private */
-    constructor(
-        url: URL,
-        authToken: string | undefined,
-        intMode: IntMode,
-        customFetch: Function | undefined,
-    ) {
-        this.#client = hrana.openHttp(url, authToken, customFetch);
-        this.#client.intMode = intMode;
-        this.protocol = "http";
+  /** @private */
+  constructor(
+    url: URL,
+    authToken: string | undefined,
+    intMode: IntMode,
+    customFetch: Function | undefined
+  ) {
+    this.#client = hrana.openHttp(url, authToken, customFetch);
+    this.#client.intMode = intMode;
+    this.protocol = "http";
+    this.url = url;
+    this.authToken = authToken;
+  }
+
+  async execute(stmt: InStatement): Promise<ResultSet> {
+    try {
+      const hranaStmt = stmtToHrana(stmt);
+
+      // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the statement and
+      // close the stream in a single HTTP request.
+      let rowsPromise: Promise<hrana.RowsResult>;
+      const stream = this.#client.openStream();
+      try {
+        rowsPromise = stream.query(hranaStmt);
+      } finally {
+        stream.closeGracefully();
+      }
+
+      return resultSetFromHrana(await rowsPromise);
+    } catch (e) {
+      throw mapHranaError(e);
+    }
+  }
+
+  async isMigrationJobFinished(jobId: number): Promise<boolean> {
+    const url = this.url.origin + `/v1/jobs/${jobId}`;
+    console.log("isMigrationJobFinished url:", url)
+    const result = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.authToken}`,
+      },
+    });
+    const json = (await result.json());
+    console.log("json:", json)
+    const job = json as { status: string };
+    if(result.status !== 200) {
+      throw new Error(`Unexpected status code while fetching job status for migration with id ${jobId}: ${result.status}`);
     }
 
-    async execute(stmt: InStatement): Promise<ResultSet> {
-        try {
-            const hranaStmt = stmtToHrana(stmt);
+    if(job.status == "RunFailure") {
+      throw new Error("Migration job failed");
+    }
 
-            // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the statement and
-            // close the stream in a single HTTP request.
-            let rowsPromise: Promise<hrana.RowsResult>;
-            const stream = this.#client.openStream();
-            try {
-                rowsPromise = stream.query(hranaStmt);
-            } finally {
-                stream.closeGracefully();
-            }
+	return job.status == "RunSuccess"
+  }
 
-            return resultSetFromHrana(await rowsPromise);
-        } catch (e) {
-            throw mapHranaError(e);
+  async getLastMigrationJobId(): Promise<number> {
+    const url = this.url.origin + "/v1/jobs";
+    const result = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${this.authToken}`,
+      },
+    });
+    if(result.status !== 200) {
+      throw new Error("Unexpected status code while fetching migration jobs: " + result.status);
+    }
+
+    const json = (await result.json()) as MigrationResult;
+    console.log("json:", json)
+    if(!json.migrations || json.migrations.length === 0) {
+      throw new Error("No migrations found");
+    }
+
+    const migrations = json.migrations || [];
+    let lastJobId: number | undefined = undefined;
+    let lastJobStatus: string | undefined = undefined;
+    for (const migration of migrations) {
+      if (migration.job_id > (lastJobId || 0)) {
+        lastJobId = migration.job_id;
+        lastJobStatus = migration.status;
+      }
+    }
+    if (lastJobStatus === "RunFailure") {
+      throw new Error("Last migration job failed");
+    }
+    if(!lastJobId) {
+      throw new Error("No migration job found");
+    }
+
+    return lastJobId;
+  }
+
+  async batch(
+    stmts: Array<InStatement>,
+    mode: TransactionMode | BatchConfig = "deferred"
+  ): Promise<Array<ResultSet>> {
+    try {
+      const hranaStmts = stmts.map(stmtToHrana);
+      const version = await this.#client.getVersion();
+
+      // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the batch and
+      // close the stream in a single HTTP request.
+      let resultsPromise: Promise<Array<ResultSet>>;
+      const stream = this.#client.openStream();
+      try {
+        // It makes sense to use a SQL cache even for a single batch, because it may contain the same
+        // statement repeated multiple times.
+        const sqlCache = new SqlCache(stream, sqlCacheCapacity);
+        sqlCache.apply(hranaStmts);
+
+        // TODO: we do not use a cursor here, because it would cause three roundtrips:
+        // 1. pipeline request to store SQL texts
+        // 2. cursor request
+        // 3. pipeline request to close the stream
+        const batch = stream.batch(false);
+        console.log("mode: ", mode);
+        const transactionMode =
+          typeof mode === "string" ? mode : mode.transactionMode || "deferred";
+        resultsPromise = executeHranaBatch(
+          transactionMode,
+          version,
+          batch,
+          hranaStmts
+        );
+      } finally {
+        stream.closeGracefully();
+      }
+
+      const lastMigrationJobId = await this.getLastMigrationJobId();
+      console.log("lastMigrationJobId: ", lastMigrationJobId);
+      const wait = typeof mode === "string" ? false : mode.wait;
+      console.log("wait: ", wait);
+      if (wait) {
+        let i = 0
+        const SLEEP_TIME_IN_MS = 1
+        const MAX_ATTEMPTS = 2
+        while(i < MAX_ATTEMPTS) {
+          i++;
+          console.log("waiting step", i);
+          const isLastMigrationJobFinished = await this.isMigrationJobFinished(lastMigrationJobId);
+          console.log("isLastMigrationJobFinished:", isLastMigrationJobFinished)
+          await sleep(SLEEP_TIME_IN_MS);
         }
+        console.log('Stopped');
+      } else {
+        console.log("not waiting");
+      }
+
+      return await resultsPromise;
+    } catch (e) {
+      throw mapHranaError(e);
     }
+  }
 
-    async batch(stmts: Array<InStatement>, mode: TransactionMode = "deferred"): Promise<Array<ResultSet>> {
-        try {
-            const hranaStmts = stmts.map(stmtToHrana);
-            const version = await this.#client.getVersion();
-
-            // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the batch and
-            // close the stream in a single HTTP request.
-            let resultsPromise: Promise<Array<ResultSet>>;
-            const stream = this.#client.openStream();
-            try {
-                // It makes sense to use a SQL cache even for a single batch, because it may contain the same
-                // statement repeated multiple times.
-                const sqlCache = new SqlCache(stream, sqlCacheCapacity);
-                sqlCache.apply(hranaStmts);
-
-                // TODO: we do not use a cursor here, because it would cause three roundtrips:
-                // 1. pipeline request to store SQL texts
-                // 2. cursor request
-                // 3. pipeline request to close the stream
-                const batch = stream.batch(false);
-                resultsPromise = executeHranaBatch(mode, version, batch, hranaStmts);
-            } finally {
-                stream.closeGracefully();
-            }
-
-            return await resultsPromise;
-        } catch (e) {
-            throw mapHranaError(e);
-        }
+  async transaction(mode: TransactionMode = "write"): Promise<HttpTransaction> {
+    try {
+      const version = await this.#client.getVersion();
+      return new HttpTransaction(this.#client.openStream(), mode, version);
+    } catch (e) {
+      throw mapHranaError(e);
     }
+  }
 
-    async transaction(mode: TransactionMode = "write"): Promise<HttpTransaction> {
-        try {
-            const version = await this.#client.getVersion();
-            return new HttpTransaction(this.#client.openStream(), mode, version);
-        } catch (e) {
-            throw mapHranaError(e);
-        }
+  async executeMultiple(sql: string): Promise<void> {
+    try {
+      // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the sequence and
+      // close the stream in a single HTTP request.
+      let promise: Promise<void>;
+      const stream = this.#client.openStream();
+      try {
+        promise = stream.sequence(sql);
+      } finally {
+        stream.closeGracefully();
+      }
+
+      await promise;
+    } catch (e) {
+      throw mapHranaError(e);
     }
+  }
 
-    async executeMultiple(sql: string): Promise<void> {
-        try {
-            // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the sequence and
-            // close the stream in a single HTTP request.
-            let promise: Promise<void>;
-            const stream = this.#client.openStream();
-            try {
-                promise = stream.sequence(sql);
-            } finally {
-                stream.closeGracefully();
-            }
+  sync(): Promise<void> {
+    throw new LibsqlError(
+      "sync not supported in http mode",
+      "SYNC_NOT_SUPPORTED"
+    );
+  }
 
-            await promise;
-        } catch (e) {
-            throw mapHranaError(e);
-        }
-    }
+  close(): void {
+    this.#client.close();
+  }
 
-    sync(): Promise<void> {
-        throw new LibsqlError("sync not supported in http mode", "SYNC_NOT_SUPPORTED");
-    }
-
-    close(): void {
-        this.#client.close();
-    }
-
-    get closed(): boolean {
-        return this.#client.closed;
-    }
+  get closed(): boolean {
+    return this.#client.closed;
+  }
 }
 
 export class HttpTransaction extends HranaTransaction implements Transaction {
-    #stream: hrana.HttpStream;
-    #sqlCache: SqlCache;
+  #stream: hrana.HttpStream;
+  #sqlCache: SqlCache;
 
-    /** @private */
-    constructor(stream: hrana.HttpStream, mode: TransactionMode, version: hrana.ProtocolVersion) {
-        super(mode, version);
-        this.#stream = stream;
-        this.#sqlCache = new SqlCache(stream, sqlCacheCapacity);
-    }
+  /** @private */
+  constructor(
+    stream: hrana.HttpStream,
+    mode: TransactionMode,
+    version: hrana.ProtocolVersion
+  ) {
+    super(mode, version);
+    this.#stream = stream;
+    this.#sqlCache = new SqlCache(stream, sqlCacheCapacity);
+  }
 
-    /** @private */
-    override _getStream(): hrana.Stream {
-        return this.#stream;
-    }
+  /** @private */
+  override _getStream(): hrana.Stream {
+    return this.#stream;
+  }
 
-    /** @private */
-    override _getSqlCache(): SqlCache {
-        return this.#sqlCache;
-    }
+  /** @private */
+  override _getSqlCache(): SqlCache {
+    return this.#sqlCache;
+  }
 
-    override close(): void {
-        this.#stream.close();
-    }
+  override close(): void {
+    this.#stream.close();
+  }
 
-    override get closed(): boolean {
-        return this.#stream.closed;
-    }
+  override get closed(): boolean {
+    return this.#stream.closed;
+  }
 }

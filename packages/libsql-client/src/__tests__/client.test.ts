@@ -616,6 +616,23 @@ describe("batch()", () => {
         const rs = await c.execute("SELECT COUNT(*) FROM t");
         expect(rs.rows[0][0]).toStrictEqual(0);
     }));
+
+    test.only("with wait set to true", withClient(async (c) => {
+        await c.execute("DROP TABLE IF EXISTS t");
+        await c.execute("CREATE TABLE t (a)");
+
+      const startTs = Date.now();
+      await c.batch([
+        "ALTER TABLE t ADD COLUMN phone_number",
+        "ALTER TABLE t ADD COLUMN another_column"
+      ], {
+        transactionMode:"read",
+        wait: true
+      });
+
+      const durationInMs = Date.now() - startTs;
+      expect(durationInMs).toBeGreaterThanOrEqual(1000);
+    }));
 });
 
 describe("transaction()", () => {

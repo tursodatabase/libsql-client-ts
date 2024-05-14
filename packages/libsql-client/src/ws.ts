@@ -1,7 +1,7 @@
 import * as hrana from "@libsql/hrana-client";
 
 import type { Config, IntMode, Client, Transaction, ResultSet, InStatement } from "@libsql/core/api";
-import { TransactionMode, LibsqlError } from "@libsql/core/api";
+import { TransactionMode, BatchConfig, LibsqlError } from "@libsql/core/api";
 import type { ExpandedConfig } from "@libsql/core/config";
 import { expandConfig } from "@libsql/core/config";
 import {
@@ -128,8 +128,15 @@ export class WsClient implements Client {
         }
     }
 
-    async batch(stmts: Array<InStatement>, mode: TransactionMode = "deferred"): Promise<Array<ResultSet>> {
+    async getLastMigrationJobId(path: string): Promise<number> {
+      //const response = fetch(path)
+      //console.log("response: ", response);
+      return new Promise((resolve) => setTimeout(() => {}, 0));
+    }
+
+    async batch(stmts: Array<InStatement>, mode: TransactionMode | BatchConfig): Promise<Array<ResultSet>> {
         const streamState = await this.#openStream();
+        console.log("1: ", 1);
         try {
             const hranaStmts = stmts.map(stmtToHrana);
             const version = await streamState.conn.client.getVersion();
@@ -138,7 +145,16 @@ export class WsClient implements Client {
             // network roundtrip.
             streamState.conn.sqlCache.apply(hranaStmts);
             const batch = streamState.stream.batch(version >= 3);
-            const resultsPromise = executeHranaBatch(mode, version, batch, hranaStmts);
+            const transactionMode = typeof mode === "string" ? mode : mode.transactionMode || "deferred";
+            const resultsPromise = executeHranaBatch(transactionMode, version, batch, hranaStmts);
+          const wait = typeof mode === "string" ? false : mode.wait;
+          const path = "/v1/jobs"
+          const lastMigrationJobId = await this.getLastMigrationJobId(path);
+            console.log("lastMigrationJobId: ", lastMigrationJobId);
+          if(wait) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            console.log("1: ", 1);
+          }
 
             return await resultsPromise;
         } catch (e) {

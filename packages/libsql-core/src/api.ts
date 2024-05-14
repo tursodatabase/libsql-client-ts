@@ -114,7 +114,7 @@ export interface Client {
      * ], "write");
      * ```
      */
-    batch(stmts: Array<InStatement>, mode?: TransactionMode): Promise<Array<ResultSet>>;
+    batch(stmts: Array<InStatement>, mode?: TransactionMode | BatchConfig): Promise<Array<ResultSet>>;
 
     /** Start an interactive transaction.
      *
@@ -335,6 +335,10 @@ export interface Transaction {
  * the previous write transactions to complete.
  */
 export type TransactionMode = "write" | "read" | "deferred";
+export type BatchConfig = {
+  transactionMode?: TransactionMode;
+  wait?: boolean;
+}
 
 /** Result of executing an SQL statement.
  *
