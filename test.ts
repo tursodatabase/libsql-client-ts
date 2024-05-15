@@ -22,8 +22,9 @@ const schemaClient = createClient({
 });
 
 async function main() {
-  await schemaClient.batch(["ALTER TABLE users ADD COLUMN test_column_2 number"], {
-    wait: true,
+  //await schemaClient.execute("ALTER TABLE users ADD COLUMN test_column_5 number");
+  await schemaClient.batch(["ALTER TABLE users ADD COLUMN test_column_5 number"], {
+    wait: false,
   });
 
   //await client.batch(

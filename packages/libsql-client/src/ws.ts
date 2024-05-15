@@ -128,15 +128,8 @@ export class WsClient implements Client {
         }
     }
 
-    async getLastMigrationJobId(path: string): Promise<number> {
-      //const response = fetch(path)
-      //console.log("response: ", response);
-      return new Promise((resolve) => setTimeout(() => {}, 0));
-    }
-
     async batch(stmts: Array<InStatement>, mode: TransactionMode | BatchConfig): Promise<Array<ResultSet>> {
         const streamState = await this.#openStream();
-        console.log("1: ", 1);
         try {
             const hranaStmts = stmts.map(stmtToHrana);
             const version = await streamState.conn.client.getVersion();
@@ -147,15 +140,6 @@ export class WsClient implements Client {
             const batch = streamState.stream.batch(version >= 3);
             const transactionMode = typeof mode === "string" ? mode : mode.transactionMode || "deferred";
             const resultsPromise = executeHranaBatch(transactionMode, version, batch, hranaStmts);
-          const wait = typeof mode === "string" ? false : mode.wait;
-          const path = "/v1/jobs"
-          const lastMigrationJobId = await this.getLastMigrationJobId(path);
-            console.log("lastMigrationJobId: ", lastMigrationJobId);
-          if(wait) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            console.log("1: ", 1);
-          }
-
             return await resultsPromise;
         } catch (e) {
             throw mapHranaError(e);
