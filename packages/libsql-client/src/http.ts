@@ -201,21 +201,22 @@ export class HttpClient implements Client {
 
             const wait = typeof mode === "string" ? false : mode.wait;
             if (wait) {
+              console.log('Waiting for migration jobs');
               const lastMigrationJob = await this.getLastMigrationJob();
               console.log("lastMigrationJob:", lastMigrationJob)
               if(lastMigrationJob.status !== "RunSuccess") {
                 let i = 0
                 while(i < SCHEMA_MIGRATION_MAX_RETRIES) {
                   i++;
-                  console.log("waiting step", i);
+                  console.log("Waiting for migration job to finish, attempt:", i);
                   const isLastMigrationJobFinished = await this.isMigrationJobFinished(lastMigrationJob.job_id);
                   console.log("isLastMigrationJobFinished:", isLastMigrationJobFinished)
                   await sleep(SCHEMA_MIGRATION_SLEEP_TIME_IN_MS);
                 }
               }
-              console.log('Stopped');
+              console.log('Finished waiting for migration jobs');
             } else {
-              console.log("not waiting");
+              console.log("Not waiting for migration jobs");
             }
 
             return await resultsPromise;
