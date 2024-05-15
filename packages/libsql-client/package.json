@@ -97,7 +97,9 @@
         "postbuild": "cp package-cjs.json ./lib-cjs/package.json",
         "test": "jest --runInBand",
         "typecheck": "tsc --noEmit",
-        "typedoc": "rm -rf ./docs && typedoc"
+        "typedoc": "rm -rf ./docs && typedoc",
+        "prepare": "husky install",
+        "lint-staged": "lint-staged"
     },
     "dependencies": {
         "@libsql/core": "^0.6.0",
@@ -108,10 +110,15 @@
     "devDependencies": {
         "@types/jest": "^29.2.5",
         "@types/node": "^18.15.5",
+        "husky": "^9.0.11",
         "jest": "^29.3.1",
+        "lint-staged": "^15.2.2",
         "prettier": "3.2.5",
         "ts-jest": "^29.0.5",
         "typedoc": "^0.23.28",
         "typescript": "^4.9.4"
+    },
+    "lint-staged": {
+        "*.{js,ts}": "prettier --write"
     }
 }
