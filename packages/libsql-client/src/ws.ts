@@ -128,7 +128,7 @@ export class WsClient implements Client {
         }
     }
 
-    async batch(stmts: Array<InStatement>, mode: TransactionMode | BatchConfig): Promise<Array<ResultSet>> {
+    async batch(stmts: Array<InStatement>, mode: TransactionMode | BatchConfig = "deferred"): Promise<Array<ResultSet>> {
         const streamState = await this.#openStream();
         try {
             const hranaStmts = stmts.map(stmtToHrana);
@@ -138,7 +138,7 @@ export class WsClient implements Client {
             // network roundtrip.
             streamState.conn.sqlCache.apply(hranaStmts);
             const batch = streamState.stream.batch(version >= 3);
-            const transactionMode = typeof mode === "string" ? mode : mode.transactionMode || "deferred";
+            const transactionMode = (typeof mode === "string" ? mode : mode.transactionMode) || "deferred";
             const resultsPromise = executeHranaBatch(transactionMode, version, batch, hranaStmts);
             return await resultsPromise;
         } catch (e) {
