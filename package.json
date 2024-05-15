@@ -9,7 +9,7 @@
     "lint-staged": "^15.2.2"
   },
   "scripts": {
-    "prepare": "husky",
+    "prepare": "node .husky/install.mjs",
     "lint-staged": "lint-staged"
   }
 }
