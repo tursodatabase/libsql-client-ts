@@ -3,5 +3,13 @@
     "packages/libsql-core",
     "packages/libsql-client",
     "packages/libsql-client-wasm"
-  ]
+  ],
+  "devDependencies": {
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2"
+  },
+  "scripts": {
+    "prepare": "husky",
+    "lint-staged": "lint-staged"
+  }
 }
