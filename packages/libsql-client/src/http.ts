@@ -21,10 +21,26 @@ import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "@libsql/core/uri";
 import { supportedUrlLink } from "@libsql/core/util";
 
+type MigrationJobType = {
+  job_id: number;
+  status: string;
+}
+
+type ExtendedMigrationJobType = MigrationJobType & {
+  progress: Array<{
+    namespace: string
+    status: string
+    error: string | null
+  }>;
+};
+
 type MigrationResult = {
   schema_version: number;
-  migrations: Array<{ job_id: number; status: string }>;
+  migrations: Array<MigrationJobType>;
 };
+
+const SCHEMA_MIGRATION_SLEEP_TIME_IN_MS = 1
+const SCHEMA_MIGRATION_MAX_RETRIES = 2
 
 export * from "@libsql/core/api";
 
@@ -124,7 +140,7 @@ export class HttpClient implements Client {
         Authorization: `Bearer ${this.authToken}`,
       },
     });
-    const json = (await result.json());
+    const json = (await result.json()) as ExtendedMigrationJobType;
     console.log("json:", json)
     const job = json as { status: string };
     if(result.status !== 200) {
@@ -138,7 +154,7 @@ export class HttpClient implements Client {
 	return job.status == "RunSuccess"
   }
 
-  async getLastMigrationJobId(): Promise<number> {
+  async getLastMigrationJob(): Promise<MigrationJobType> {
     const url = this.url.origin + "/v1/jobs";
     const result = await fetch(url, {
       method: "GET",
@@ -157,22 +173,20 @@ export class HttpClient implements Client {
     }
 
     const migrations = json.migrations || [];
-    let lastJobId: number | undefined = undefined;
-    let lastJobStatus: string | undefined = undefined;
+    let lastJob: MigrationJobType | undefined;
     for (const migration of migrations) {
-      if (migration.job_id > (lastJobId || 0)) {
-        lastJobId = migration.job_id;
-        lastJobStatus = migration.status;
+      if (migration.job_id > (lastJob?.job_id || 0)) {
+        lastJob = migration;
       }
     }
-    if (lastJobStatus === "RunFailure") {
-      throw new Error("Last migration job failed");
-    }
-    if(!lastJobId) {
+    if(!lastJob) {
       throw new Error("No migration job found");
     }
+    if (lastJob?.status === "RunFailure") {
+      throw new Error("Last migration job failed");
+    }
 
-    return lastJobId;
+    return lastJob;
   }
 
   async batch(
@@ -211,20 +225,19 @@ export class HttpClient implements Client {
         stream.closeGracefully();
       }
 
-      const lastMigrationJobId = await this.getLastMigrationJobId();
-      console.log("lastMigrationJobId: ", lastMigrationJobId);
       const wait = typeof mode === "string" ? false : mode.wait;
-      console.log("wait: ", wait);
       if (wait) {
-        let i = 0
-        const SLEEP_TIME_IN_MS = 1
-        const MAX_ATTEMPTS = 2
-        while(i < MAX_ATTEMPTS) {
-          i++;
-          console.log("waiting step", i);
-          const isLastMigrationJobFinished = await this.isMigrationJobFinished(lastMigrationJobId);
-          console.log("isLastMigrationJobFinished:", isLastMigrationJobFinished)
-          await sleep(SLEEP_TIME_IN_MS);
+        const lastMigrationJob = await this.getLastMigrationJob();
+        console.log("lastMigrationJob:", lastMigrationJob)
+        if(lastMigrationJob.status !== "RunSuccess") {
+          let i = 0
+          while(i < SCHEMA_MIGRATION_MAX_RETRIES) {
+            i++;
+            console.log("waiting step", i);
+            const isLastMigrationJobFinished = await this.isMigrationJobFinished(lastMigrationJob.job_id);
+            console.log("isLastMigrationJobFinished:", isLastMigrationJobFinished)
+            await sleep(SCHEMA_MIGRATION_SLEEP_TIME_IN_MS);
+          }
         }
         console.log('Stopped');
       } else {
