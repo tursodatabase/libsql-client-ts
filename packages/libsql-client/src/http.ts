@@ -12,33 +12,7 @@ import {
 import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "@libsql/core/uri";
 import { supportedUrlLink } from "@libsql/core/util";
-
-type MigrationJobType = {
-  job_id: number;
-  status: string;
-}
-
-type ExtendedMigrationJobType = MigrationJobType & {
-  progress: Array<{
-    namespace: string
-    status: string
-    error: string | null
-  }>;
-};
-
-type MigrationResult = {
-  schema_version: number;
-  migrations: Array<MigrationJobType>;
-};
-
-const SCHEMA_MIGRATION_SLEEP_TIME_IN_MS = 1
-const SCHEMA_MIGRATION_MAX_RETRIES = 2
-
-async function sleep(ms: number) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
+import { waitForLastMigrationJobToFinish } from "./migrations";
 
 export * from "@libsql/core/api";
 
@@ -112,64 +86,6 @@ export class HttpClient implements Client {
         }
     }
 
-    async isMigrationJobFinished(jobId: number): Promise<boolean> {
-      const url = this.url.origin + `/v1/jobs/${jobId}`;
-      console.log("isMigrationJobFinished url:", url)
-      const result = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.authToken}`,
-        },
-      });
-      const json = (await result.json()) as ExtendedMigrationJobType;
-      console.log("json:", json)
-      const job = json as { status: string };
-      if(result.status !== 200) {
-        throw new Error(`Unexpected status code while fetching job status for migration with id ${jobId}: ${result.status}`);
-      }
-
-      if(job.status == "RunFailure") {
-        throw new Error("Migration job failed");
-      }
-
-    return job.status == "RunSuccess"
-    }
-
-    async getLastMigrationJob(): Promise<MigrationJobType> {
-      const url = this.url.origin + "/v1/jobs";
-      const result = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.authToken}`,
-        },
-      });
-      if(result.status !== 200) {
-        throw new Error("Unexpected status code while fetching migration jobs: " + result.status);
-      }
-
-      const json = (await result.json()) as MigrationResult;
-      console.log("json:", json)
-      if(!json.migrations || json.migrations.length === 0) {
-        throw new Error("No migrations found");
-      }
-
-      const migrations = json.migrations || [];
-      let lastJob: MigrationJobType | undefined;
-      for (const migration of migrations) {
-        if (migration.job_id > (lastJob?.job_id || 0)) {
-          lastJob = migration;
-        }
-      }
-      if(!lastJob) {
-        throw new Error("No migration job found");
-      }
-      if (lastJob?.status === "RunFailure") {
-        throw new Error("Last migration job failed");
-      }
-
-      return lastJob;
-    }
-
     async batch(
       stmts: Array<InStatement>, 
       mode: TransactionMode | BatchConfig = "deferred"
@@ -201,19 +117,10 @@ export class HttpClient implements Client {
 
             const wait = typeof mode === "string" ? false : mode.wait;
             if (wait) {
-              console.log('Waiting for migration jobs');
-              const lastMigrationJob = await this.getLastMigrationJob();
-              console.log("lastMigrationJob:", lastMigrationJob)
-              if(lastMigrationJob.status !== "RunSuccess") {
-                let i = 0
-                while(i < SCHEMA_MIGRATION_MAX_RETRIES) {
-                  i++;
-                  console.log("Waiting for migration job to finish, attempt:", i);
-                  const isLastMigrationJobFinished = await this.isMigrationJobFinished(lastMigrationJob.job_id);
-                  console.log("isLastMigrationJobFinished:", isLastMigrationJobFinished)
-                  await sleep(SCHEMA_MIGRATION_SLEEP_TIME_IN_MS);
-                }
-              }
+              await waitForLastMigrationJobToFinish({
+                authToken: this.authToken,
+                baseUrl: this.url.origin,
+              })
               console.log('Finished waiting for migration jobs');
             } else {
               console.log("Not waiting for migration jobs");
