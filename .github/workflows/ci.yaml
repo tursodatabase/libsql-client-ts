@@ -11,26 +11,26 @@ jobs:
     defaults:
       run:
         working-directory: ./packages/libsql-client-wasm
-    env: {"NODE_OPTIONS": "--trace-warnings"}
+    env: { "NODE_OPTIONS": "--trace-warnings" }
     steps:
-    - name: "Checkout this repo"
-      uses: actions/checkout@v3
-    - name: "Setup Node.js"
-      uses: actions/setup-node@v3
-      with:
-        node-version: "18.x"
-        cache: "npm"
-        cache-dependency-path: "packages/libsql-client-wasm"
-    - name: "Build core"
-      run: "npm ci && npm run build"
-      working-directory: ./packages/libsql-core
-    - name: "Install npm dependencies"
-      run: "npm ci"
-    - name: "Build"
-      run: "npm run build"
-    - name: "Test example"
-      run: "cd examples/node && npm i && node index.js"
-      env: {"URL": "file:///tmp/example.db"}
+      - name: "Checkout this repo"
+        uses: actions/checkout@v3
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18.x"
+          cache: "npm"
+          cache-dependency-path: "packages/libsql-client-wasm"
+      - name: "Build core"
+        run: "npm ci && npm run build"
+        working-directory: ./packages/libsql-core
+      - name: "Install npm dependencies"
+        run: "npm ci"
+      - name: "Build"
+        run: "npm run build"
+      - name: "Test example"
+        run: "cd examples/node && npm i && node index.js"
+        env: { "URL": "file:///tmp/example.db" }
 
   "node-test":
     name: "Build and test on Node.js"
@@ -38,59 +38,59 @@ jobs:
     defaults:
       run:
         working-directory: ./packages/libsql-client
-    env: {"NODE_OPTIONS": "--trace-warnings"}
+    env: { "NODE_OPTIONS": "--trace-warnings" }
     steps:
-    - name: "Checkout this repo"
-      uses: actions/checkout@v3
-    - name: "Setup Node.js"
-      uses: actions/setup-node@v3
-      with:
-        node-version: "18.x"
-        cache: "npm"
-        cache-dependency-path: "packages/libsql-client"
-    - name: "Build core"
-      run: "npm ci && npm run build"
-      working-directory: ./packages/libsql-core
-    - name: "Install npm dependencies"
-      run: "npm ci"
-    - name: "Checkout hrana-test-server"
-      uses: actions/checkout@v3
-      with:
-        repository: "libsql/hrana-test-server"
-        path: "packages/libsql-client/hrana-test-server"
-    - name: "Setup Python"
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
-        cache: "pip"
-    - name: "Install pip dependencies"
-      run: "pip install -r hrana-test-server/requirements.txt"
+      - name: "Checkout this repo"
+        uses: actions/checkout@v3
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18.x"
+          cache: "npm"
+          cache-dependency-path: "packages/libsql-client"
+      - name: "Build core"
+        run: "npm ci && npm run build"
+        working-directory: ./packages/libsql-core
+      - name: "Install npm dependencies"
+        run: "npm ci"
+      - name: "Checkout hrana-test-server"
+        uses: actions/checkout@v3
+        with:
+          repository: "libsql/hrana-test-server"
+          path: "packages/libsql-client/hrana-test-server"
+      - name: "Setup Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: "pip"
+      - name: "Install pip dependencies"
+        run: "pip install -r hrana-test-server/requirements.txt"
 
-    - name: "Build"
-      run: "npm run build"
+      - name: "Build"
+        run: "npm run build"
 
-    - name: "Test Hrana 1 over WebSocket"
-      run: "python hrana-test-server/server_v1.py npm test"
-      env: {"URL": "ws://localhost:8080", "SERVER": "test_v1"}
-    - name: "Test Hrana 2 over WebSocket"
-      run: "python hrana-test-server/server_v2.py npm test"
-      env: {"URL": "ws://localhost:8080", "SERVER": "test_v2"}
-    - name: "Test Hrana 2 over HTTP"
-      run: "python hrana-test-server/server_v2.py npm test"
-      env: {"URL": "http://localhost:8080", "SERVER": "test_v2"}
-#    - name: "Test Hrana 3 over WebSocket"
-#      run: "python hrana-test-server/server_v3.py npm test"
-#      env: {"URL": "ws://localhost:8080", "SERVER": "test_v3"}
-#    - name: "Test Hrana 3 over HTTP"
-#      run: "python hrana-test-server/server_v3.py npm test"
-#      env: {"URL": "http://localhost:8080", "SERVER": "test_v3"}
-    - name: "Test local file"
-      run: "npm test"
-      env: {"URL": "file:///tmp/test.db"}
+      - name: "Test Hrana 1 over WebSocket"
+        run: "python hrana-test-server/server_v1.py npm test"
+        env: { "URL": "ws://localhost:8080", "SERVER": "test_v1" }
+      - name: "Test Hrana 2 over WebSocket"
+        run: "python hrana-test-server/server_v2.py npm test"
+        env: { "URL": "ws://localhost:8080", "SERVER": "test_v2" }
+      - name: "Test Hrana 2 over HTTP"
+        run: "python hrana-test-server/server_v2.py npm test"
+        env: { "URL": "http://localhost:8080", "SERVER": "test_v2" }
+      #    - name: "Test Hrana 3 over WebSocket"
+      #      run: "python hrana-test-server/server_v3.py npm test"
+      #      env: {"URL": "ws://localhost:8080", "SERVER": "test_v3"}
+      #    - name: "Test Hrana 3 over HTTP"
+      #      run: "python hrana-test-server/server_v3.py npm test"
+      #      env: {"URL": "http://localhost:8080", "SERVER": "test_v3"}
+      - name: "Test local file"
+        run: "npm test"
+        env: { "URL": "file:///tmp/test.db" }
 
-    - name: "Test example"
-      run: "cd examples && npm i && node example.js"
-      env: {"URL": "file:///tmp/example.db"}
+      - name: "Test example"
+        run: "cd examples && npm i && node example.js"
+        env: { "URL": "file:///tmp/example.db" }
 
   "workers-test":
     name: "Build and test with Cloudflare Workers"
@@ -102,47 +102,47 @@ jobs:
       "CLOUDFLARE_API_TOKEN": "${{ secrets.CLOUDFLARE_API_TOKEN }}"
       "CLOUDFLARE_ACCOUNT_ID": "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
     steps:
-    - name: "Checkout this repo"
-      uses: actions/checkout@v3
-    - name: "Setup Node.js"
-      uses: actions/setup-node@v3
-      with:
-        node-version: "lts/Hydrogen"
-        cache: "npm"
-        cache-dependency-path: "packages/libsql-client"
-    - name: "Build core"
-      run: "npm ci && npm run build"
-      working-directory: ./packages/libsql-core
-    - name: "Install npm dependencies"
-      run: "npm ci"
+      - name: "Checkout this repo"
+        uses: actions/checkout@v3
+      - name: "Setup Node.js"
+        uses: actions/setup-node@v3
+        with:
+          node-version: "lts/Hydrogen"
+          cache: "npm"
+          cache-dependency-path: "packages/libsql-client"
+      - name: "Build core"
+        run: "npm ci && npm run build"
+        working-directory: ./packages/libsql-core
+      - name: "Install npm dependencies"
+        run: "npm ci"
 
-    - name: "Checkout hrana-test-server"
-      uses: actions/checkout@v3
-      with:
-        repository: "libsql/hrana-test-server"
-        path: "packages/libsql-client/hrana-test-server"
-    - name: "Setup Python"
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
-        cache: "pip"
-    - name: "Install pip dependencies"
-      run: "pip install -r hrana-test-server/requirements.txt"
+      - name: "Checkout hrana-test-server"
+        uses: actions/checkout@v3
+        with:
+          repository: "libsql/hrana-test-server"
+          path: "packages/libsql-client/hrana-test-server"
+      - name: "Setup Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: "pip"
+      - name: "Install pip dependencies"
+        run: "pip install -r hrana-test-server/requirements.txt"
 
-    - name: "Build"
-      run: "npm run build"
-    - name: "Install npm dependencies of the Workers test"
-      run: "cd smoke_test/workers && npm link ../.."
+      - name: "Build"
+        run: "npm run build"
+      - name: "Install npm dependencies of the Workers test"
+        run: "cd smoke_test/workers && npm link ../.."
 
-    - name: "Local test with Hrana 1 over WebSocket"
-      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v1.py node --dns-result-order=ipv4first test.js"
-      env: {"LOCAL": "1", "URL": "ws://localhost:8080"}
-    - name: "Local test with Hrana 2 over WebSocket"
-      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node --dns-result-order=ipv4first test.js"
-      env: {"LOCAL": "1", "URL": "ws://localhost:8080"}
-    - name: "Local test with Hrana 2 over HTTP"
-      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node --dns-result-order=ipv4first test.js"
-      env: {"LOCAL": "1", "URL": "http://localhost:8080"}
+      - name: "Local test with Hrana 1 over WebSocket"
+        run: "cd smoke_test/workers && python ../../hrana-test-server/server_v1.py node --dns-result-order=ipv4first test.js"
+        env: { "LOCAL": "1", "URL": "ws://localhost:8080" }
+      - name: "Local test with Hrana 2 over WebSocket"
+        run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node --dns-result-order=ipv4first test.js"
+        env: { "LOCAL": "1", "URL": "ws://localhost:8080" }
+      - name: "Local test with Hrana 2 over HTTP"
+        run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node --dns-result-order=ipv4first test.js"
+        env: { "LOCAL": "1", "URL": "http://localhost:8080" }
 #    - name: "Local test with Hrana 3 over WebSocket"
 #      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v3.py node --dns-result-order=ipv4first test.js"
 #      env: {"LOCAL": "1", "URL": "ws://localhost:8080"}
@@ -150,15 +150,15 @@ jobs:
 #      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v3.py node --dns-result-order=ipv4first test.js"
 #      env: {"LOCAL": "1", "URL": "http://localhost:8080"}
 
-    # - name: "Non-local test with Hrana 1 over WebSocket"
-    #   run: "cd smoke_test/workers && python ../../hrana-test-server/server_v1.py node test.js"
-    #   env: {"LOCAL": "0", "URL": "ws://localhost:8080"}
-    # - name: "Non-local test with Hrana 2 over WebSocket"
-    #   run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node test.js"
-    #   env: {"LOCAL": "0", "URL": "ws://localhost:8080"}
-    # - name: "Non-local test with Hrana 2 over HTTP"
-    #   run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node test.js"
-    #   env: {"LOCAL": "0", "URL": "http://localhost:8080"}
+# - name: "Non-local test with Hrana 1 over WebSocket"
+#   run: "cd smoke_test/workers && python ../../hrana-test-server/server_v1.py node test.js"
+#   env: {"LOCAL": "0", "URL": "ws://localhost:8080"}
+# - name: "Non-local test with Hrana 2 over WebSocket"
+#   run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node test.js"
+#   env: {"LOCAL": "0", "URL": "ws://localhost:8080"}
+# - name: "Non-local test with Hrana 2 over HTTP"
+#   run: "cd smoke_test/workers && python ../../hrana-test-server/server_v2.py node test.js"
+#   env: {"LOCAL": "0", "URL": "http://localhost:8080"}
 #    - name: "Non-local test with Hrana 3 over WebSocket"
 #      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v3.py node test.js"
 #      env: {"LOCAL": "0", "URL": "ws://localhost:8080"}

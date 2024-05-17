@@ -2,57 +2,57 @@
 
 ## 0.6.0 -- 2024-04-28
 
-* Bump hrana client to 0.6.0, which uses native Node fetch(). Note that
+- Bump hrana client to 0.6.0, which uses native Node fetch(). Note that
   `@libsql/client` now requires Node 18 or later.
 
 ## 0.5.6 -- 2024-03-12
 
-* Bump `libsql` package dependency to 0.3.10 that adds `wasm32` as
+- Bump `libsql` package dependency to 0.3.10 that adds `wasm32` as
   supported CPU, which is needed for StackBlitz compatibility.
 
 ## 0.5.5 -- 2024-03-11
 
-* Bump `@libsql/libsql-wasm-experimental"` dependency to 0.0.2, which
+- Bump `@libsql/libsql-wasm-experimental"` dependency to 0.0.2, which
   fixes a broken sqlite3_get_autocommit() export.
 
 ## 0.5.4 -- 2024-03-11
 
-* Bump `libsql` dependency to 0.3.9, which fixes symbol not found errors on Alpine.
+- Bump `libsql` dependency to 0.3.9, which fixes symbol not found errors on Alpine.
 
 ## 0.5.3 -- 2024-03-06
 
-* Add `syncInterval` config option to enable periodic sync.
-* Bump `libsql` dependency to 0.3.7, which switches default encryption cipher to aes256cbs.
+- Add `syncInterval` config option to enable periodic sync.
+- Bump `libsql` dependency to 0.3.7, which switches default encryption cipher to aes256cbs.
 
 ## 0.5.2 -- 2024-02-24
 
-* Disable SQL statemen tracing in Wasm.
+- Disable SQL statemen tracing in Wasm.
 
 ## 0.5.1 -- 2024-02-19
 
-* Update `libsql` package to 0.3.2, add `encryptionCipher` option, and switch default cipher to SQLCipher.
+- Update `libsql` package to 0.3.2, add `encryptionCipher` option, and switch default cipher to SQLCipher.
 
 ## 0.5.0 -- 2024-02-15
 
-* Add a `encryptionKey` config option, which enables encryption at rest for local database files.
+- Add a `encryptionKey` config option, which enables encryption at rest for local database files.
 
 ## 0.4.0 -- 2024-01-26
 
-* Update hrana-client package to 0.5.6.
-* Add a `@libsql/client-wasm` package.
-* Fix Bun on Linux/arm64.
+- Update hrana-client package to 0.5.6.
+- Add a `@libsql/client-wasm` package.
+- Fix Bun on Linux/arm64.
 
 ## 0.3.6 -- 2023-10-20
 
-* Fix import problems on Cloudflare Workers.
-* Add `rawCode` property to errors for local databases.
-* Update the `libsql` package to version 0.1.28.
+- Fix import problems on Cloudflare Workers.
+- Add `rawCode` property to errors for local databases.
+- Update the `libsql` package to version 0.1.28.
 
 ## 0.3.5 -- 2023-09-25
 
-* Performance improvements for local database access by reusing connection in `Client`.
-* Embedded replica support.
-* Column introspection support via ResultSet.columnTypes property.
+- Performance improvements for local database access by reusing connection in `Client`.
+- Embedded replica support.
+- Column introspection support via ResultSet.columnTypes property.
 
 ## 0.3.4 -- 2023-09-11
 
@@ -67,7 +67,7 @@
 ## 0.3.2 -- 2023-07-29
 
 - Updated `@libsql/hrana-client` to version 0.5.0, which implements Hrana 3
-    - Dropped workarounds for broken WebSocket support in Miniflare 2
+  - Dropped workarounds for broken WebSocket support in Miniflare 2
 - Added a `@libsql/client/node` import for explicit Node.js-specific module
 
 ## 0.3.1 -- 2023-07-20

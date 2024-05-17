@@ -9,12 +9,17 @@ async function example() {
   };
   const db = createClient(config);
   await db.sync();
-  await db.execute("CREATE TABLE IF NOT EXISTS guest_book_entries (comment TEXT)");
+  await db.execute(
+    "CREATE TABLE IF NOT EXISTS guest_book_entries (comment TEXT)",
+  );
   await db.sync();
 
   const comment = reader.question("Enter your comment: ");
 
-  await db.execute({ sql: "INSERT INTO guest_book_entries (comment) VALUES (?)", args: [comment]});
+  await db.execute({
+    sql: "INSERT INTO guest_book_entries (comment) VALUES (?)",
+    args: [comment],
+  });
   await db.sync();
 
   console.log("Guest book entries:");
@@ -24,4 +29,4 @@ async function example() {
   }
 }
 
-example()
+example();
