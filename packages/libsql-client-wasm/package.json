@@ -1,70 +1,70 @@
 {
-  "name": "@libsql/client-wasm",
-  "version": "0.6.0",
-  "keywords": [
-    "libsql",
-    "database",
-    "sqlite",
-    "serverless",
-    "vercel",
-    "netlify",
-    "lambda"
-  ],
-  "description": "libSQL driver for TypeScript and JavaScript",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/libsql/libsql-client-ts"
-  },
-  "authors": [
-    "Jan Špaček <honza@chiselstrike.com>",
-    "Pekka Enberg <penberg@chiselstrike.com>",
-    "Jan Plhak <jp@chiselstrike.com>"
-  ],
-  "license": "MIT",
-  "type": "module",
-  "bundledDependencies": [
-    "@libsql/libsql-wasm-experimental"
-  ],
-  "main": "lib-esm/wasm.js",
-  "types": "lib-esm/wasm.d.ts",
-  "exports": {
-    ".": {
-      "types": "./lib-esm/wasm.d.ts",
-      "import": {
-        "default": "./lib-esm/wasm.js"
-      }
+    "name": "@libsql/client-wasm",
+    "version": "0.6.0",
+    "keywords": [
+        "libsql",
+        "database",
+        "sqlite",
+        "serverless",
+        "vercel",
+        "netlify",
+        "lambda"
+    ],
+    "description": "libSQL driver for TypeScript and JavaScript",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/libsql/libsql-client-ts"
+    },
+    "authors": [
+        "Jan Špaček <honza@chiselstrike.com>",
+        "Pekka Enberg <penberg@chiselstrike.com>",
+        "Jan Plhak <jp@chiselstrike.com>"
+    ],
+    "license": "MIT",
+    "type": "module",
+    "bundledDependencies": [
+        "@libsql/libsql-wasm-experimental"
+    ],
+    "main": "lib-esm/wasm.js",
+    "types": "lib-esm/wasm.d.ts",
+    "exports": {
+        ".": {
+            "types": "./lib-esm/wasm.d.ts",
+            "import": {
+                "default": "./lib-esm/wasm.js"
+            }
+        }
+    },
+    "typesVersions": {
+        "*": {
+            ".": [
+                "./lib-esm/wasm.d.ts"
+            ]
+        }
+    },
+    "files": [
+        "lib-esm/**"
+    ],
+    "scripts": {
+        "prepublishOnly": "npm run build",
+        "prebuild": "rm -rf ./lib-esm && npm run bundle",
+        "build": "npm run build:esm",
+        "build:esm": "tsc -p tsconfig.build-esm.json",
+        "bundle": "rm -rf node_modules && mkdir -p node_modules/@libsql/libsql-wasm-experimental && cp -R ../../node_modules/@libsql/libsql-wasm-experimental/* node_modules/@libsql/libsql-wasm-experimental",
+        "test": "jest --runInBand",
+        "typecheck": "tsc --noEmit",
+        "typedoc": "rm -rf ./docs && typedoc"
+    },
+    "dependencies": {
+        "@libsql/core": "0.6.0",
+        "@libsql/libsql-wasm-experimental": "^0.0.2",
+        "js-base64": "^3.7.5"
+    },
+    "devDependencies": {
+        "@types/jest": "^29.2.5",
+        "jest": "^29.3.1",
+        "ts-jest": "^29.0.5",
+        "typedoc": "^0.23.28",
+        "typescript": "^4.9.4"
     }
-  },
-  "typesVersions": {
-    "*": {
-      ".": [
-        "./lib-esm/wasm.d.ts"
-      ]
-    }
-  },
-  "files": [
-    "lib-esm/**"
-  ],
-  "scripts": {
-    "prepublishOnly": "npm run build",
-    "prebuild": "rm -rf ./lib-esm && npm run bundle",
-    "build": "npm run build:esm",
-    "build:esm": "tsc -p tsconfig.build-esm.json",
-    "bundle": "rm -rf node_modules && mkdir -p node_modules/@libsql/libsql-wasm-experimental && cp -R ../../node_modules/@libsql/libsql-wasm-experimental/* node_modules/@libsql/libsql-wasm-experimental",
-    "test": "jest --runInBand",
-    "typecheck": "tsc --noEmit",
-    "typedoc": "rm -rf ./docs && typedoc"
-  },
-  "dependencies": {
-    "@libsql/core": "0.6.0",
-    "@libsql/libsql-wasm-experimental": "^0.0.2",
-    "js-base64": "^3.7.5"
-  },
-  "devDependencies": {
-    "@types/jest": "^29.2.5",
-    "jest": "^29.3.1",
-    "ts-jest": "^29.0.5",
-    "typedoc": "^0.23.28",
-    "typescript": "^4.9.4"
-  }
 }
