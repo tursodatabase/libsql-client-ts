@@ -9,8 +9,8 @@ async function main() {
         return;
     }
 
-    const client = libsql.createClient({url});
-    const rl = readline.createInterface({input: stdin, output: stdout});
+    const client = libsql.createClient({ url });
+    const rl = readline.createInterface({ input: stdin, output: stdout });
 
     for (;;) {
         const sql = await rl.question("> ");

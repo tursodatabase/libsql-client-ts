@@ -30,7 +30,7 @@ export interface Userinfo {
 }
 
 export interface Query {
-    pairs: Array<KeyValue>,
+    pairs: Array<KeyValue>;
 }
 
 export interface KeyValue {
@@ -41,53 +41,70 @@ export interface KeyValue {
 export function parseUri(text: string): Uri {
     const match = URI_RE.exec(text);
     if (match === null) {
-        throw new LibsqlError("The URL is not in a valid format", "URL_INVALID");
+        throw new LibsqlError(
+            "The URL is not in a valid format",
+            "URL_INVALID",
+        );
     }
 
     const groups = match.groups!;
     const scheme = groups["scheme"]!;
-    const authority = groups["authority"] !== undefined 
-        ? parseAuthority(groups["authority"]) : undefined;
+    const authority =
+        groups["authority"] !== undefined
+            ? parseAuthority(groups["authority"])
+            : undefined;
     const path = percentDecode(groups["path"]!);
-    const query = groups["query"] !== undefined 
-        ? parseQuery(groups["query"]) : undefined;
-    const fragment = groups["fragment"] !== undefined
-        ? percentDecode(groups["fragment"]) : undefined;
-    return {scheme, authority, path, query, fragment};
+    const query =
+        groups["query"] !== undefined ? parseQuery(groups["query"]) : undefined;
+    const fragment =
+        groups["fragment"] !== undefined
+            ? percentDecode(groups["fragment"])
+            : undefined;
+    return { scheme, authority, path, query, fragment };
 }
 
 const URI_RE = (() => {
-    const SCHEME = '(?<scheme>[A-Za-z][A-Za-z.+-]*)';
-    const AUTHORITY = '(?<authority>[^/?#]*)';
-    const PATH = '(?<path>[^?#]*)';
-    const QUERY = '(?<query>[^#]*)';
-    const FRAGMENT = '(?<fragment>.*)'
-    return new RegExp(`^${SCHEME}:(//${AUTHORITY})?${PATH}(\\?${QUERY})?(#${FRAGMENT})?$`, "su");
+    const SCHEME = "(?<scheme>[A-Za-z][A-Za-z.+-]*)";
+    const AUTHORITY = "(?<authority>[^/?#]*)";
+    const PATH = "(?<path>[^?#]*)";
+    const QUERY = "(?<query>[^#]*)";
+    const FRAGMENT = "(?<fragment>.*)";
+    return new RegExp(
+        `^${SCHEME}:(//${AUTHORITY})?${PATH}(\\?${QUERY})?(#${FRAGMENT})?$`,
+        "su",
+    );
 })();
 
 function parseAuthority(text: string): Authority {
     const match = AUTHORITY_RE.exec(text);
     if (match === null) {
-        throw new LibsqlError("The authority part of the URL is not in a valid format", "URL_INVALID");
+        throw new LibsqlError(
+            "The authority part of the URL is not in a valid format",
+            "URL_INVALID",
+        );
     }
 
     const groups = match.groups!;
     const host = percentDecode(groups["host_br"] ?? groups["host"]);
-    const port = groups["port"] 
-        ? parseInt(groups["port"], 10) 
-        : undefined;
-    const userinfo = groups["username"] !== undefined
-        ? {
-            username: percentDecode(groups["username"]),
-            password: groups["password"] !== undefined
-                ? percentDecode(groups["password"]) : undefined,
-        }
-        : undefined;
-    return {host, port, userinfo};
+    const port = groups["port"] ? parseInt(groups["port"], 10) : undefined;
+    const userinfo =
+        groups["username"] !== undefined
+            ? {
+                  username: percentDecode(groups["username"]),
+                  password:
+                      groups["password"] !== undefined
+                          ? percentDecode(groups["password"])
+                          : undefined,
+              }
+            : undefined;
+    return { host, port, userinfo };
 }
 
 const AUTHORITY_RE = (() => {
-  return new RegExp(`^((?<username>[^:]*)(:(?<password>.*))?@)?((?<host>[^:\\[\\]]*)|(\\[(?<host_br>[^\\[\\]]*)\\]))(:(?<port>[0-9]*))?$`, "su");
+    return new RegExp(
+        `^((?<username>[^:]*)(:(?<password>.*))?@)?((?<host>[^:\\[\\]]*)|(\\[(?<host_br>[^\\[\\]]*)\\]))(:(?<port>[0-9]*))?$`,
+        "su",
+    );
 })();
 
 // Query string is parsed as application/x-www-form-urlencoded according to the Web URL standard:
@@ -108,7 +125,7 @@ function parseQuery(text: string): Query {
             value = "";
         } else {
             key = sequence.substring(0, splitIdx);
-            value = sequence.substring(splitIdx+1);
+            value = sequence.substring(splitIdx + 1);
         }
 
         pairs.push({
@@ -116,7 +133,7 @@ function parseQuery(text: string): Query {
             value: percentDecode(value.replaceAll("+", " ")),
         });
     }
-    return {pairs};
+    return { pairs };
 }
 
 function percentDecode(text: string): string {
@@ -124,13 +141,22 @@ function percentDecode(text: string): string {
         return decodeURIComponent(text);
     } catch (e) {
         if (e instanceof URIError) {
-            throw new LibsqlError(`URL component has invalid percent encoding: ${e}`, "URL_INVALID", undefined, e);
+            throw new LibsqlError(
+                `URL component has invalid percent encoding: ${e}`,
+                "URL_INVALID",
+                undefined,
+                e,
+            );
         }
         throw e;
     }
 }
 
-export function encodeBaseUrl(scheme: string, authority: Authority | undefined, path: string): URL {
+export function encodeBaseUrl(
+    scheme: string,
+    authority: Authority | undefined,
+    path: string,
+): URL {
     if (authority === undefined) {
         throw new LibsqlError(
             `URL with scheme ${JSON.stringify(scheme + ":")} requires authority (the "//" part)`,
@@ -167,7 +193,9 @@ function encodeUserinfo(userinfo: Userinfo | undefined): string {
     }
 
     const usernameText = encodeURIComponent(userinfo.username);
-    const passwordText = userinfo.password !== undefined
-        ? `:${encodeURIComponent(userinfo.password)}` : "";
+    const passwordText =
+        userinfo.password !== undefined
+            ? `:${encodeURIComponent(userinfo.password)}`
+            : "";
     return `${usernameText}${passwordText}@`;
 }

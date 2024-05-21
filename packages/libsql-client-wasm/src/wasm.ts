@@ -1,15 +1,32 @@
-import sqlite3InitModule from '@libsql/libsql-wasm-experimental';
-
-import type { Database, InitOptions, SqlValue, Sqlite3Static } from '@libsql/libsql-wasm-experimental';
+import sqlite3InitModule from "@libsql/libsql-wasm-experimental";
 
 import type {
-    Config, IntMode, Client, Transaction, TransactionMode,
-    ResultSet, Row, Value, InValue, InStatement,
+    Database,
+    InitOptions,
+    SqlValue,
+    Sqlite3Static,
+} from "@libsql/libsql-wasm-experimental";
+
+import type {
+    Config,
+    IntMode,
+    Client,
+    Transaction,
+    TransactionMode,
+    ResultSet,
+    Row,
+    Value,
+    InValue,
+    InStatement,
 } from "@libsql/core/api";
 import { LibsqlError } from "@libsql/core/api";
 import type { ExpandedConfig } from "@libsql/core/config";
 import { expandConfig } from "@libsql/core/config";
-import { supportedUrlLink, transactionModeToBegin, ResultSetImpl } from "@libsql/core/util";
+import {
+    supportedUrlLink,
+    transactionModeToBegin,
+    ResultSetImpl,
+} from "@libsql/core/util";
 
 export * from "@libsql/core/api";
 
@@ -30,7 +47,10 @@ export function _createClient(config: ExpandedConfig): Client {
     }
 
     if (config.encryptionKey !== undefined) {
-        throw new LibsqlError("Encryption key is not supported by the Wasm client.", "ENCRYPTION_KEY_NOT_SUPPORTED");
+        throw new LibsqlError(
+            "Encryption key is not supported by the Wasm client.",
+            "ENCRYPTION_KEY_NOT_SUPPORTED",
+        );
     }
 
     const authority = config.authority;
@@ -50,7 +70,10 @@ export function _createClient(config: ExpandedConfig): Client {
             throw new LibsqlError("File URL cannot have a port", "URL_INVALID");
         }
         if (authority.userinfo !== undefined) {
-            throw new LibsqlError("File URL cannot have username and password", "URL_INVALID");
+            throw new LibsqlError(
+                "File URL cannot have username and password",
+                "URL_INVALID",
+            );
         }
     }
 
@@ -60,9 +83,13 @@ export function _createClient(config: ExpandedConfig): Client {
         syncUrl: config.syncUrl,
     };
 
-    const db: Database = new sqlite3.oo1.DB(path, 'c');
+    const db: Database = new sqlite3.oo1.DB(path, "c");
 
-    executeStmt(db, "SELECT 1 AS checkThatTheDatabaseCanBeOpened", config.intMode);
+    executeStmt(
+        db,
+        "SELECT 1 AS checkThatTheDatabaseCanBeOpened",
+        config.intMode,
+    );
 
     return new Sqlite3Client(sqlite3, path, /*options,*/ db, config.intMode);
 }
@@ -80,7 +107,12 @@ export class Sqlite3Client implements Client {
     protocol: "file";
 
     /** @private */
-    constructor(sqlite3: Sqlite3Static, path: string, /*options: Database.Options,*/ db: Database, intMode: IntMode) {
+    constructor(
+        sqlite3: Sqlite3Static,
+        path: string,
+        /*options: Database.Options,*/ db: Database,
+        intMode: IntMode,
+    ) {
         this.#sqlite3 = sqlite3;
         this.#path = path;
         //this.#options = options;
@@ -95,18 +127,24 @@ export class Sqlite3Client implements Client {
         return executeStmt(this.#getDb(), stmt, this.#intMode);
     }
 
-    async batch(stmts: Array<InStatement>, mode: TransactionMode = "deferred"): Promise<Array<ResultSet>> {
+    async batch(
+        stmts: Array<InStatement>,
+        mode: TransactionMode = "deferred",
+    ): Promise<Array<ResultSet>> {
         this.#checkNotClosed();
         const db = this.#getDb();
         try {
             executeStmt(db, transactionModeToBegin(mode), this.#intMode);
             const resultSets = stmts.map((stmt) => {
                 if (!inTransaction(db)) {
-                    throw new LibsqlError("The transaction has been rolled back", "TRANSACTION_CLOSED");
+                    throw new LibsqlError(
+                        "The transaction has been rolled back",
+                        "TRANSACTION_CLOSED",
+                    );
                 }
                 return executeStmt(db, stmt, this.#intMode);
             });
-            executeStmt(db, "COMMIT", this.#intMode)
+            executeStmt(db, "COMMIT", this.#intMode);
             return resultSets;
         } finally {
             if (inTransaction(db)) {
@@ -134,9 +172,11 @@ export class Sqlite3Client implements Client {
         }
     }
 
-
     async sync(): Promise<void> {
-        throw new LibsqlError("sync not supported in wasm mode", "SYNC_NOT_SUPPORTED");
+        throw new LibsqlError(
+            "sync not supported in wasm mode",
+            "SYNC_NOT_SUPPORTED",
+        );
     }
 
     close(): void {
@@ -155,7 +195,7 @@ export class Sqlite3Client implements Client {
     // Lazily creates the database connection and returns it
     #getDb(): Database {
         if (this.#db === null) {
-            this.#db = new this.#sqlite3.oo1.DB('/mydb.sqlite3', 'ct');
+            this.#db = new this.#sqlite3.oo1.DB("/mydb.sqlite3", "ct");
         }
         return this.#db;
     }
@@ -213,12 +253,19 @@ export class Sqlite3Transaction implements Transaction {
 
     #checkNotClosed(): void {
         if (this.closed) {
-            throw new LibsqlError("The transaction is closed", "TRANSACTION_CLOSED");
+            throw new LibsqlError(
+                "The transaction is closed",
+                "TRANSACTION_CLOSED",
+            );
         }
     }
 }
 
-function executeStmt(db: Database, stmt: InStatement, intMode: IntMode): ResultSet {
+function executeStmt(
+    db: Database,
+    stmt: InStatement,
+    intMode: IntMode,
+): ResultSet {
     let sql: string;
     let args: Array<SqlValue> | Record<string, SqlValue>;
     if (typeof stmt === "string") {
@@ -231,8 +278,10 @@ function executeStmt(db: Database, stmt: InStatement, intMode: IntMode): ResultS
         } else {
             args = {};
             for (const name in stmt.args) {
-                const argName = (name[0] === "@" || name[0] === "$" || name[0] === ":")
-                    ? name.substring(1) : name;
+                const argName =
+                    name[0] === "@" || name[0] === "$" || name[0] === ":"
+                        ? name.substring(1)
+                        : name;
                 args[argName] = valueToSql(stmt.args[name], intMode);
             }
         }
@@ -270,7 +319,13 @@ function executeStmt(db: Database, stmt: InStatement, intMode: IntMode): ResultS
             }
             const rowsAffected = 0;
             const lastInsertRowid = undefined;
-            return new ResultSetImpl(columns, columnTypes, rows, rowsAffected, lastInsertRowid);
+            return new ResultSetImpl(
+                columns,
+                columnTypes,
+                rows,
+                rowsAffected,
+                lastInsertRowid,
+            );
         } else {
             sqlStmt.step(); // TODO: check return value
             const rowsAffected = db.changes();
@@ -282,7 +337,11 @@ function executeStmt(db: Database, stmt: InStatement, intMode: IntMode): ResultS
     }
 }
 
-function rowFromSql(sqlRow: Array<unknown>, columns: Array<string>, intMode: IntMode): Row {
+function rowFromSql(
+    sqlRow: Array<unknown>,
+    columns: Array<string>,
+    intMode: IntMode,
+): Row {
     const row = {};
     // make sure that the "length" property is not enumerable
     Object.defineProperty(row, "length", { value: sqlRow.length });
@@ -292,7 +351,12 @@ function rowFromSql(sqlRow: Array<unknown>, columns: Array<string>, intMode: Int
 
         const column = columns[i];
         if (!Object.hasOwn(row, column)) {
-            Object.defineProperty(row, column, { value, enumerable: true, configurable: true, writable: true });
+            Object.defineProperty(row, column, {
+                value,
+                enumerable: true,
+                configurable: true,
+                writable: true,
+            });
         }
     }
     return row as Row;
@@ -303,14 +367,14 @@ function valueFromSql(sqlValue: unknown, intMode: IntMode): Value {
         if (intMode === "number") {
             if (sqlValue < minSafeBigint || sqlValue > maxSafeBigint) {
                 throw new RangeError(
-                    "Received integer which cannot be safely represented as a JavaScript number"
+                    "Received integer which cannot be safely represented as a JavaScript number",
                 );
             }
             return Number(sqlValue);
         } else if (intMode === "bigint") {
             return sqlValue;
         } else if (intMode === "string") {
-            return ""+sqlValue;
+            return "" + sqlValue;
         } else {
             throw new Error("Invalid value for IntMode");
         }
@@ -324,29 +388,33 @@ const maxSafeBigint = 9007199254740991n;
 function valueToSql(value: InValue, intMode: IntMode): SqlValue {
     if (typeof value === "number") {
         if (!Number.isFinite(value)) {
-            throw new RangeError("Only finite numbers (not Infinity or NaN) can be passed as arguments");
+            throw new RangeError(
+                "Only finite numbers (not Infinity or NaN) can be passed as arguments",
+            );
         }
         return value;
     } else if (typeof value === "bigint") {
         if (value < minInteger || value > maxInteger) {
             throw new RangeError(
-                "bigint is too large to be represented as a 64-bit integer and passed as argument"
+                "bigint is too large to be represented as a 64-bit integer and passed as argument",
             );
         }
         return value;
     } else if (typeof value === "boolean") {
-      switch(intMode) {
-        case "bigint":
-          return value ? 1n : 0n;
-        case "string":
-          return value ? "1" : "0";
-        default:
-          return value ? 1 : 0;
-      }
+        switch (intMode) {
+            case "bigint":
+                return value ? 1n : 0n;
+            case "string":
+                return value ? "1" : "0";
+            default:
+                return value ? 1 : 0;
+        }
     } else if (value instanceof Date) {
         return value.valueOf();
     } else if (value === undefined) {
-        throw new TypeError("undefined cannot be passed as argument to the database");
+        throw new TypeError(
+            "undefined cannot be passed as argument to the database",
+        );
     } else {
         return value;
     }

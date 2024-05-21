@@ -43,9 +43,9 @@
 
 Learn more about what you can do with Turso:
 
-- [Embedded Replicas](https://docs.turso.tech/features/embedded-replicas)
-- [Platform API](https://docs.turso.tech/features/platform-api)
-- [Data Edge](https://docs.turso.tech/features/data-edge)
-- [Branching](https://docs.turso.tech/features/branching)
-- [Point-in-Time Recovery](https://docs.turso.tech/features/point-in-time-recovery)
-- [Scale to Zero](https://docs.turso.tech/features/scale-to-zero)
+-   [Embedded Replicas](https://docs.turso.tech/features/embedded-replicas)
+-   [Platform API](https://docs.turso.tech/features/platform-api)
+-   [Data Edge](https://docs.turso.tech/features/data-edge)
+-   [Branching](https://docs.turso.tech/features/branching)
+-   [Point-in-Time Recovery](https://docs.turso.tech/features/point-in-time-recovery)
+-   [Scale to Zero](https://docs.turso.tech/features/scale-to-zero)

@@ -1,12 +1,22 @@
 import * as hrana from "@libsql/hrana-client";
 
-import type { Config, IntMode, Client, Transaction, ResultSet, InStatement } from "@libsql/core/api";
+import type {
+    Config,
+    IntMode,
+    Client,
+    Transaction,
+    ResultSet,
+    InStatement,
+} from "@libsql/core/api";
 import { TransactionMode, LibsqlError } from "@libsql/core/api";
 import type { ExpandedConfig } from "@libsql/core/config";
 import { expandConfig } from "@libsql/core/config";
 import {
-    HranaTransaction, executeHranaBatch,
-    stmtToHrana, resultSetFromHrana, mapHranaError,
+    HranaTransaction,
+    executeHranaBatch,
+    stmtToHrana,
+    resultSetFromHrana,
+    mapHranaError,
 } from "./hrana.js";
 import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "@libsql/core/uri";
@@ -29,13 +39,22 @@ export function _createClient(config: ExpandedConfig): WsClient {
     }
 
     if (config.encryptionKey !== undefined) {
-        throw new LibsqlError("Encryption key is not supported by the remote client.", "ENCRYPTION_KEY_NOT_SUPPORTED");
+        throw new LibsqlError(
+            "Encryption key is not supported by the remote client.",
+            "ENCRYPTION_KEY_NOT_SUPPORTED",
+        );
     }
 
     if (config.scheme === "ws" && config.tls) {
-        throw new LibsqlError(`A "ws:" URL cannot opt into TLS by using ?tls=1`, "URL_INVALID");
+        throw new LibsqlError(
+            `A "ws:" URL cannot opt into TLS by using ?tls=1`,
+            "URL_INVALID",
+        );
     } else if (config.scheme === "wss" && !config.tls) {
-        throw new LibsqlError(`A "wss:" URL cannot opt out of TLS by using ?tls=0`, "URL_INVALID");
+        throw new LibsqlError(
+            `A "wss:" URL cannot opt out of TLS by using ?tls=0`,
+            "URL_INVALID",
+        );
     }
 
     const url = encodeBaseUrl(config.scheme, config.authority, config.path);
@@ -46,7 +65,11 @@ export function _createClient(config: ExpandedConfig): WsClient {
     } catch (e) {
         if (e instanceof hrana.WebSocketUnsupportedError) {
             const suggestedScheme = config.scheme === "wss" ? "https" : "http";
-            const suggestedUrl = encodeBaseUrl(suggestedScheme, config.authority, config.path);
+            const suggestedUrl = encodeBaseUrl(
+                suggestedScheme,
+                config.authority,
+                config.path,
+            );
             throw new LibsqlError(
                 "This environment does not support WebSockets, please switch to the HTTP client by using " +
                     `a "${suggestedScheme}:" URL (${JSON.stringify(suggestedUrl)}). ` +
@@ -70,7 +93,7 @@ interface ConnState {
     useSqlCache: boolean | undefined;
     // The cache of SQL texts stored on the server. Initially has capacity 0, but it is set to
     // `sqlCacheCapacity` when `useSqlCache` is set to `true`.
-    sqlCache: SqlCache,
+    sqlCache: SqlCache;
     // The time when the connection was opened.
     openTime: Date;
     // Set of all `StreamState`-s that were opened from this connection. We can safely close the connection
@@ -83,7 +106,7 @@ interface StreamState {
     stream: hrana.WsStream;
 }
 
-const maxConnAgeMillis = 60*1000;
+const maxConnAgeMillis = 60 * 1000;
 const sqlCacheCapacity = 100;
 
 export class WsClient implements Client {
@@ -99,7 +122,12 @@ export class WsClient implements Client {
     protocol: "ws";
 
     /** @private */
-    constructor(client: hrana.WsClient, url: URL, authToken: string | undefined, intMode: IntMode) {
+    constructor(
+        client: hrana.WsClient,
+        url: URL,
+        authToken: string | undefined,
+        intMode: IntMode,
+    ) {
         this.#url = url;
         this.#authToken = authToken;
         this.#intMode = intMode;
@@ -128,7 +156,10 @@ export class WsClient implements Client {
         }
     }
 
-    async batch(stmts: Array<InStatement>, mode: TransactionMode = "deferred"): Promise<Array<ResultSet>> {
+    async batch(
+        stmts: Array<InStatement>,
+        mode: TransactionMode = "deferred",
+    ): Promise<Array<ResultSet>> {
         const streamState = await this.#openStream();
         try {
             const hranaStmts = stmts.map(stmtToHrana);
@@ -138,7 +169,12 @@ export class WsClient implements Client {
             // network roundtrip.
             streamState.conn.sqlCache.apply(hranaStmts);
             const batch = streamState.stream.batch(version >= 3);
-            const resultsPromise = executeHranaBatch(mode, version, batch, hranaStmts);
+            const resultsPromise = executeHranaBatch(
+                mode,
+                version,
+                batch,
+                hranaStmts,
+            );
 
             return await resultsPromise;
         } catch (e) {
@@ -189,7 +225,10 @@ export class WsClient implements Client {
         const now = new Date();
 
         const ageMillis = now.valueOf() - this.#connState.openTime.valueOf();
-        if (ageMillis > maxConnAgeMillis && this.#futureConnState === undefined) {
+        if (
+            ageMillis > maxConnAgeMillis &&
+            this.#futureConnState === undefined
+        ) {
             // The existing connection is too old, let's open a new one.
             const futureConnState = this.#openConn();
             this.#futureConnState = futureConnState;
@@ -247,7 +286,8 @@ export class WsClient implements Client {
             // this does not increase latency, because any messages that we would send on the WebSocket before
             // the handshake would be queued until the handshake is completed anyway.
             if (connState.useSqlCache === undefined) {
-                connState.useSqlCache = await connState.client.getVersion() >= 2;
+                connState.useSqlCache =
+                    (await connState.client.getVersion()) >= 2;
                 if (connState.useSqlCache) {
                     connState.sqlCache.capacity = sqlCacheCapacity;
                 }
@@ -255,7 +295,7 @@ export class WsClient implements Client {
 
             const stream = connState.client.openStream();
             stream.intMode = this.#intMode;
-            const streamState = {conn: connState, stream};
+            const streamState = { conn: connState, stream };
             connState.streamStates.add(streamState);
             return streamState;
         } catch (e) {
@@ -283,7 +323,10 @@ export class WsClient implements Client {
 
         const connState = streamState.conn;
         connState.streamStates.delete(streamState);
-        if (connState.streamStates.size === 0 && connState !== this.#connState) {
+        if (
+            connState.streamStates.size === 0 &&
+            connState !== this.#connState
+        ) {
             // We are not using this connection anymore and this is the last stream that was using it, so we
             // must close it now.
             connState.client.close();
@@ -301,7 +344,12 @@ export class WsTransaction extends HranaTransaction implements Transaction {
     #streamState: StreamState;
 
     /** @private */
-    constructor(client: WsClient, state: StreamState, mode: TransactionMode, version: hrana.ProtocolVersion) {
+    constructor(
+        client: WsClient,
+        state: StreamState,
+        mode: TransactionMode,
+        version: hrana.ProtocolVersion,
+    ) {
         super(mode, version);
         this.#client = client;
         this.#streamState = state;

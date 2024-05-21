@@ -19,11 +19,16 @@ export interface ExpandedConfig {
 
 export type ExpandedScheme = "wss" | "ws" | "https" | "http" | "file";
 
-export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfig {
+export function expandConfig(
+    config: Config,
+    preferHttp: boolean,
+): ExpandedConfig {
     if (typeof config !== "object") {
         // produce a reasonable error message in the common case where users type
         // `createClient("libsql://...")` instead of `createClient({url: "libsql://..."})`
-        throw new TypeError(`Expected client configuration as object, got ${typeof config}`);
+        throw new TypeError(
+            `Expected client configuration as object, got ${typeof config}`,
+        );
     }
 
     let tls: boolean | undefined = config.tls;
@@ -31,32 +36,31 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
     let encryptionKey = config.encryptionKey;
     let syncUrl = config.syncUrl;
     let syncInterval = config.syncInterval;
-    const intMode = ""+(config.intMode ?? "number");
+    const intMode = "" + (config.intMode ?? "number");
     if (intMode !== "number" && intMode !== "bigint" && intMode !== "string") {
         throw new TypeError(
             `Invalid value for intMode, expected "number", "bigint" or "string", \
-            got ${JSON.stringify(intMode)}`
+            got ${JSON.stringify(intMode)}`,
         );
     }
 
-
-    if(config.url === ':memory:') {
-      return {
-        path: ':memory:',
-        scheme: 'file',
-        syncUrl,
-        syncInterval,
-        intMode,
-        fetch: config.fetch,
-        tls: false,
-        authToken: undefined,
-        encryptionKey: undefined,
-        authority: undefined,
-      };
+    if (config.url === ":memory:") {
+        return {
+            path: ":memory:",
+            scheme: "file",
+            syncUrl,
+            syncInterval,
+            intMode,
+            fetch: config.fetch,
+            tls: false,
+            authToken: undefined,
+            encryptionKey: undefined,
+            authority: undefined,
+        };
     }
 
     const uri = parseUri(config.url);
-    for (const {key, value} of uri.query?.pairs ?? []) {
+    for (const { key, value } of uri.query?.pairs ?? []) {
         if (key === "authToken") {
             authToken = value ? value : undefined;
         } else if (key === "tls") {
@@ -73,7 +77,7 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
             }
         } else {
             throw new LibsqlError(
-                `Unknown URL query parameter ${JSON.stringify(key)}`, 
+                `Unknown URL query parameter ${JSON.stringify(key)}`,
                 "URL_PARAM_NOT_SUPPORTED",
             );
         }
@@ -96,7 +100,11 @@ export function expandConfig(config: Config, preferHttp: boolean): ExpandedConfi
     } else if (uriScheme === "http" || uriScheme === "ws") {
         scheme = uriScheme;
         tls ??= false;
-    } else if (uriScheme === "https" || uriScheme === "wss" || uriScheme === "file") {
+    } else if (
+        uriScheme === "https" ||
+        uriScheme === "wss" ||
+        uriScheme === "file"
+    ) {
         scheme = uriScheme;
     } else {
         throw new LibsqlError(

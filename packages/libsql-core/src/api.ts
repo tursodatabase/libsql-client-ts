@@ -88,7 +88,7 @@ export interface Client {
      *
      * The `mode` parameter selects the transaction mode for the batch; please see {@link TransactionMode} for
      * details. The default transaction mode is `"deferred"`.
-     * 
+     *
      * If any of the statements in the batch fails with an error, the batch is aborted, the transaction is
      * rolled back and the returned promise is rejected.
      *
@@ -114,7 +114,10 @@ export interface Client {
      * ], "write");
      * ```
      */
-    batch(stmts: Array<InStatement>, mode?: TransactionMode): Promise<Array<ResultSet>>;
+    batch(
+        stmts: Array<InStatement>,
+        mode?: TransactionMode,
+    ): Promise<Array<ResultSet>>;
 
     /** Start an interactive transaction.
      *
@@ -367,7 +370,7 @@ export interface ResultSet {
      * returned.
      */
     columnTypes: Array<string>;
-    
+
     /** Rows produced by the statement. */
     rows: Array<Row>;
 
@@ -419,20 +422,11 @@ export interface Row {
     [name: string]: Value;
 }
 
-export type Value =
-    | null
-    | string
-    | number
-    | bigint
-    | ArrayBuffer
+export type Value = null | string | number | bigint | ArrayBuffer;
 
-export type InValue =
-    | Value
-    | boolean
-    | Uint8Array
-    | Date
+export type InValue = Value | boolean | Uint8Array | Date;
 
-export type InStatement = { sql: string, args: InArgs } | string;
+export type InStatement = { sql: string; args: InArgs } | string;
 export type InArgs = Array<InValue> | Record<string, InValue>;
 
 /** Error thrown by the client. */
@@ -441,14 +435,19 @@ export class LibsqlError extends Error {
     code: string;
     /** Raw numeric error code */
     rawCode?: number;
-    
-    constructor(message: string, code: string, rawCode?: number, cause?: Error) {
+
+    constructor(
+        message: string,
+        code: string,
+        rawCode?: number,
+        cause?: Error,
+    ) {
         if (code !== undefined) {
             message = `${code}: ${message}`;
         }
         super(message, { cause });
         this.code = code;
-        this.rawCode = rawCode
+        this.rawCode = rawCode;
         this.name = "LibsqlError";
     }
 }

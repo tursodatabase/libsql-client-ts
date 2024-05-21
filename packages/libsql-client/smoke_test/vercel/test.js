@@ -15,8 +15,13 @@ function getEnv(name) {
 const vercelToken = getEnv("VERCEL_TOKEN");
 const projectName = getEnv("VERCEL_PROJECT_NAME");
 
-async function npm(subcommand, args, hiddenArgs = [], {capture = false} = {}) {
-    console.info(`$ npm ${subcommand} ${args.join(' ')}`);
+async function npm(
+    subcommand,
+    args,
+    hiddenArgs = [],
+    { capture = false } = {},
+) {
+    console.info(`$ npm ${subcommand} ${args.join(" ")}`);
 
     const proc = spawn("npm", [subcommand, ...args, ...hiddenArgs], {
         stdio: ["ignore", capture ? "pipe" : "inherit", "inherit"],
@@ -25,7 +30,11 @@ async function npm(subcommand, args, hiddenArgs = [], {capture = false} = {}) {
     const exitPromise = new Promise((resolve, reject) => {
         proc.on("exit", (code, signal) => {
             if (signal !== null) {
-                reject(new Error(`vercel command terminated due to signal: ${signal}`));
+                reject(
+                    new Error(
+                        `vercel command terminated due to signal: ${signal}`,
+                    ),
+                );
             } else if (code !== 0) {
                 reject(new Error(`vercel command exited with code: ${code}`));
             } else {
@@ -54,39 +63,62 @@ async function npm(subcommand, args, hiddenArgs = [], {capture = false} = {}) {
 async function deployToVercel(clientUrlInsideVercel) {
     console.info("Building and deploying to Vercel...");
 
-    let tarballName = await npm("pack", ["../.."], [], {capture: true});
+    let tarballName = await npm("pack", ["../.."], [], { capture: true });
     tarballName = tarballName.trim();
 
     const appPackageJson = {
-        "dependencies": {
+        dependencies: {
             "@libsql/client": `../${tarballName}`,
         },
     };
-    fs.writeFileSync("app/package.json", JSON.stringify(appPackageJson, null, 4));
+    fs.writeFileSync(
+        "app/package.json",
+        JSON.stringify(appPackageJson, null, 4),
+    );
 
     await npm(
         "exec",
-        ["--", "vercel", "link", "--yes", "--project", projectName, "--cwd", "app/"],
+        [
+            "--",
+            "vercel",
+            "link",
+            "--yes",
+            "--project",
+            projectName,
+            "--cwd",
+            "app/",
+        ],
         ["--token", vercelToken],
     );
     await npm(
         "exec",
-        ["--", "vercel", "pull", "--yes", "--environment=preview", "--cwd", "app/"],
+        [
+            "--",
+            "vercel",
+            "pull",
+            "--yes",
+            "--environment=preview",
+            "--cwd",
+            "app/",
+        ],
         ["--token", vercelToken],
     );
-    await npm(
-        "exec",
-        ["--", "vercel", "build", "--cwd", "app/"],
-    );
+    await npm("exec", ["--", "vercel", "build", "--cwd", "app/"]);
 
     const deployUrl = await npm(
         "exec",
         [
-            "--", "vercel", "deploy", "--prebuilt",
-            "--env", `CLIENT_URL=${clientUrlInsideVercel}`, "--cwd", "app/",
+            "--",
+            "vercel",
+            "deploy",
+            "--prebuilt",
+            "--env",
+            `CLIENT_URL=${clientUrlInsideVercel}`,
+            "--cwd",
+            "app/",
         ],
         ["--token", vercelToken, "--cwd", "app/"],
-        {capture: true},
+        { capture: true },
     );
 
     console.info(`Deployed Vercel project on ${deployUrl}`);
@@ -98,7 +130,7 @@ const testCases = ["execute", "batch", "transaction"];
 async function runTests(functionUrl) {
     let ok = true;
     for (const testCase of testCases) {
-        if (!await runTest(functionUrl, testCase)) {
+        if (!(await runTest(functionUrl, testCase))) {
             ok = false;
         }
     }
@@ -112,7 +144,9 @@ async function runTest(functionUrl, testCase) {
     if (ok) {
         console.info(`TEST ${testCase}: passed`);
     } else {
-        console.warn(`\nTEST ${testCase}: failed with status ${resp.status}\n${respText}\n`);
+        console.warn(
+            `\nTEST ${testCase}: failed with status ${resp.status}\n${respText}\n`,
+        );
     }
     return ok;
 }
