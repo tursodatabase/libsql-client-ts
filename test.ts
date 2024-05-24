@@ -8,36 +8,39 @@ const createClient = libsqlClient.createClient;
 //});
 const schemaUrl = "libsql://schema-test-giovannibenussi.turso.io";
 const schemaAuthToken =
-  "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3MTU2ODIwMTAsImlkIjoiM2IyYTIwMDEtOTcxZC00MzIzLWE2YWYtMjk1YTRmOWNkYzVkIn0.l-LzYur2KffpkrZog5vT3eThwB3m2Nl0RIgc5rLn1DpBsYyWujPTkpS62WoYBwWbM0AMaAoRqfyCzi-T-LnJBQ";
+    "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3MTU2ODIwMTAsImlkIjoiM2IyYTIwMDEtOTcxZC00MzIzLWE2YWYtMjk1YTRmOWNkYzVkIn0.l-LzYur2KffpkrZog5vT3eThwB3m2Nl0RIgc5rLn1DpBsYyWujPTkpS62WoYBwWbM0AMaAoRqfyCzi-T-LnJBQ";
 
 const client = createClient({
-  url: "libsql://schema-child-1-giovannibenussi.turso.io",
-  authToken:
-    "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3MTU2ODE0MDIsImlkIjoiYjJhYjRhNjQtNDAyYy00YmRmLWExZTgtMjdlZjMzNTE4Y2JkIn0.Og9E7nl_Y8P93FO1XJlvAhkKEOsGynDdFEziJwLeGrMNaAOhQLqdxk7shao13VQo4JVFkMuSTXMibKXuPnavBA",
+    url: "libsql://schema-child-1-giovannibenussi.turso.io",
+    authToken:
+        "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3MTU2ODE0MDIsImlkIjoiYjJhYjRhNjQtNDAyYy00YmRmLWExZTgtMjdlZjMzNTE4Y2JkIn0.Og9E7nl_Y8P93FO1XJlvAhkKEOsGynDdFEziJwLeGrMNaAOhQLqdxk7shao13VQo4JVFkMuSTXMibKXuPnavBA",
 });
 
 const schemaClient = createClient({
-  url: schemaUrl,
-  authToken: schemaAuthToken,
+    url: schemaUrl,
+    authToken: schemaAuthToken,
 });
 
 async function main() {
-  //await schemaClient.execute("ALTER TABLE users ADD COLUMN test_column_5 number");
-  await schemaClient.batch(["ALTER TABLE users ADD COLUMN test_column_6 number;"], {
-    wait: true,
-  });
+    //await schemaClient.execute("ALTER TABLE users ADD COLUMN test_column_5 number");
+    await schemaClient.batch(
+        ["ALTER TABLE users ADD COLUMN test_column_6 number;"],
+        {
+            wait: true,
+        },
+    );
 
-  //await client.batch(
+    //await client.batch(
     //[
-      //{
-        //sql: "insert into users (first_name) values (?)",
-        //args: [`Iku ${new Date().toISOString()}`],
-      //},
+    //{
+    //sql: "insert into users (first_name) values (?)",
+    //args: [`Iku ${new Date().toISOString()}`],
+    //},
     //],
     //{ transactionMode: "write", wait: true }
-  //);
-  //const users = await client.execute("SELECT * FROM users");
-  //console.log("users: ", users.rows);
+    //);
+    //const users = await client.execute("SELECT * FROM users");
+    //console.log("users: ", users.rows);
 }
 
 main();

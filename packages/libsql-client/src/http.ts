@@ -1,13 +1,22 @@
 import * as hrana from "@libsql/hrana-client";
 
 import type { Config, Client } from "@libsql/core/api";
-import type { BatchConfig, InStatement, ResultSet, Transaction, IntMode } from "@libsql/core/api";
+import type {
+    BatchConfig,
+    InStatement,
+    ResultSet,
+    Transaction,
+    IntMode,
+} from "@libsql/core/api";
 import { TransactionMode, LibsqlError } from "@libsql/core/api";
 import type { ExpandedConfig } from "@libsql/core/config";
 import { expandConfig } from "@libsql/core/config";
 import {
-    HranaTransaction, executeHranaBatch,
-    stmtToHrana, resultSetFromHrana, mapHranaError,
+    HranaTransaction,
+    executeHranaBatch,
+    stmtToHrana,
+    resultSetFromHrana,
+    mapHranaError,
 } from "./hrana.js";
 import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "@libsql/core/uri";
@@ -31,13 +40,22 @@ export function _createClient(config: ExpandedConfig): Client {
     }
 
     if (config.encryptionKey !== undefined) {
-        throw new LibsqlError("Encryption key is not supported by the remote client.", "ENCRYPTION_KEY_NOT_SUPPORTED");
+        throw new LibsqlError(
+            "Encryption key is not supported by the remote client.",
+            "ENCRYPTION_KEY_NOT_SUPPORTED",
+        );
     }
 
     if (config.scheme === "http" && config.tls) {
-        throw new LibsqlError(`A "http:" URL cannot opt into TLS by using ?tls=1`, "URL_INVALID");
+        throw new LibsqlError(
+            `A "http:" URL cannot opt into TLS by using ?tls=1`,
+            "URL_INVALID",
+        );
     } else if (config.scheme === "https" && !config.tls) {
-        throw new LibsqlError(`A "https:" URL cannot opt out of TLS by using ?tls=0`, "URL_INVALID");
+        throw new LibsqlError(
+            `A "https:" URL cannot opt out of TLS by using ?tls=0`,
+            "URL_INVALID",
+        );
     }
 
     const url = encodeBaseUrl(config.scheme, config.authority, config.path);
@@ -87,8 +105,8 @@ export class HttpClient implements Client {
     }
 
     async batch(
-      stmts: Array<InStatement>, 
-      mode: TransactionMode | BatchConfig = "deferred"
+        stmts: Array<InStatement>,
+        mode: TransactionMode | BatchConfig = "deferred",
     ): Promise<Array<ResultSet>> {
         try {
             const hranaStmts = stmts.map(stmtToHrana);
@@ -109,21 +127,29 @@ export class HttpClient implements Client {
                 // 2. cursor request
                 // 3. pipeline request to close the stream
                 const batch = stream.batch(false);
-                const transactionMode = typeof mode === "string" ? mode : mode.transactionMode || "deferred";
-                resultsPromise = executeHranaBatch(transactionMode, version, batch, hranaStmts);
+                const transactionMode =
+                    typeof mode === "string"
+                        ? mode
+                        : mode.transactionMode || "deferred";
+                resultsPromise = executeHranaBatch(
+                    transactionMode,
+                    version,
+                    batch,
+                    hranaStmts,
+                );
             } finally {
                 stream.closeGracefully();
             }
 
             const wait = typeof mode === "string" ? false : mode.wait;
             if (wait) {
-              await waitForLastMigrationJobToFinish({
-                authToken: this.authToken,
-                baseUrl: this.url.origin,
-              })
-              console.log('Finished waiting for migration jobs');
+                await waitForLastMigrationJobToFinish({
+                    authToken: this.authToken,
+                    baseUrl: this.url.origin,
+                });
+                console.log("Finished waiting for migration jobs");
             } else {
-              console.log("Not waiting for migration jobs");
+                console.log("Not waiting for migration jobs");
             }
 
             return await resultsPromise;
@@ -132,10 +158,16 @@ export class HttpClient implements Client {
         }
     }
 
-    async transaction(mode: TransactionMode = "write"): Promise<HttpTransaction> {
+    async transaction(
+        mode: TransactionMode = "write",
+    ): Promise<HttpTransaction> {
         try {
             const version = await this.#client.getVersion();
-            return new HttpTransaction(this.#client.openStream(), mode, version);
+            return new HttpTransaction(
+                this.#client.openStream(),
+                mode,
+                version,
+            );
         } catch (e) {
             throw mapHranaError(e);
         }
@@ -160,7 +192,10 @@ export class HttpClient implements Client {
     }
 
     sync(): Promise<void> {
-        throw new LibsqlError("sync not supported in http mode", "SYNC_NOT_SUPPORTED");
+        throw new LibsqlError(
+            "sync not supported in http mode",
+            "SYNC_NOT_SUPPORTED",
+        );
     }
 
     close(): void {
@@ -177,7 +212,11 @@ export class HttpTransaction extends HranaTransaction implements Transaction {
     #sqlCache: SqlCache;
 
     /** @private */
-    constructor(stream: hrana.HttpStream, mode: TransactionMode, version: hrana.ProtocolVersion) {
+    constructor(
+        stream: hrana.HttpStream,
+        mode: TransactionMode,
+        version: hrana.ProtocolVersion,
+    ) {
         super(mode, version);
         this.#stream = stream;
         this.#sqlCache = new SqlCache(stream, sqlCacheCapacity);
