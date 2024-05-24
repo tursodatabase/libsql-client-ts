@@ -22,25 +22,10 @@ const schemaClient = createClient({
 });
 
 async function main() {
-    //await schemaClient.execute("ALTER TABLE users ADD COLUMN test_column_5 number");
-    await schemaClient.batch(
-        ["ALTER TABLE users ADD COLUMN test_column_6 number;"],
-        {
-            wait: true,
-        },
+    await schemaClient.execute(
+        "ALTER TABLE users ADD COLUMN test_column_8 number;",
+        { wait: true },
     );
-
-    //await client.batch(
-    //[
-    //{
-    //sql: "insert into users (first_name) values (?)",
-    //args: [`Iku ${new Date().toISOString()}`],
-    //},
-    //],
-    //{ transactionMode: "write", wait: true }
-    //);
-    //const users = await client.execute("SELECT * FROM users");
-    //console.log("users: ", users.rows);
 }
 
 main();

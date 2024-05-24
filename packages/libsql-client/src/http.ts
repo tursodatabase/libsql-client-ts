@@ -84,7 +84,11 @@ export class HttpClient implements Client {
         this.authToken = authToken;
     }
 
-    async execute(stmt: InStatement): Promise<ResultSet> {
+    async execute(
+        stmt: InStatement,
+        mode: BatchConfig = {},
+    ): Promise<ResultSet> {
+        console.log("mode: ", mode);
         try {
             const hranaStmt = stmtToHrana(stmt);
 
@@ -98,6 +102,13 @@ export class HttpClient implements Client {
                 stream.closeGracefully();
             }
 
+            if (mode.wait) {
+                await waitForLastMigrationJobToFinish({
+                    authToken: this.authToken,
+                    baseUrl: this.url.origin,
+                });
+            }
+
             return resultSetFromHrana(await rowsPromise);
         } catch (e) {
             throw mapHranaError(e);
@@ -108,8 +119,13 @@ export class HttpClient implements Client {
         stmts: Array<InStatement>,
         mode: TransactionMode | BatchConfig = "deferred",
     ): Promise<Array<ResultSet>> {
+        console.log("stmts: ", stmts);
         try {
             const hranaStmts = stmts.map(stmtToHrana);
+            console.log(
+                "hranaStmts.map((s)=>s.sql): ",
+                hranaStmts.map((s) => s.sql),
+            );
             const version = await this.#client.getVersion();
 
             // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the batch and
