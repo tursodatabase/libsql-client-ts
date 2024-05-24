@@ -8,9 +8,7 @@ export default async function (request: Request) {
     function respond(status: number, responseBody: string) {
         return new Response(responseBody, {
             status,
-            headers: [
-                ["content-type", "text/plain"],
-            ],
+            headers: [["content-type", "text/plain"]],
         });
     }
 
@@ -21,7 +19,10 @@ export default async function (request: Request) {
     const url = new URL(request.url);
     const testCase = url.searchParams.get("test");
     if (testCase === null) {
-        return respond(400, "Please specify the test case using the 'test' query parameter");
+        return respond(
+            400,
+            "Please specify the test case using the 'test' query parameter",
+        );
     }
 
     const testCaseFn = testCases[testCase];
@@ -31,7 +32,7 @@ export default async function (request: Request) {
 
     let client;
     try {
-        client = libsql.createClient({url: process.env.CLIENT_URL!});
+        client = libsql.createClient({ url: process.env.CLIENT_URL! });
         await testCaseFn(client);
         return respond(200, "Test passed");
     } catch (e) {
@@ -41,10 +42,10 @@ export default async function (request: Request) {
             client.close();
         }
     }
-};
+}
 
 const testCases: Record<string, (client: libsql.Client) => Promise<void>> = {
-    "execute": async (client: libsql.Client): Promise<void> => {
+    execute: async (client: libsql.Client): Promise<void> => {
         const rs = await client.execute("SELECT 1+1 AS two");
         assert(rs.columns.length === 1);
         assert(rs.columns[0] === "two");
@@ -53,7 +54,7 @@ const testCases: Record<string, (client: libsql.Client) => Promise<void>> = {
         assert(rs.rows[0][0] === 2.0);
     },
 
-    "batch": async (client: libsql.Client): Promise<void> => {
+    batch: async (client: libsql.Client): Promise<void> => {
         const rss = await client.batch([
             "DROP TABLE IF EXISTS t",
             "CREATE TABLE t (a, b)",
@@ -82,7 +83,7 @@ const testCases: Record<string, (client: libsql.Client) => Promise<void>> = {
         assert(rss[3].rows[2][1] === "three");
     },
 
-    "transaction": async (client: libsql.Client): Promise<void> => {
+    transaction: async (client: libsql.Client): Promise<void> => {
         await client.batch([
             "DROP TABLE IF EXISTS t",
             "CREATE TABLE t (a, b)",

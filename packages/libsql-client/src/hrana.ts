@@ -1,5 +1,10 @@
 import * as hrana from "@libsql/hrana-client";
-import type { InStatement, ResultSet, Transaction, TransactionMode } from "@libsql/core/api";
+import type {
+    InStatement,
+    ResultSet,
+    Transaction,
+    TransactionMode,
+} from "@libsql/core/api";
 import { LibsqlError } from "@libsql/core/api";
 import type { SqlCache } from "./sql_cache.js";
 import { transactionModeToBegin, ResultSetImpl } from "@libsql/core/util";
@@ -50,17 +55,24 @@ export abstract class HranaTransaction implements Transaction {
                 this._getSqlCache().apply(hranaStmts);
                 const batch = stream.batch(this.#version >= 3);
                 const beginStep = batch.step();
-                const beginPromise = beginStep.run(transactionModeToBegin(this.#mode));
+                const beginPromise = beginStep.run(
+                    transactionModeToBegin(this.#mode),
+                );
 
                 // Execute the `hranaStmts` only if the BEGIN succeeded, to make sure that we don't execute it
                 // outside of a transaction.
                 let lastStep = beginStep;
                 rowsPromises = hranaStmts.map((hranaStmt) => {
-                    const stmtStep = batch.step()
+                    const stmtStep = batch
+                        .step()
                         .condition(hrana.BatchCond.ok(lastStep));
                     if (this.#version >= 3) {
                         // If the Hrana version supports it, make sure that we are still in a transaction
-                        stmtStep.condition(hrana.BatchCond.not(hrana.BatchCond.isAutocommit(batch)));
+                        stmtStep.condition(
+                            hrana.BatchCond.not(
+                                hrana.BatchCond.isAutocommit(batch),
+                            ),
+                        );
                     }
 
                     const rowsPromise = stmtStep.query(hranaStmt);
@@ -71,7 +83,8 @@ export abstract class HranaTransaction implements Transaction {
 
                 // `this.#started` is resolved successfully only if the batch and the BEGIN statement inside
                 // of the batch are both successful.
-                this.#started = batch.execute()
+                this.#started = batch
+                    .execute()
                     .then(() => beginPromise)
                     .then(() => undefined);
 
@@ -104,7 +117,11 @@ export abstract class HranaTransaction implements Transaction {
                         stmtStep.condition(hrana.BatchCond.ok(lastStep));
                     }
                     if (this.#version >= 3) {
-                        stmtStep.condition(hrana.BatchCond.not(hrana.BatchCond.isAutocommit(batch)));
+                        stmtStep.condition(
+                            hrana.BatchCond.not(
+                                hrana.BatchCond.isAutocommit(batch),
+                            ),
+                        );
                     }
                     const rowsPromise = stmtStep.query(hranaStmt);
                     rowsPromise.catch(() => undefined); // silence Node warning
@@ -145,7 +162,8 @@ export abstract class HranaTransaction implements Transaction {
         try {
             if (this.#started === undefined) {
                 // If the transaction hasn't started yet, start it now
-                this.#started = stream.run(transactionModeToBegin(this.#mode))
+                this.#started = stream
+                    .run(transactionModeToBegin(this.#mode))
                     .then(() => undefined);
                 try {
                     await this.#started;
@@ -180,8 +198,9 @@ export abstract class HranaTransaction implements Transaction {
             }
 
             // Pipeline the ROLLBACK statement and the stream close.
-            const promise = stream.run("ROLLBACK")
-                .catch(e => { throw mapHranaError(e); });
+            const promise = stream.run("ROLLBACK").catch((e) => {
+                throw mapHranaError(e);
+            });
             stream.closeGracefully();
 
             await promise;
@@ -214,8 +233,9 @@ export abstract class HranaTransaction implements Transaction {
                 return;
             }
 
-            const promise = stream.run("COMMIT")
-                .catch(e => { throw mapHranaError(e); });
+            const promise = stream.run("COMMIT").catch((e) => {
+                throw mapHranaError(e);
+            });
             stream.closeGracefully();
 
             await promise;
@@ -238,10 +258,11 @@ export async function executeHranaBatch(
 
     let lastStep = beginStep;
     const stmtPromises = hranaStmts.map((hranaStmt) => {
-        const stmtStep = batch.step()
-            .condition(hrana.BatchCond.ok(lastStep));
+        const stmtStep = batch.step().condition(hrana.BatchCond.ok(lastStep));
         if (version >= 3) {
-            stmtStep.condition(hrana.BatchCond.not(hrana.BatchCond.isAutocommit(batch)));
+            stmtStep.condition(
+                hrana.BatchCond.not(hrana.BatchCond.isAutocommit(batch)),
+            );
         }
 
         const stmtPromise = stmtStep.query(hranaStmt);
@@ -249,16 +270,18 @@ export async function executeHranaBatch(
         return stmtPromise;
     });
 
-    const commitStep = batch.step()
-        .condition(hrana.BatchCond.ok(lastStep));
+    const commitStep = batch.step().condition(hrana.BatchCond.ok(lastStep));
     if (version >= 3) {
-        commitStep.condition(hrana.BatchCond.not(hrana.BatchCond.isAutocommit(batch)));
+        commitStep.condition(
+            hrana.BatchCond.not(hrana.BatchCond.isAutocommit(batch)),
+        );
     }
     const commitPromise = commitStep.run("COMMIT");
 
-    const rollbackStep = batch.step()
+    const rollbackStep = batch
+        .step()
         .condition(hrana.BatchCond.not(hrana.BatchCond.ok(commitStep)));
-    rollbackStep.run("ROLLBACK").catch(_ => undefined);
+    rollbackStep.run("ROLLBACK").catch((_) => undefined);
 
     await batch.execute();
 
@@ -297,13 +320,21 @@ export function stmtToHrana(stmt: InStatement): hrana.Stmt {
 }
 
 export function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
-    const columns = hranaRows.columnNames.map(c => c ?? "");
-    const columnTypes = hranaRows.columnDecltypes.map(c => c ?? "");
+    const columns = hranaRows.columnNames.map((c) => c ?? "");
+    const columnTypes = hranaRows.columnDecltypes.map((c) => c ?? "");
     const rows = hranaRows.rows;
     const rowsAffected = hranaRows.affectedRowCount;
-    const lastInsertRowid = hranaRows.lastInsertRowid !== undefined
-            ? hranaRows.lastInsertRowid : undefined;
-    return new ResultSetImpl(columns, columnTypes, rows, rowsAffected, lastInsertRowid);
+    const lastInsertRowid =
+        hranaRows.lastInsertRowid !== undefined
+            ? hranaRows.lastInsertRowid
+            : undefined;
+    return new ResultSetImpl(
+        columns,
+        columnTypes,
+        rows,
+        rowsAffected,
+        lastInsertRowid,
+    );
 }
 
 export function mapHranaError(e: unknown): unknown {
@@ -320,8 +351,9 @@ function mapHranaErrorCode(e: hrana.ClientError): string {
     } else if (e instanceof hrana.ProtoError) {
         return "HRANA_PROTO_ERROR";
     } else if (e instanceof hrana.ClosedError) {
-        return e.cause instanceof hrana.ClientError 
-            ? mapHranaErrorCode(e.cause) : "HRANA_CLOSED_ERROR";
+        return e.cause instanceof hrana.ClientError
+            ? mapHranaErrorCode(e.cause)
+            : "HRANA_CLOSED_ERROR";
     } else if (e instanceof hrana.WebSocketError) {
         return "HRANA_WEBSOCKET_ERROR";
     } else if (e instanceof hrana.HttpServerError) {

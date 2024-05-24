@@ -55,24 +55,24 @@ async function main() {
 }
 
 async function runWorker(local, clientUrlInsideWorker) {
-    console.info(`Creating a ${local ? 'local' : 'nonlocal'} Worker...`);
+    console.info(`Creating a ${local ? "local" : "nonlocal"} Worker...`);
     const worker = await wrangler.unstable_dev("worker.js", {
         config: "wrangler.toml",
         logLevel: "info",
         local,
         vars: {
-            "CLIENT_URL": clientUrlInsideWorker.toString(),
+            CLIENT_URL: clientUrlInsideWorker.toString(),
         },
         experimental: {
             disableExperimentalWarning: true,
-        }
+        },
     });
     console.info(`Worker created on ${worker.address}:${worker.port}`);
 
     try {
         let ok = true;
         for (const testCase of testCases) {
-            if (!await runTest(worker, testCase)) {
+            if (!(await runTest(worker, testCase))) {
                 ok = false;
             }
         }
@@ -90,7 +90,9 @@ async function runTest(worker, testCase) {
     if (ok) {
         console.info(`TEST ${testCase}: passed`);
     } else {
-        console.warn(`\nTEST ${testCase}: failed with status ${resp.status}\n${respText}\n`);
+        console.warn(
+            `\nTEST ${testCase}: failed with status ${resp.status}\n${respText}\n`,
+        );
     }
     return ok;
 }

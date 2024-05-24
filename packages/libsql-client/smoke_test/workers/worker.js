@@ -5,9 +5,7 @@ export default {
         function respond(status, responseBody) {
             return new Response(responseBody, {
                 status,
-                headers: [
-                    ["content-type", "text/plain"],
-                ],
+                headers: [["content-type", "text/plain"]],
             });
         }
 
@@ -17,7 +15,10 @@ export default {
 
         const url = new URL(request.url);
         if (url.pathname === "/") {
-            return respond(200, "This is a smoke-test Worker for @libsql/client");
+            return respond(
+                200,
+                "This is a smoke-test Worker for @libsql/client",
+            );
         }
 
         const testCaseFn = testCases[url.pathname];
@@ -27,7 +28,7 @@ export default {
 
         let client;
         try {
-            client = libsql.createClient({url: env.CLIENT_URL});
+            client = libsql.createClient({ url: env.CLIENT_URL });
             await testCaseFn(client);
             return respond(200, "Test passed");
         } catch (e) {
