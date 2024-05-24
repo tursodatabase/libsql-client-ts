@@ -117,15 +117,10 @@ export class HttpClient implements Client {
 
     async batch(
         stmts: Array<InStatement>,
-        mode: TransactionMode | BatchConfig = "deferred",
+        mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
-        console.log("stmts: ", stmts);
         try {
             const hranaStmts = stmts.map(stmtToHrana);
-            console.log(
-                "hranaStmts.map((s)=>s.sql): ",
-                hranaStmts.map((s) => s.sql),
-            );
             const version = await this.#client.getVersion();
 
             // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the batch and
@@ -143,29 +138,14 @@ export class HttpClient implements Client {
                 // 2. cursor request
                 // 3. pipeline request to close the stream
                 const batch = stream.batch(false);
-                const transactionMode =
-                    typeof mode === "string"
-                        ? mode
-                        : mode.transactionMode || "deferred";
                 resultsPromise = executeHranaBatch(
-                    transactionMode,
+                    mode,
                     version,
                     batch,
                     hranaStmts,
                 );
             } finally {
                 stream.closeGracefully();
-            }
-
-            const wait = typeof mode === "string" ? false : mode.wait;
-            if (wait) {
-                await waitForLastMigrationJobToFinish({
-                    authToken: this.authToken,
-                    baseUrl: this.url.origin,
-                });
-                console.log("Finished waiting for migration jobs");
-            } else {
-                console.log("Not waiting for migration jobs");
             }
 
             return await resultsPromise;
