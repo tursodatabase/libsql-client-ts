@@ -8,7 +8,7 @@ import type {
     ResultSet,
     InStatement,
 } from "@libsql/core/api";
-import { TransactionMode, BatchConfig, LibsqlError } from "@libsql/core/api";
+import { TransactionMode, LibsqlError } from "@libsql/core/api";
 import type { ExpandedConfig } from "@libsql/core/config";
 import { expandConfig } from "@libsql/core/config";
 import {
@@ -158,7 +158,7 @@ export class WsClient implements Client {
 
     async batch(
         stmts: Array<InStatement>,
-        mode: TransactionMode | BatchConfig = "deferred",
+        mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
         const streamState = await this.#openStream();
         try {
@@ -169,15 +169,13 @@ export class WsClient implements Client {
             // network roundtrip.
             streamState.conn.sqlCache.apply(hranaStmts);
             const batch = streamState.stream.batch(version >= 3);
-            const transactionMode =
-                (typeof mode === "string" ? mode : mode.transactionMode) ||
-                "deferred";
             const resultsPromise = executeHranaBatch(
-                transactionMode,
+                mode,
                 version,
                 batch,
                 hranaStmts,
             );
+
             return await resultsPromise;
         } catch (e) {
             throw mapHranaError(e);
