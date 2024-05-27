@@ -1,6 +1,7 @@
 import * as hrana from "@libsql/hrana-client";
 
 import type {
+    BatchConfig,
     Config,
     IntMode,
     Client,
@@ -21,6 +22,7 @@ import {
 import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "@libsql/core/uri";
 import { supportedUrlLink } from "@libsql/core/util";
+import { waitForLastMigrationJobToFinish } from "./migrations";
 
 export * from "@libsql/core/api";
 
@@ -137,7 +139,11 @@ export class WsClient implements Client {
         this.protocol = "ws";
     }
 
-    async execute(stmt: InStatement): Promise<ResultSet> {
+    async execute(
+        stmt: InStatement,
+        mode: BatchConfig = {},
+    ): Promise<ResultSet> {
+        console.log("mode: ", mode);
         const streamState = await this.#openStream();
         try {
             const hranaStmt = stmtToHrana(stmt);
@@ -147,6 +153,14 @@ export class WsClient implements Client {
             streamState.conn.sqlCache.apply([hranaStmt]);
             const hranaRowsPromise = streamState.stream.query(hranaStmt);
             streamState.stream.closeGracefully();
+
+            console.log("mode.wait: ", mode.wait);
+            if (mode.wait) {
+                await waitForLastMigrationJobToFinish({
+                    authToken: this.#authToken,
+                    baseUrl: this.#url.origin,
+                });
+            }
 
             return resultSetFromHrana(await hranaRowsPromise);
         } catch (e) {

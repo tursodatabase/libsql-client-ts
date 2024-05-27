@@ -67,8 +67,8 @@ const sqlCacheCapacity = 30;
 export class HttpClient implements Client {
     #client: hrana.HttpClient;
     protocol: "http";
-    url: URL;
-    authToken: string | undefined;
+    #url: URL;
+    #authToken: string | undefined;
 
     /** @private */
     constructor(
@@ -80,8 +80,8 @@ export class HttpClient implements Client {
         this.#client = hrana.openHttp(url, authToken, customFetch);
         this.#client.intMode = intMode;
         this.protocol = "http";
-        this.url = url;
-        this.authToken = authToken;
+        this.#url = url;
+        this.#authToken = authToken;
     }
 
     async execute(
@@ -104,8 +104,8 @@ export class HttpClient implements Client {
 
             if (mode.wait) {
                 await waitForLastMigrationJobToFinish({
-                    authToken: this.authToken,
-                    baseUrl: this.url.origin,
+                    authToken: this.#authToken,
+                    baseUrl: this.#url.origin,
                 });
             }
 

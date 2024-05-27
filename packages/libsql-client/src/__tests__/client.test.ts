@@ -9,6 +9,21 @@ import "./helpers.js";
 
 import type * as libsql from "../node.js";
 import { createClient } from "../node.js";
+import { waitForLastMigrationJobToFinish } from "../migrations";
+import { server as mswServer } from "./mocks/node";
+
+beforeAll(() => mswServer.listen());
+afterEach(() => mswServer.resetHandlers());
+afterAll(() => mswServer.close());
+
+jest.mock("../migrations", () => {
+    const originalModule = jest.requireActual("../migrations");
+
+    return {
+        ...originalModule,
+        waitForLastMigrationJobToFinish: jest.fn(),
+    };
+});
 
 const config = {
     url: process.env.URL ?? "ws://localhost:8080",
@@ -284,6 +299,25 @@ describe("execute()", () => {
                 args: [insertRs.lastInsertRowid!],
             });
             expect(Array.from(selectRs.rows[0])).toStrictEqual(["three"]);
+        }),
+    );
+
+    test(
+        "calls waitForLastMigrationJobToFinish when the wait parameter is set to true",
+        withClient(async (c) => {
+            await c.batch(
+                ["DROP TABLE IF EXISTS t", "CREATE TABLE t (a)"],
+                "write",
+            );
+            await c.execute("ALTER TABLE t ADD COLUMN another_column number", {
+                wait: false,
+            });
+            expect(waitForLastMigrationJobToFinish).not.toHaveBeenCalled();
+
+            await c.execute("ALTER TABLE t ADD COLUMN test_column number", {
+                wait: true,
+            });
+            expect(waitForLastMigrationJobToFinish).toHaveBeenCalled();
         }),
     );
 });

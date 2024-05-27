@@ -79,7 +79,7 @@ export interface Client {
      * });
      * ```
      */
-    execute(stmt: InStatement): Promise<ResultSet>;
+    execute(stmt: InStatement, options?: { wait: boolean }): Promise<ResultSet>;
 
     /** Execute a batch of SQL statements in a transaction.
      *

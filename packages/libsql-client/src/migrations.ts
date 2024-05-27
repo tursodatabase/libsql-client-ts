@@ -125,7 +125,10 @@ export async function waitForLastMigrationJobToFinish({
         let i = 0;
         while (i < SCHEMA_MIGRATION_MAX_RETRIES) {
             i++;
-            console.log("Waiting for migration job to finish, attempt:", i);
+            console.log(
+                `${i}: Waiting for migration job to finish, attempt:`,
+                i,
+            );
             const isLastMigrationJobFinished = await isMigrationJobFinished({
                 authToken: authToken,
                 baseUrl,
@@ -135,6 +138,10 @@ export async function waitForLastMigrationJobToFinish({
                 "isLastMigrationJobFinished:",
                 isLastMigrationJobFinished,
             );
+            if (isLastMigrationJobFinished) {
+                break;
+            }
+
             await sleep(SCHEMA_MIGRATION_SLEEP_TIME_IN_MS);
         }
     }
