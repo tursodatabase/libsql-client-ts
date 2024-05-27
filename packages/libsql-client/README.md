@@ -9,6 +9,8 @@
   SQLite for Production. Powered by <a href="https://turso.tech/libsql">libSQL</a>.
 </p>
 
+Test CI
+
 <p align="center">
   <a href="https://turso.tech"><strong>Turso</strong></a> ·
   <a href="https://docs.turso.tech/quickstart"><strong>Quickstart</strong></a> ·
