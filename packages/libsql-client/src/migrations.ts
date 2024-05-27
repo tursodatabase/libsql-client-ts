@@ -16,8 +16,8 @@ type MigrationResult = {
     migrations: Array<MigrationJobType>;
 };
 
-const SCHEMA_MIGRATION_SLEEP_TIME_IN_MS = 5000;
-const SCHEMA_MIGRATION_MAX_RETRIES = 6;
+const SCHEMA_MIGRATION_SLEEP_TIME_IN_MS = 1000;
+const SCHEMA_MIGRATION_MAX_RETRIES = 30;
 
 async function sleep(ms: number) {
     return new Promise((resolve) => {
