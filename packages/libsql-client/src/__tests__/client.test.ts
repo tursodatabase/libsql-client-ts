@@ -10,6 +10,7 @@ import "./helpers.js";
 import type * as libsql from "../node.js";
 import { createClient } from "../node.js";
 import { waitForLastMigrationJobToFinish } from "../migrations";
+import { server as mswServer } from "./mocks/node";
 
 jest.mock("../migrations", () => {
     const originalModule = jest.requireActual("../migrations");
@@ -300,19 +301,28 @@ describe("execute()", () => {
     test(
         "calls waitForLastMigrationJobToFinish when the wait parameter is set to true",
         withClient(async (c) => {
-            await c.batch(
-                ["DROP TABLE IF EXISTS t", "CREATE TABLE t (a)"],
-                "write",
-            );
-            await c.execute("ALTER TABLE t ADD COLUMN another_column number", {
-                wait: false,
-            });
-            expect(waitForLastMigrationJobToFinish).not.toHaveBeenCalled();
+            try {
+                mswServer.listen();
 
-            await c.execute("ALTER TABLE t ADD COLUMN test_column number", {
-                wait: true,
-            });
-            expect(waitForLastMigrationJobToFinish).toHaveBeenCalled();
+                await c.batch(
+                    ["DROP TABLE IF EXISTS t", "CREATE TABLE t (a)"],
+                    "write",
+                );
+                await c.execute(
+                    "ALTER TABLE t ADD COLUMN another_column number",
+                    {
+                        wait: false,
+                    },
+                );
+                expect(waitForLastMigrationJobToFinish).not.toHaveBeenCalled();
+
+                await c.execute("ALTER TABLE t ADD COLUMN test_column number", {
+                    wait: true,
+                });
+                expect(waitForLastMigrationJobToFinish).toHaveBeenCalled();
+            } finally {
+                mswServer.close();
+            }
         }),
     );
 });
