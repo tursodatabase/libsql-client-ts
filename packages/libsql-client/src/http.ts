@@ -21,7 +21,7 @@ import {
 import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "@libsql/core/uri";
 import { supportedUrlLink } from "@libsql/core/util";
-import { waitForLastMigrationJobToFinish } from "./migrations";
+import { waitForLastMigrationJobToFinish } from "./migrations.js";
 
 export * from "@libsql/core/api";
 
