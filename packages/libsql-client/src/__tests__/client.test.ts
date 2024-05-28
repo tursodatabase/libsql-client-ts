@@ -10,11 +10,6 @@ import "./helpers.js";
 import type * as libsql from "../node.js";
 import { createClient } from "../node.js";
 import { waitForLastMigrationJobToFinish } from "../migrations";
-import { server as mswServer } from "./mocks/node";
-
-beforeAll(() => mswServer.listen());
-afterEach(() => mswServer.resetHandlers());
-afterAll(() => mswServer.close());
 
 jest.mock("../migrations", () => {
     const originalModule = jest.requireActual("../migrations");
