@@ -298,7 +298,7 @@ describe("execute()", () => {
         }),
     );
 
-    test(
+    (!isFile ? test : test.skip)(
         "calls waitForLastMigrationJobToFinish when the wait parameter is set to true",
         withClient(async (c) => {
             try {
