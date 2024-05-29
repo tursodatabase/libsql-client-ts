@@ -37,7 +37,6 @@ async function isMigrationJobFinished({
     jobId,
 }: isMigrationJobFinishedProps): Promise<boolean> {
     const url = baseUrl + `/v1/jobs/${jobId}`;
-    console.log("isMigrationJobFinished url:", url);
     const result = await fetch(url, {
         method: "GET",
         headers: {
@@ -45,7 +44,6 @@ async function isMigrationJobFinished({
         },
     });
     const json = (await result.json()) as ExtendedMigrationJobType;
-    console.log("json:", json);
     const job = json as { status: string };
     if (result.status !== 200) {
         throw new Error(
@@ -101,7 +99,6 @@ async function getLastMigrationJob({
     baseUrl,
 }: getLastMigrationJobProps): Promise<MigrationJobType> {
     const url = baseUrl + "/v1/jobs";
-    console.log("url: ", url);
     const result = await fetch(url, {
         method: "GET",
         headers: {
@@ -116,7 +113,6 @@ async function getLastMigrationJob({
     }
 
     const json = (await result.json()) as MigrationResult;
-    console.log("json:", json);
     if (!json.migrations || json.migrations.length === 0) {
         throw new Error("No migrations found");
     }
@@ -147,29 +143,19 @@ export async function waitForLastMigrationJobToFinish({
     authToken,
     baseUrl,
 }: getLastMigrationJobProps) {
-    console.log("Waiting for migration jobs");
     const lastMigrationJob = await getLastMigrationJob({
         authToken: authToken,
         baseUrl,
     });
-    console.log("lastMigrationJob:", lastMigrationJob);
     if (lastMigrationJob.status !== "RunSuccess") {
         let i = 0;
         while (i < SCHEMA_MIGRATION_MAX_RETRIES) {
             i++;
-            console.log(
-                `${i}: Waiting for migration job to finish, attempt:`,
-                i,
-            );
             const isLastMigrationJobFinished = await isMigrationJobFinished({
                 authToken: authToken,
                 baseUrl,
                 jobId: lastMigrationJob.job_id,
             });
-            console.log(
-                "isLastMigrationJobFinished:",
-                isLastMigrationJobFinished,
-            );
             if (isLastMigrationJobFinished) {
                 break;
             }
