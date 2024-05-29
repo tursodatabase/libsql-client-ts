@@ -27,12 +27,25 @@ const schemaClient = createClient({
     authToken: schemaAuthToken,
 });
 
+const canarySchemaClient = createClient({
+    url: "libsql://canary-schema-db-giovannibenussi.turso.io",
+    authToken:
+        "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3MTY5OTI0MTksImlkIjoiOWM5NjYwZDYtYjFlZS00MDZhLTg1NDYtMzJlMGI2YzE5OTcwIn0.qtQKo32Jtxa8ghhDD1WsN0gbY4kCQMUVgaoJVGNoRehm3XUpsG2z8xzQ4Qgo9r2-GKYE6vmG9ufFGwkoK7shBg",
+});
+
 async function main() {
     //await schemaClient.execute(
     //"ALTER TABLE users ADD COLUMN test_column_18 number;",
     //);
-    await schemaClient.batch([
-        "ALTER TABLE users ADD COLUMN test_column_19 number;",
+    //await schemaClient.batch([
+    //"ALTER TABLE users ADD COLUMN test_column_20 number;",
+    //]);
+    //await canarySchemaClient.execute(
+    //"ALTER TABLE users ADD COLUMN test_column_21 number;",
+    //);
+    await canarySchemaClient.batch([
+        "ALTER TABLE users ADD COLUMN test_column_101 number;",
+        "ALTER TABLE users ADD COLUMN test_column_102 number;",
     ]);
 }
 
