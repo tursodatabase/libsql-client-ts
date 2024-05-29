@@ -165,6 +165,7 @@ export class WsClient implements Client {
             const hranaRowsPromise = streamState.stream.query(hranaStmt);
             streamState.stream.closeGracefully();
 
+            const hranaRowsResult = await hranaRowsPromise;
             const isSchemaDatabase = await isSchemaDatabasePromise;
             if (isSchemaDatabase) {
                 await waitForLastMigrationJobToFinish({
@@ -173,7 +174,7 @@ export class WsClient implements Client {
                 });
             }
 
-            return resultSetFromHrana(await hranaRowsPromise);
+            return resultSetFromHrana(hranaRowsResult);
         } catch (e) {
             throw mapHranaError(e);
         } finally {

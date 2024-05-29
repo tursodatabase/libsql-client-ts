@@ -113,6 +113,7 @@ export class HttpClient implements Client {
                 stream.closeGracefully();
             }
 
+            const rowsResult = await rowsPromise;
             const isSchemaDatabase = await isSchemaDatabasePromise;
             if (isSchemaDatabase) {
                 await waitForLastMigrationJobToFinish({
@@ -121,7 +122,7 @@ export class HttpClient implements Client {
                 });
             }
 
-            return resultSetFromHrana(await rowsPromise);
+            return resultSetFromHrana(rowsResult);
         } catch (e) {
             throw mapHranaError(e);
         }
