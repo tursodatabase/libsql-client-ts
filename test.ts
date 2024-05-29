@@ -29,7 +29,7 @@ const schemaClient = createClient({
 
 async function main() {
     await schemaClient.execute(
-        "ALTER TABLE users ADD COLUMN test_column_17 number;",
+        "ALTER TABLE users ADD COLUMN test_column_18 number;",
     );
 }
 

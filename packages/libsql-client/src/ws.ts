@@ -156,6 +156,7 @@ export class WsClient implements Client {
     async execute(stmt: InStatement): Promise<ResultSet> {
         const streamState = await this.#openStream();
         try {
+            const isSchemaDatabasePromise = this.getIsSchemaDatabase();
             const hranaStmt = stmtToHrana(stmt);
 
             // Schedule all operations synchronously, so they will be pipelined and executed in a single
@@ -164,7 +165,7 @@ export class WsClient implements Client {
             const hranaRowsPromise = streamState.stream.query(hranaStmt);
             streamState.stream.closeGracefully();
 
-            const isSchemaDatabase = await this.getIsSchemaDatabase();
+            const isSchemaDatabase = await isSchemaDatabasePromise;
             if (isSchemaDatabase) {
                 await waitForLastMigrationJobToFinish({
                     authToken: this.#authToken,

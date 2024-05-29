@@ -100,6 +100,7 @@ export class HttpClient implements Client {
 
     async execute(stmt: InStatement): Promise<ResultSet> {
         try {
+            const isSchemaDatabasePromise = this.getIsSchemaDatabase();
             const hranaStmt = stmtToHrana(stmt);
 
             // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the statement and
@@ -112,7 +113,7 @@ export class HttpClient implements Client {
                 stream.closeGracefully();
             }
 
-            const isSchemaDatabase = await this.getIsSchemaDatabase();
+            const isSchemaDatabase = await isSchemaDatabasePromise;
             if (isSchemaDatabase) {
                 await waitForLastMigrationJobToFinish({
                     authToken: this.#authToken,
