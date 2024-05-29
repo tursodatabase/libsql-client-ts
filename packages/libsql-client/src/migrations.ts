@@ -65,7 +65,7 @@ type getLastMigrationJobProps = {
 
 function normalizeURLScheme(url: string) {
     if (url.startsWith("ws://")) {
-        return url.replace("ws://", "https://");
+        return url.replace("ws://", "http://");
     }
     if (url.startsWith("wss://")) {
         return url.replace("wss://", "https://");
@@ -81,7 +81,6 @@ export async function getIsSchemaDatabase({
     authToken: string | undefined;
     baseUrl: string;
 }) {
-    console.log("baseUrl: ", baseUrl);
     const url = normalizeURLScheme(baseUrl + "/v1/jobs");
     console.log("url: ", url);
     const result = await fetch(url, {
