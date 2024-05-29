@@ -65,12 +65,12 @@ type getLastMigrationJobProps = {
     baseUrl: string;
 };
 
-function urlToHttps(url: string) {
-    const PREFIXES = ["ws://", "http://", "wss://"];
-    for (const prefix of PREFIXES) {
-        if (url.startsWith(prefix)) {
-            return url.replace(prefix, "https://");
-        }
+function normalizeURLScheme(url: string) {
+    if (url.startsWith("ws://")) {
+        return url.replace("ws://", "http://");
+    }
+    if (url.startsWith("wss://")) {
+        return url.replace("wss://", "https://");
     }
 
     return url;
@@ -83,7 +83,7 @@ export async function getIsSchemaDatabase({
     authToken: string | undefined;
     baseUrl: string;
 }) {
-    const url = urlToHttps(baseUrl + "/v1/jobs");
+    const url = normalizeURLScheme(baseUrl + "/v1/jobs");
     const result = await fetch(url, {
         method: "GET",
         headers: {
