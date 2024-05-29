@@ -79,7 +79,7 @@ export interface Client {
      * });
      * ```
      */
-    execute(stmt: InStatement, options?: BatchConfig): Promise<ResultSet>;
+    execute(stmt: InStatement): Promise<ResultSet>;
 
     /** Execute a batch of SQL statements in a transaction.
      *
@@ -338,10 +338,6 @@ export interface Transaction {
  * the previous write transactions to complete.
  */
 export type TransactionMode = "write" | "read" | "deferred";
-
-export type BatchConfig = {
-    wait?: boolean;
-};
 
 /** Result of executing an SQL statement.
  *

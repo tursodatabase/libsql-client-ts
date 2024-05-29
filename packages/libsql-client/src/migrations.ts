@@ -65,11 +65,36 @@ type getLastMigrationJobProps = {
     baseUrl: string;
 };
 
+export async function getIsSchemaDatabase({
+    authToken,
+    baseUrl,
+}: {
+    authToken: string | undefined;
+    baseUrl: string;
+}) {
+    const url = baseUrl + "/v1/jobs";
+    const result = await fetch(url, {
+        method: "GET",
+        headers: {
+            Authorization: `Bearer ${authToken}`,
+        },
+    });
+    const json = (await result.json()) as { error: string };
+    const isChildDatabase =
+        result.status === 400 && json.error === "Invalid namespace";
+    return !isChildDatabase;
+}
+
 async function getLastMigrationJob({
     authToken,
     baseUrl,
 }: getLastMigrationJobProps): Promise<MigrationJobType> {
     const url = baseUrl + "/v1/jobs";
+    const isSchemaDatabase = await getIsSchemaDatabase({
+        authToken,
+        baseUrl,
+    });
+    console.log("isSchemaDatabase: ", isSchemaDatabase);
     const result = await fetch(url, {
         method: "GET",
         headers: {
@@ -115,6 +140,15 @@ export async function waitForLastMigrationJobToFinish({
     authToken,
     baseUrl,
 }: getLastMigrationJobProps) {
+    const isSchemaDatabase = await getIsSchemaDatabase({
+        authToken,
+        baseUrl,
+    });
+    console.log("isSchemaDatabase: ", isSchemaDatabase);
+    if (!isSchemaDatabase) {
+        return;
+    }
+
     console.log("Waiting for migration jobs");
     const lastMigrationJob = await getLastMigrationJob({
         authToken: authToken,

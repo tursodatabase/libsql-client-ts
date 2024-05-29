@@ -1,7 +1,6 @@
 import * as hrana from "@libsql/hrana-client";
 
 import type {
-    BatchConfig,
     Config,
     IntMode,
     Client,
@@ -139,11 +138,7 @@ export class WsClient implements Client {
         this.protocol = "ws";
     }
 
-    async execute(
-        stmt: InStatement,
-        mode: BatchConfig = {},
-    ): Promise<ResultSet> {
-        console.log("mode: ", mode);
+    async execute(stmt: InStatement): Promise<ResultSet> {
         const streamState = await this.#openStream();
         try {
             const hranaStmt = stmtToHrana(stmt);
@@ -154,13 +149,10 @@ export class WsClient implements Client {
             const hranaRowsPromise = streamState.stream.query(hranaStmt);
             streamState.stream.closeGracefully();
 
-            console.log("mode.wait: ", mode.wait);
-            if (mode.wait) {
-                await waitForLastMigrationJobToFinish({
-                    authToken: this.#authToken,
-                    baseUrl: this.#url.origin,
-                });
-            }
+            await waitForLastMigrationJobToFinish({
+                authToken: this.#authToken,
+                baseUrl: this.#url.origin,
+            });
 
             return resultSetFromHrana(await hranaRowsPromise);
         } catch (e) {

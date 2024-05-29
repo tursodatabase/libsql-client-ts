@@ -2,7 +2,6 @@ import * as hrana from "@libsql/hrana-client";
 
 import type { Config, Client } from "@libsql/core/api";
 import type {
-    BatchConfig,
     InStatement,
     ResultSet,
     Transaction,
@@ -84,11 +83,7 @@ export class HttpClient implements Client {
         this.#authToken = authToken;
     }
 
-    async execute(
-        stmt: InStatement,
-        mode: BatchConfig = {},
-    ): Promise<ResultSet> {
-        console.log("mode: ", mode);
+    async execute(stmt: InStatement): Promise<ResultSet> {
         try {
             const hranaStmt = stmtToHrana(stmt);
 
@@ -102,12 +97,10 @@ export class HttpClient implements Client {
                 stream.closeGracefully();
             }
 
-            if (mode.wait) {
-                await waitForLastMigrationJobToFinish({
-                    authToken: this.#authToken,
-                    baseUrl: this.#url.origin,
-                });
-            }
+            await waitForLastMigrationJobToFinish({
+                authToken: this.#authToken,
+                baseUrl: this.#url.origin,
+            });
 
             return resultSetFromHrana(await rowsPromise);
         } catch (e) {
