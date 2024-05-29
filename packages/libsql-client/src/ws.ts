@@ -21,6 +21,10 @@ import {
 import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "@libsql/core/uri";
 import { supportedUrlLink } from "@libsql/core/util";
+import {
+    getIsSchemaDatabase,
+    waitForLastMigrationJobToFinish,
+} from "./migrations.js";
 
 export * from "@libsql/core/api";
 
@@ -120,6 +124,7 @@ export class WsClient implements Client {
     #futureConnState: ConnState | undefined;
     closed: boolean;
     protocol: "ws";
+    #isSchemaDatabase: boolean | undefined;
 
     /** @private */
     constructor(
@@ -137,9 +142,21 @@ export class WsClient implements Client {
         this.protocol = "ws";
     }
 
+    async getIsSchemaDatabase(): Promise<boolean> {
+        if (this.#isSchemaDatabase === undefined) {
+            this.#isSchemaDatabase = await getIsSchemaDatabase({
+                authToken: this.#authToken,
+                baseUrl: this.#url.origin,
+            });
+        }
+
+        return this.#isSchemaDatabase;
+    }
+
     async execute(stmt: InStatement): Promise<ResultSet> {
         const streamState = await this.#openStream();
         try {
+            const isSchemaDatabasePromise = this.getIsSchemaDatabase();
             const hranaStmt = stmtToHrana(stmt);
 
             // Schedule all operations synchronously, so they will be pipelined and executed in a single
@@ -148,7 +165,16 @@ export class WsClient implements Client {
             const hranaRowsPromise = streamState.stream.query(hranaStmt);
             streamState.stream.closeGracefully();
 
-            return resultSetFromHrana(await hranaRowsPromise);
+            const hranaRowsResult = await hranaRowsPromise;
+            const isSchemaDatabase = await isSchemaDatabasePromise;
+            if (isSchemaDatabase) {
+                await waitForLastMigrationJobToFinish({
+                    authToken: this.#authToken,
+                    baseUrl: this.#url.origin,
+                });
+            }
+
+            return resultSetFromHrana(hranaRowsResult);
         } catch (e) {
             throw mapHranaError(e);
         } finally {
@@ -162,6 +188,7 @@ export class WsClient implements Client {
     ): Promise<Array<ResultSet>> {
         const streamState = await this.#openStream();
         try {
+            const isSchemaDatabasePromise = this.getIsSchemaDatabase();
             const hranaStmts = stmts.map(stmtToHrana);
             const version = await streamState.conn.client.getVersion();
 
@@ -176,7 +203,16 @@ export class WsClient implements Client {
                 hranaStmts,
             );
 
-            return await resultsPromise;
+            const results = await resultsPromise;
+            const isSchemaDatabase = await isSchemaDatabasePromise;
+            if (isSchemaDatabase) {
+                await waitForLastMigrationJobToFinish({
+                    authToken: this.#authToken,
+                    baseUrl: this.#url.origin,
+                });
+            }
+
+            return results;
         } catch (e) {
             throw mapHranaError(e);
         } finally {
