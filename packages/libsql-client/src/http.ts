@@ -20,7 +20,10 @@ import {
 import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "@libsql/core/uri";
 import { supportedUrlLink } from "@libsql/core/util";
-import { waitForLastMigrationJobToFinish } from "./migrations.js";
+import {
+    getIsSchemaDatabase,
+    waitForLastMigrationJobToFinish,
+} from "./migrations.js";
 
 export * from "@libsql/core/api";
 
@@ -68,6 +71,7 @@ export class HttpClient implements Client {
     protocol: "http";
     #url: URL;
     #authToken: string | undefined;
+    #isSchemaDatabase: boolean | undefined;
 
     /** @private */
     constructor(
@@ -81,6 +85,17 @@ export class HttpClient implements Client {
         this.protocol = "http";
         this.#url = url;
         this.#authToken = authToken;
+    }
+
+    async getIsSchemaDatabase(): Promise<boolean> {
+        if (this.#isSchemaDatabase === undefined) {
+            this.#isSchemaDatabase = await getIsSchemaDatabase({
+                authToken: this.#authToken,
+                baseUrl: this.#url.origin,
+            });
+        }
+
+        return this.#isSchemaDatabase;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
@@ -97,10 +112,13 @@ export class HttpClient implements Client {
                 stream.closeGracefully();
             }
 
-            await waitForLastMigrationJobToFinish({
-                authToken: this.#authToken,
-                baseUrl: this.#url.origin,
-            });
+            const isSchemaDatabase = await this.getIsSchemaDatabase();
+            if (isSchemaDatabase) {
+                await waitForLastMigrationJobToFinish({
+                    authToken: this.#authToken,
+                    baseUrl: this.#url.origin,
+                });
+            }
 
             return resultSetFromHrana(await rowsPromise);
         } catch (e) {

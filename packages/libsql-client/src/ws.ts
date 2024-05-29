@@ -21,7 +21,10 @@ import {
 import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "@libsql/core/uri";
 import { supportedUrlLink } from "@libsql/core/util";
-import { waitForLastMigrationJobToFinish } from "./migrations.js";
+import {
+    getIsSchemaDatabase,
+    waitForLastMigrationJobToFinish,
+} from "./migrations.js";
 
 export * from "@libsql/core/api";
 
@@ -121,6 +124,7 @@ export class WsClient implements Client {
     #futureConnState: ConnState | undefined;
     closed: boolean;
     protocol: "ws";
+    #isSchemaDatabase: boolean | undefined;
 
     /** @private */
     constructor(
@@ -138,6 +142,17 @@ export class WsClient implements Client {
         this.protocol = "ws";
     }
 
+    async getIsSchemaDatabase(): Promise<boolean> {
+        if (this.#isSchemaDatabase === undefined) {
+            this.#isSchemaDatabase = await getIsSchemaDatabase({
+                authToken: this.#authToken,
+                baseUrl: this.#url.origin,
+            });
+        }
+
+        return this.#isSchemaDatabase;
+    }
+
     async execute(stmt: InStatement): Promise<ResultSet> {
         const streamState = await this.#openStream();
         try {
@@ -149,10 +164,13 @@ export class WsClient implements Client {
             const hranaRowsPromise = streamState.stream.query(hranaStmt);
             streamState.stream.closeGracefully();
 
-            await waitForLastMigrationJobToFinish({
-                authToken: this.#authToken,
-                baseUrl: this.#url.origin,
-            });
+            const isSchemaDatabase = await this.getIsSchemaDatabase();
+            if (isSchemaDatabase) {
+                await waitForLastMigrationJobToFinish({
+                    authToken: this.#authToken,
+                    baseUrl: this.#url.origin,
+                });
+            }
 
             return resultSetFromHrana(await hranaRowsPromise);
         } catch (e) {

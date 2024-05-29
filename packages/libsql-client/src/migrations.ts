@@ -90,11 +90,6 @@ async function getLastMigrationJob({
     baseUrl,
 }: getLastMigrationJobProps): Promise<MigrationJobType> {
     const url = baseUrl + "/v1/jobs";
-    const isSchemaDatabase = await getIsSchemaDatabase({
-        authToken,
-        baseUrl,
-    });
-    console.log("isSchemaDatabase: ", isSchemaDatabase);
     const result = await fetch(url, {
         method: "GET",
         headers: {
@@ -140,15 +135,6 @@ export async function waitForLastMigrationJobToFinish({
     authToken,
     baseUrl,
 }: getLastMigrationJobProps) {
-    const isSchemaDatabase = await getIsSchemaDatabase({
-        authToken,
-        baseUrl,
-    });
-    console.log("isSchemaDatabase: ", isSchemaDatabase);
-    if (!isSchemaDatabase) {
-        return;
-    }
-
     console.log("Waiting for migration jobs");
     const lastMigrationJob = await getLastMigrationJob({
         authToken: authToken,
