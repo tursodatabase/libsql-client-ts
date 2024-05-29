@@ -36,7 +36,7 @@ async function isMigrationJobFinished({
     baseUrl,
     jobId,
 }: isMigrationJobFinishedProps): Promise<boolean> {
-    const url = baseUrl + `/v1/jobs/${jobId}`;
+    const url = normalizeURLScheme(baseUrl + `/v1/jobs/${jobId}`);
     const result = await fetch(url, {
         method: "GET",
         headers: {
@@ -100,7 +100,7 @@ async function getLastMigrationJob({
     authToken,
     baseUrl,
 }: getLastMigrationJobProps): Promise<MigrationJobType> {
-    const url = baseUrl + "/v1/jobs";
+    const url = normalizeURLScheme(baseUrl + "/v1/jobs");
     const result = await fetch(url, {
         method: "GET",
         headers: {
