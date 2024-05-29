@@ -188,6 +188,7 @@ export class WsClient implements Client {
     ): Promise<Array<ResultSet>> {
         const streamState = await this.#openStream();
         try {
+            const isSchemaDatabasePromise = this.getIsSchemaDatabase();
             const hranaStmts = stmts.map(stmtToHrana);
             const version = await streamState.conn.client.getVersion();
 
@@ -202,7 +203,16 @@ export class WsClient implements Client {
                 hranaStmts,
             );
 
-            return await resultsPromise;
+            const results = await resultsPromise;
+            const isSchemaDatabase = await isSchemaDatabasePromise;
+            if (isSchemaDatabase) {
+                await waitForLastMigrationJobToFinish({
+                    authToken: this.#authToken,
+                    baseUrl: this.#url.origin,
+                });
+            }
+
+            return results;
         } catch (e) {
             throw mapHranaError(e);
         } finally {

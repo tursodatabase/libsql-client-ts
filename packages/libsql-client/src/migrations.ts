@@ -90,6 +90,7 @@ async function getLastMigrationJob({
     baseUrl,
 }: getLastMigrationJobProps): Promise<MigrationJobType> {
     const url = baseUrl + "/v1/jobs";
+    console.log("url: ", url);
     const result = await fetch(url, {
         method: "GET",
         headers: {

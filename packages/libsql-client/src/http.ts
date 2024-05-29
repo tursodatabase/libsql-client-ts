@@ -133,6 +133,7 @@ export class HttpClient implements Client {
         mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
         try {
+            const isSchemaDatabasePromise = this.getIsSchemaDatabase();
             const hranaStmts = stmts.map(stmtToHrana);
             const version = await this.#client.getVersion();
 
@@ -161,7 +162,16 @@ export class HttpClient implements Client {
                 stream.closeGracefully();
             }
 
-            return await resultsPromise;
+            const results = await resultsPromise;
+            const isSchemaDatabase = await isSchemaDatabasePromise;
+            if (isSchemaDatabase) {
+                await waitForLastMigrationJobToFinish({
+                    authToken: this.#authToken,
+                    baseUrl: this.#url.origin,
+                });
+            }
+
+            return results;
         } catch (e) {
             throw mapHranaError(e);
         }
