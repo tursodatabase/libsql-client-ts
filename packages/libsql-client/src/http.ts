@@ -20,6 +20,10 @@ import {
 import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "@libsql/core/uri";
 import { supportedUrlLink } from "@libsql/core/util";
+import {
+    getIsSchemaDatabase,
+    waitForLastMigrationJobToFinish,
+} from "./migrations.js";
 
 export * from "@libsql/core/api";
 
@@ -65,6 +69,9 @@ const sqlCacheCapacity = 30;
 export class HttpClient implements Client {
     #client: hrana.HttpClient;
     protocol: "http";
+    #url: URL;
+    #authToken: string | undefined;
+    #isSchemaDatabase: boolean | undefined;
 
     /** @private */
     constructor(
@@ -76,10 +83,24 @@ export class HttpClient implements Client {
         this.#client = hrana.openHttp(url, authToken, customFetch);
         this.#client.intMode = intMode;
         this.protocol = "http";
+        this.#url = url;
+        this.#authToken = authToken;
+    }
+
+    async getIsSchemaDatabase(): Promise<boolean> {
+        if (this.#isSchemaDatabase === undefined) {
+            this.#isSchemaDatabase = await getIsSchemaDatabase({
+                authToken: this.#authToken,
+                baseUrl: this.#url.origin,
+            });
+        }
+
+        return this.#isSchemaDatabase;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
         try {
+            const isSchemaDatabasePromise = this.getIsSchemaDatabase();
             const hranaStmt = stmtToHrana(stmt);
 
             // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the statement and
@@ -92,7 +113,16 @@ export class HttpClient implements Client {
                 stream.closeGracefully();
             }
 
-            return resultSetFromHrana(await rowsPromise);
+            const rowsResult = await rowsPromise;
+            const isSchemaDatabase = await isSchemaDatabasePromise;
+            if (isSchemaDatabase) {
+                await waitForLastMigrationJobToFinish({
+                    authToken: this.#authToken,
+                    baseUrl: this.#url.origin,
+                });
+            }
+
+            return resultSetFromHrana(rowsResult);
         } catch (e) {
             throw mapHranaError(e);
         }
@@ -103,6 +133,7 @@ export class HttpClient implements Client {
         mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
         try {
+            const isSchemaDatabasePromise = this.getIsSchemaDatabase();
             const hranaStmts = stmts.map(stmtToHrana);
             const version = await this.#client.getVersion();
 
@@ -131,7 +162,16 @@ export class HttpClient implements Client {
                 stream.closeGracefully();
             }
 
-            return await resultsPromise;
+            const results = await resultsPromise;
+            const isSchemaDatabase = await isSchemaDatabasePromise;
+            if (isSchemaDatabase) {
+                await waitForLastMigrationJobToFinish({
+                    authToken: this.#authToken,
+                    baseUrl: this.#url.origin,
+                });
+            }
+
+            return results;
         } catch (e) {
             throw mapHranaError(e);
         }

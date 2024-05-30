@@ -4,3 +4,4 @@ node_modules
 /docs
 *.tsbuildinfo
 Session.vim
+packages/libsql-client/hrana-test-server

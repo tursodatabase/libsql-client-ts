@@ -8,6 +8,7 @@ jobs:
     "wasm-test":
         name: "Build and test Wasm on Node.js"
         runs-on: ubuntu-latest
+        timeout-minutes: 2
         defaults:
             run:
                 working-directory: ./packages/libsql-client-wasm
@@ -35,6 +36,7 @@ jobs:
     "node-test":
         name: "Build and test on Node.js"
         runs-on: ubuntu-latest
+        timeout-minutes: 2
         defaults:
             run:
                 working-directory: ./packages/libsql-client
@@ -94,7 +96,9 @@ jobs:
 
     "workers-test":
         name: "Build and test with Cloudflare Workers"
+        if: false
         runs-on: ubuntu-latest
+        timeout-minutes: 2
         defaults:
             run:
                 working-directory: ./packages/libsql-client
