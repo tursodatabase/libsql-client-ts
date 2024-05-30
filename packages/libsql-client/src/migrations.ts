@@ -82,14 +82,12 @@ export async function getIsSchemaDatabase({
     baseUrl: string;
 }) {
     const url = normalizeURLScheme(baseUrl + "/v1/jobs");
-    console.log("url: ", url);
     const result = await fetch(url, {
         method: "GET",
         headers: {
             Authorization: `Bearer ${authToken}`,
         },
     });
-    console.log("result: ", result);
     const json = (await result.json()) as { error: string };
     const isChildDatabase =
         result.status === 400 && json.error === "Invalid namespace";
