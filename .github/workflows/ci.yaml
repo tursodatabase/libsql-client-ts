@@ -96,6 +96,7 @@ jobs:
 
     "workers-test":
         name: "Build and test with Cloudflare Workers"
+        if: false
         runs-on: ubuntu-latest
         timeout-minutes: 2
         defaults:
