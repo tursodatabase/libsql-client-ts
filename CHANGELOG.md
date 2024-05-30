@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1 -- 2024-05-30
+
+-   Add an option to `batch()` to wait for schema changes to finish when using shared schema.
+
 ## 0.6.0 -- 2024-04-28
 
 -   Bump hrana client to 0.6.0, which uses native Node fetch(). Note that
