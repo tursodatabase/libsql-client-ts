@@ -81,26 +81,42 @@ export async function getIsSchemaDatabase({
     authToken: string | undefined;
     baseUrl: string;
 }) {
-    if (baseUrl.startsWith("http://127.0.0.1")) {
-        return false;
+    let responseStatusCode;
+    try {
+        if (baseUrl.startsWith("http://127.0.0.1")) {
+            return false;
+        }
+        const url = normalizeURLScheme(baseUrl + "/v1/jobs");
+
+        const result = await fetch(url, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${authToken}`,
+            },
+        });
+        if (result.status === 404) {
+            return false;
+        }
+
+        const json = (await result.json()) as { error: string };
+
+        const isChildDatabase =
+            result.status === 400 && json.error === "Invalid namespace";
+        return !isChildDatabase;
+    } catch (e) {
+        console.error(e);
+        console.error(
+            [
+                `There has been an error while retrieving the database type.`,
+                `Debug information:`,
+                `- URL: ${baseUrl}`,
+                `- Response Status Code: ${
+                    responseStatusCode ? responseStatusCode : "N/A"
+                }`,
+            ].join("\n"),
+        );
+        throw e;
     }
-    const url = normalizeURLScheme(baseUrl + "/v1/jobs");
-
-    const result = await fetch(url, {
-        method: "GET",
-        headers: {
-            Authorization: `Bearer ${authToken}`,
-        },
-    });
-    if (result.status === 404) {
-        return false;
-    }
-
-    const json = (await result.json()) as { error: string };
-
-    const isChildDatabase =
-        result.status === 400 && json.error === "Invalid namespace";
-    return !isChildDatabase;
 }
 
 async function getLastMigrationJob({
