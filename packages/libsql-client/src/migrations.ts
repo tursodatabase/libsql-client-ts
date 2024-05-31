@@ -81,7 +81,11 @@ export async function getIsSchemaDatabase({
     authToken: string | undefined;
     baseUrl: string;
 }) {
+    if (baseUrl.startsWith("http://127.0.0.1")) {
+        return false;
+    }
     const url = normalizeURLScheme(baseUrl + "/v1/jobs");
+
     const result = await fetch(url, {
         method: "GET",
         headers: {
