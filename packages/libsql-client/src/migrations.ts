@@ -104,7 +104,6 @@ export async function getIsSchemaDatabase({
             result.status === 400 && json.error === "Invalid namespace";
         return !isChildDatabase;
     } catch (e) {
-        console.error(e);
         console.error(
             [
                 `There has been an error while retrieving the database type.`,
