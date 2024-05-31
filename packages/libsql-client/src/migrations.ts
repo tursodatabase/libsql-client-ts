@@ -94,7 +94,7 @@ export async function getIsSchemaDatabase({
                 Authorization: `Bearer ${authToken}`,
             },
         });
-        if (result.status === 404) {
+        if (result.status === 404 || result.status === 500) {
             return false;
         }
 
