@@ -88,7 +88,12 @@ export async function getIsSchemaDatabase({
             Authorization: `Bearer ${authToken}`,
         },
     });
+    if (result.status === 404) {
+        return false;
+    }
+
     const json = (await result.json()) as { error: string };
+
     const isChildDatabase =
         result.status === 400 && json.error === "Invalid namespace";
     return !isChildDatabase;
