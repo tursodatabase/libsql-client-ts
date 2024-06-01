@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.2 -- 2024-06-01
+
+-   Fix compatibility issue with libSQL server versions that don't have migrations endpoint.
+
 ## 0.6.1 -- 2024-05-30
 
 -   Add an option to `batch()` to wait for schema changes to finish when using shared schema.
