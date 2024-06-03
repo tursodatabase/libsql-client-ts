@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+-   Bump hrana client to 0.6.2.
+
 ## 0.7.0 -- 2024-06-25
 
 -   Add configurable concurrency limit for parallel query execution
