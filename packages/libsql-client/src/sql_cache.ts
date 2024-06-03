@@ -31,6 +31,12 @@ export class SqlCache {
             }
             const sqlText = hranaStmt.sql;
 
+            // Stored SQL cannot exceed 5kb.
+            // https://github.com/tursodatabase/libsql/blob/e9d637e051685f92b0da43849507b5ef4232fbeb/libsql-server/src/hrana/http/request.rs#L10
+            if (sqlText.length >= 5000) {
+                continue;
+            }
+
             let sqlObj = this.#sqls.get(sqlText);
             if (sqlObj === undefined) {
                 while (this.#sqls.size + 1 > this.capacity) {
