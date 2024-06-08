@@ -155,8 +155,6 @@ export function expandConfig(
         );
     }
 
-    // todo: libsql-client-ts may want to validate parameters for the "in-memory" mode and throw if some of them filled unexpectedly
-    // but, in order to not break compatibility between clients for now client doesn't do these validations and just ignore parameters
     if (isInMemoryMode) {
         return {
             scheme: "file",
