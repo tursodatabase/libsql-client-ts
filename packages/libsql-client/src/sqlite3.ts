@@ -62,7 +62,8 @@ export function _createClient(config: ExpandedConfig): Client {
         }
     }
 
-    const path = config.path;
+    // note: we must always prepend file scheme in order for SQLite3 to recognize :memory: connection query parameters
+    const path = `${config.scheme}:${config.path}`;
     const options = {
         authToken: config.authToken,
         encryptionKey: config.encryptionKey,
