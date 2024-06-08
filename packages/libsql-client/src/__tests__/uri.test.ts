@@ -1,11 +1,23 @@
 import { expect } from "@jest/globals";
-import type { MatcherFunction } from "expect";
 
 import "./helpers.js";
 
 import { parseUri, encodeBaseUrl } from "@libsql/core/uri";
 
 describe("parseUri()", () => {
+    test(":memory: uri", () => {
+        const cases = [
+            { text: "file::memory:", path: ":memory:", query: undefined },
+            {
+                text: "file::memory:?cache=shared",
+                path: ":memory:",
+                query: { pairs: [{ key: "cache", value: "shared" }] },
+            },
+        ];
+        for (const { text, path, query } of cases) {
+            expect(parseUri(text)).toEqual({ scheme: "file", path, query });
+        }
+    });
     test("authority and path", () => {
         const cases = [
             { text: "file://localhost", path: "" },
