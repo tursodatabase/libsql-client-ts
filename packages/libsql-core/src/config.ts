@@ -19,50 +19,59 @@ export interface ExpandedConfig {
 
 export type ExpandedScheme = "wss" | "ws" | "https" | "http" | "file";
 
-type update = (config: Config, value: string) => void;
-type queryParamDef = { values?: string[]; update?: update };
+type queryParamDef = {
+    values?: string[];
+    update?: (key: string, value: string) => void;
+};
 type queryParamsDef = { [key: string]: queryParamDef };
 
 const inMemoryMode = ":memory:";
-const uriQueryParamsDef: queryParamsDef = {
-    tls: {
-        values: ["0", "1"],
-        update: (config, value) => (config.tls = value === "1"),
-    },
-    authToken: {
-        update: (config, authToken) => (config.authToken = authToken),
-    },
-};
-const inMemoryQueryParamsDef: queryParamsDef = {
-    cache: { values: ["shared", "private"] },
-};
 
 export function expandConfig(
-    original: Readonly<Config>,
+    config: Readonly<Config>,
     preferHttp: boolean,
 ): ExpandedConfig {
-    if (typeof original !== "object") {
+    if (typeof config !== "object") {
         // produce a reasonable error message in the common case where users type
         // `createClient("libsql://...")` instead of `createClient({url: "libsql://..."})`
         throw new TypeError(
-            `Expected client configuration as object, got ${typeof original}`,
+            `Expected client configuration as object, got ${typeof config}`,
         );
     }
 
-    let config = { ...original };
+    let { url, authToken, tls, intMode } = config;
+    let connectionQueryParams: string[] = []; // recognized query parameters which we sanitize through white list of valid key-value pairs
 
     // convert plain :memory: url to URI format to make logic more uniform
-    if (config.url === inMemoryMode) {
-        config.url = "file::memory:";
+    if (url === inMemoryMode) {
+        url = "file::memory:";
     }
 
     // parse url parameters first and override config with update values
-    const uri = parseUri(config.url);
-    const uriScheme = uri.scheme.toLowerCase();
-    const queryParamsDef =
-        uri.authority === undefined && uri.path === inMemoryMode
-            ? inMemoryQueryParamsDef
-            : uriQueryParamsDef;
+    const uri = parseUri(url);
+    const originalUriScheme = uri.scheme.toLowerCase();
+
+    let queryParamsDef: queryParamsDef;
+    if (uri.authority === undefined && uri.path === inMemoryMode) {
+        queryParamsDef = {
+            cache: {
+                values: ["shared", "private"],
+                update: (key, value) =>
+                    connectionQueryParams.push(`${key}=${value}`),
+            },
+        };
+    } else {
+        queryParamsDef = {
+            tls: {
+                values: ["0", "1"],
+                update: (_, value) => (tls = value === "1"),
+            },
+            authToken: {
+                update: (_, value) => (authToken = value),
+            },
+        };
+    }
+
     for (const { key, value } of uri.query?.pairs ?? []) {
         if (!Object.hasOwn(queryParamsDef, key)) {
             throw new LibsqlError(
@@ -81,20 +90,19 @@ export function expandConfig(
             );
         }
         if (queryParamDef.update !== undefined) {
-            queryParamDef?.update(config, value);
+            queryParamDef?.update(key, value);
         }
     }
 
     // fill defaults & validate config
-    config.intMode ??= "number";
-    if (uriScheme === "http" || uriScheme === "ws") {
-        config.tls ??= false;
-    } else {
-        config.tls ??= true;
-    }
-    let scheme: ExpandedScheme;
-    if (uriScheme === "libsql") {
-        if (config.tls === false) {
+    let path =
+        uri.path +
+        (connectionQueryParams.length === 0
+            ? ""
+            : `?${connectionQueryParams.join("&")}`);
+    let scheme: string;
+    if (originalUriScheme === "libsql") {
+        if (tls === false) {
             if (uri.authority?.port === undefined) {
                 throw new LibsqlError(
                     'A "libsql:" URL with ?tls=0 must specify an explicit port',
@@ -105,15 +113,24 @@ export function expandConfig(
         } else {
             scheme = preferHttp ? "https" : "wss";
         }
-    } else if (
-        uriScheme === "http" ||
-        uriScheme === "ws" ||
-        uriScheme === "https" ||
-        uriScheme === "wss" ||
-        uriScheme === "file"
-    ) {
-        scheme = uriScheme;
     } else {
+        scheme = originalUriScheme;
+    }
+
+    intMode ??= "number";
+    if (scheme === "http" || scheme === "ws") {
+        tls ??= false;
+    } else {
+        tls ??= true;
+    }
+
+    if (
+        scheme !== "http" &&
+        scheme !== "ws" &&
+        scheme !== "https" &&
+        scheme !== "wss" &&
+        scheme !== "file"
+    ) {
         throw new LibsqlError(
             'The client supports only "libsql:", "wss:", "ws:", "https:", "http:" and "file:" URLs, ' +
                 `got ${JSON.stringify(uri.scheme + ":")}. ` +
@@ -121,13 +138,9 @@ export function expandConfig(
             "URL_SCHEME_NOT_SUPPORTED",
         );
     }
-    if (
-        config.intMode !== "number" &&
-        config.intMode !== "bigint" &&
-        config.intMode !== "string"
-    ) {
+    if (intMode !== "number" && intMode !== "bigint" && intMode !== "string") {
         throw new TypeError(
-            `Invalid value for intMode, expected "number", "bigint" or "string", got ${JSON.stringify(config.intMode)}`,
+            `Invalid value for intMode, expected "number", "bigint" or "string", got ${JSON.stringify(intMode)}`,
         );
     }
     if (uri.fragment !== undefined) {
@@ -137,18 +150,20 @@ export function expandConfig(
         );
     }
 
-    if (
+    // todo: libsql-client-ts may want to validate parameters for the "in-memory" mode and throw if some of them filled unexpectedly
+    // but, in order to not break compatibility between clients for now client doesn't do these validations and just ignore parameters
+    const isInMemoryMode =
         uri.scheme === "file" &&
         uri.path === inMemoryMode &&
-        uri.authority === undefined
-    ) {
+        uri.authority === undefined;
+    if (isInMemoryMode) {
         return {
-            path: inMemoryMode,
             scheme: "file",
             tls: false,
+            path,
+            intMode,
             syncUrl: config.syncUrl,
             syncInterval: config.syncInterval,
-            intMode: config.intMode,
             fetch: config.fetch,
             authToken: undefined,
             encryptionKey: undefined,
@@ -158,14 +173,14 @@ export function expandConfig(
 
     return {
         scheme,
+        tls: tls,
         authority: uri.authority,
-        path: uri.path,
-        tls: config.tls,
-        authToken: config.authToken,
+        path,
+        authToken,
+        intMode,
         encryptionKey: config.encryptionKey,
         syncUrl: config.syncUrl,
         syncInterval: config.syncInterval,
-        intMode: config.intMode,
         fetch: config.fetch,
     };
 }
