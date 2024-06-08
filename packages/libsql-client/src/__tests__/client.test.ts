@@ -291,6 +291,17 @@ describe("execute()", () => {
             expect(Array.from(selectRs.rows[0])).toStrictEqual(["three"]);
         }),
     );
+
+    // see issue https://github.com/tursodatabase/libsql/issues/1411
+    test(
+        "execute transaction with in memory database",
+        withInMemoryClient(async (c) => {
+            await c.execute("CREATE TABLE t (a)");
+            const transaction = await c.transaction();
+            transaction.close();
+            await c.execute("SELECT * FROM t");
+        }),
+    );
 });
 
 describe("values", () => {
