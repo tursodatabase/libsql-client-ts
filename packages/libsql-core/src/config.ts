@@ -174,7 +174,7 @@ export function expandConfig(
 
     return {
         scheme,
-        tls: tls,
+        tls,
         authority: uri.authority,
         path,
         authToken,
