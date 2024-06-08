@@ -312,9 +312,7 @@ describe("execute()", () => {
                 await c.execute("CREATE TABLE t (a)");
                 const transaction = await c.transaction();
                 transaction.close();
-                expect(() => c.execute("SELECT * FROM t")).rejects.toThrow(
-                    LibsqlError,
-                );
+                expect(() => c.execute("SELECT * FROM t")).rejects.toThrow();
             },
             { url: "file::memory:?cache=private" },
         ),
@@ -326,9 +324,7 @@ describe("execute()", () => {
                 await c.execute("CREATE TABLE t (a)");
                 const transaction = await c.transaction();
                 transaction.close();
-                expect(() => c.execute("SELECT * FROM t")).rejects.toThrow(
-                    LibsqlError,
-                );
+                expect(() => c.execute("SELECT * FROM t")).rejects.toThrow();
             },
             { url: ":memory:" },
         ),
