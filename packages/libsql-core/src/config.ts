@@ -50,9 +50,13 @@ export function expandConfig(
     // parse url parameters first and override config with update values
     const uri = parseUri(url);
     const originalUriScheme = uri.scheme.toLowerCase();
+    const isInMemoryMode =
+        originalUriScheme === "file" &&
+        uri.path === inMemoryMode &&
+        uri.authority === undefined;
 
     let queryParamsDef: queryParamsDef;
-    if (uri.authority === undefined && uri.path === inMemoryMode) {
+    if (isInMemoryMode) {
         queryParamsDef = {
             cache: {
                 values: ["shared", "private"],
@@ -75,7 +79,7 @@ export function expandConfig(
     for (const { key, value } of uri.query?.pairs ?? []) {
         if (!Object.hasOwn(queryParamsDef, key)) {
             throw new LibsqlError(
-                `Unknown URL query parameter ${JSON.stringify(key)}`,
+                `Unsupported URL query parameter ${JSON.stringify(key)}`,
                 "URL_PARAM_NOT_SUPPORTED",
             );
         }
@@ -85,7 +89,7 @@ export function expandConfig(
             !queryParamDef.values.includes(value)
         ) {
             throw new LibsqlError(
-                `Unknown value for the "${key}" query argument: ${JSON.stringify(value)}. Supported values are: ${queryParamDef.values}`,
+                `Unknown value for the "${key}" query argument: ${JSON.stringify(value)}. Supported values are: [${queryParamDef.values.map((x) => '"' + x + '"').join(", ")}]`,
                 "URL_INVALID",
             );
         }
@@ -95,11 +99,12 @@ export function expandConfig(
     }
 
     // fill defaults & validate config
-    let path =
-        uri.path +
-        (connectionQueryParams.length === 0
+    const connectionQueryParamsString =
+        connectionQueryParams.length === 0
             ? ""
-            : `?${connectionQueryParams.join("&")}`);
+            : `?${connectionQueryParams.join("&")}`;
+    const path = uri.path + connectionQueryParamsString;
+
     let scheme: string;
     if (originalUriScheme === "libsql") {
         if (tls === false) {
@@ -152,10 +157,6 @@ export function expandConfig(
 
     // todo: libsql-client-ts may want to validate parameters for the "in-memory" mode and throw if some of them filled unexpectedly
     // but, in order to not break compatibility between clients for now client doesn't do these validations and just ignore parameters
-    const isInMemoryMode =
-        uri.scheme === "file" &&
-        uri.path === inMemoryMode &&
-        uri.authority === undefined;
     if (isInMemoryMode) {
         return {
             scheme: "file",
