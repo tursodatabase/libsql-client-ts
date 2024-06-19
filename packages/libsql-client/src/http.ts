@@ -24,8 +24,11 @@ import {
     getIsSchemaDatabase,
     waitForLastMigrationJobToFinish,
 } from "./migrations.js";
+import pLimit from "p-limit";
 
 export * from "@libsql/core/api";
+
+const limit = pLimit(1);
 
 export function createClient(config: Config): Client {
     return _createClient(expandConfig(config, true));
@@ -99,33 +102,35 @@ export class HttpClient implements Client {
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
-        try {
-            const isSchemaDatabasePromise = this.getIsSchemaDatabase();
-            const hranaStmt = stmtToHrana(stmt);
-
-            // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the statement and
-            // close the stream in a single HTTP request.
-            let rowsPromise: Promise<hrana.RowsResult>;
-            const stream = this.#client.openStream();
+        return limit(async () => {
             try {
-                rowsPromise = stream.query(hranaStmt);
-            } finally {
-                stream.closeGracefully();
-            }
+                const isSchemaDatabasePromise = this.getIsSchemaDatabase();
+                const hranaStmt = stmtToHrana(stmt);
 
-            const rowsResult = await rowsPromise;
-            const isSchemaDatabase = await isSchemaDatabasePromise;
-            if (isSchemaDatabase) {
-                await waitForLastMigrationJobToFinish({
-                    authToken: this.#authToken,
-                    baseUrl: this.#url.origin,
-                });
-            }
+                // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the statement and
+                // close the stream in a single HTTP request.
+                let rowsPromise: Promise<hrana.RowsResult>;
+                const stream = this.#client.openStream();
+                try {
+                    rowsPromise = stream.query(hranaStmt);
+                } finally {
+                    stream.closeGracefully();
+                }
 
-            return resultSetFromHrana(rowsResult);
-        } catch (e) {
-            throw mapHranaError(e);
-        }
+                const rowsResult = await rowsPromise;
+                const isSchemaDatabase = await isSchemaDatabasePromise;
+                if (isSchemaDatabase) {
+                    await waitForLastMigrationJobToFinish({
+                        authToken: this.#authToken,
+                        baseUrl: this.#url.origin,
+                    });
+                }
+
+                return resultSetFromHrana(rowsResult);
+            } catch (e) {
+                throw mapHranaError(e);
+            }
+        });
     }
 
     async batch(
