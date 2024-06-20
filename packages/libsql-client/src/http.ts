@@ -24,11 +24,11 @@ import {
     getIsSchemaDatabase,
     waitForLastMigrationJobToFinish,
 } from "./migrations.js";
-import pLimit from "p-limit";
+import promiseLimit from "promise-limit";
 
 export * from "@libsql/core/api";
 
-const limit = pLimit(1);
+const limit = promiseLimit<ResultSet>(1);
 
 export function createClient(config: Config): Client {
     return _createClient(expandConfig(config, true));
