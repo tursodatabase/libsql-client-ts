@@ -131,7 +131,7 @@ export class WsClient implements Client {
     #futureConnState: ConnState | undefined;
     closed: boolean;
     protocol: "ws";
-    #isSchemaDatabase: boolean | undefined;
+    #isSchemaDatabase: Promise<boolean> | undefined;
     #limit: ReturnType<typeof promiseLimit<any>>;
 
     /** @private */
@@ -152,9 +152,9 @@ export class WsClient implements Client {
         this.#limit = promiseLimit(concurrency);
     }
 
-    async getIsSchemaDatabase(): Promise<boolean> {
+    getIsSchemaDatabase(): Promise<boolean> {
         if (this.#isSchemaDatabase === undefined) {
-            this.#isSchemaDatabase = await getIsSchemaDatabase({
+            this.#isSchemaDatabase = getIsSchemaDatabase({
                 authToken: this.#authToken,
                 baseUrl: this.#url.origin,
             });

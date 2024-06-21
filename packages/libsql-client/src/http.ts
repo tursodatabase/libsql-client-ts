@@ -78,7 +78,7 @@ export class HttpClient implements Client {
     protocol: "http";
     #url: URL;
     #authToken: string | undefined;
-    #isSchemaDatabase: boolean | undefined;
+    #isSchemaDatabase: Promise<boolean> | undefined;
     #limit: ReturnType<typeof promiseLimit<any>>;
 
     /** @private */
@@ -97,9 +97,9 @@ export class HttpClient implements Client {
         this.#limit = promiseLimit<any>(concurrency);
     }
 
-    async getIsSchemaDatabase(): Promise<boolean> {
+    getIsSchemaDatabase(): Promise<boolean> {
         if (this.#isSchemaDatabase === undefined) {
-            this.#isSchemaDatabase = await getIsSchemaDatabase({
+            this.#isSchemaDatabase = getIsSchemaDatabase({
                 authToken: this.#authToken,
                 baseUrl: this.#url.origin,
             });
