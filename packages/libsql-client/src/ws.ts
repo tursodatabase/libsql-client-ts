@@ -254,7 +254,7 @@ export class WsClient implements Client {
     }
 
     async executeMultiple(sql: string): Promise<void> {
-        this.limit<void>(async () => {
+        return this.limit<void>(async () => {
             const streamState = await this.#openStream();
             try {
                 // Schedule all operations synchronously, so they will be pipelined and executed in a single

@@ -213,7 +213,7 @@ export class HttpClient implements Client {
     }
 
     async executeMultiple(sql: string): Promise<void> {
-        this.limit<void>(async () => {
+        return this.limit<void>(async () => {
             try {
                 // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the sequence and
                 // close the stream in a single HTTP request.
