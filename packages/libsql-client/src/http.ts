@@ -79,7 +79,7 @@ export class HttpClient implements Client {
     #url: URL;
     #authToken: string | undefined;
     #isSchemaDatabase: Promise<boolean> | undefined;
-    #limit: ReturnType<typeof promiseLimit<any>>;
+    #promiseLimitFunction: ReturnType<typeof promiseLimit<any>>;
 
     /** @private */
     constructor(
@@ -94,7 +94,7 @@ export class HttpClient implements Client {
         this.protocol = "http";
         this.#url = url;
         this.#authToken = authToken;
-        this.#limit = promiseLimit<any>(concurrency);
+        this.#promiseLimitFunction = promiseLimit<any>(concurrency);
     }
 
     getIsSchemaDatabase(): Promise<boolean> {
@@ -108,8 +108,12 @@ export class HttpClient implements Client {
         return this.#isSchemaDatabase;
     }
 
+    private async limit<T>(fn: () => Promise<T>): Promise<T> {
+        return this.#promiseLimitFunction(fn);
+    }
+
     async execute(stmt: InStatement): Promise<ResultSet> {
-        return this.#limit(async () => {
+        return this.limit<ResultSet>(async () => {
             try {
                 const isSchemaDatabasePromise = this.getIsSchemaDatabase();
                 const hranaStmt = stmtToHrana(stmt);
@@ -144,7 +148,7 @@ export class HttpClient implements Client {
         stmts: Array<InStatement>,
         mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
-        return this.#limit(async () => {
+        return this.limit<Array<ResultSet>>(async () => {
             try {
                 const isSchemaDatabasePromise = this.getIsSchemaDatabase();
                 const hranaStmts = stmts.map(stmtToHrana);
@@ -194,7 +198,7 @@ export class HttpClient implements Client {
     async transaction(
         mode: TransactionMode = "write",
     ): Promise<HttpTransaction> {
-        return this.#limit(async () => {
+        return this.limit<HttpTransaction>(async () => {
             try {
                 const version = await this.#client.getVersion();
                 return new HttpTransaction(
@@ -209,7 +213,7 @@ export class HttpClient implements Client {
     }
 
     async executeMultiple(sql: string): Promise<void> {
-        this.#limit(async () => {
+        this.limit<void>(async () => {
             try {
                 // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the sequence and
                 // close the stream in a single HTTP request.

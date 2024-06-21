@@ -132,7 +132,7 @@ export class WsClient implements Client {
     closed: boolean;
     protocol: "ws";
     #isSchemaDatabase: Promise<boolean> | undefined;
-    #limit: ReturnType<typeof promiseLimit<any>>;
+    #promiseLimitFunction: ReturnType<typeof promiseLimit<any>>;
 
     /** @private */
     constructor(
@@ -149,7 +149,7 @@ export class WsClient implements Client {
         this.#futureConnState = undefined;
         this.closed = false;
         this.protocol = "ws";
-        this.#limit = promiseLimit(concurrency);
+        this.#promiseLimitFunction = promiseLimit<any>(concurrency);
     }
 
     getIsSchemaDatabase(): Promise<boolean> {
@@ -163,8 +163,12 @@ export class WsClient implements Client {
         return this.#isSchemaDatabase;
     }
 
+    private async limit<T>(fn: () => Promise<T>): Promise<T> {
+        return this.#promiseLimitFunction(fn);
+    }
+
     async execute(stmt: InStatement): Promise<ResultSet> {
-        return this.#limit(async () => {
+        return this.limit<ResultSet>(async () => {
             const streamState = await this.#openStream();
             try {
                 const isSchemaDatabasePromise = this.getIsSchemaDatabase();
@@ -198,7 +202,7 @@ export class WsClient implements Client {
         stmts: Array<InStatement>,
         mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
-        return this.#limit(async () => {
+        return this.limit<Array<ResultSet>>(async () => {
             const streamState = await this.#openStream();
             try {
                 const isSchemaDatabasePromise = this.getIsSchemaDatabase();
@@ -235,7 +239,7 @@ export class WsClient implements Client {
     }
 
     async transaction(mode: TransactionMode = "write"): Promise<WsTransaction> {
-        return this.#limit(async () => {
+        return this.limit<WsTransaction>(async () => {
             const streamState = await this.#openStream();
             try {
                 const version = await streamState.conn.client.getVersion();
@@ -250,7 +254,7 @@ export class WsClient implements Client {
     }
 
     async executeMultiple(sql: string): Promise<void> {
-        this.#limit(async () => {
+        this.limit<void>(async () => {
             const streamState = await this.#openStream();
             try {
                 // Schedule all operations synchronously, so they will be pipelined and executed in a single
