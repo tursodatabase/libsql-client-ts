@@ -79,7 +79,7 @@ export class HttpClient implements Client {
     #url: URL;
     #authToken: string | undefined;
     #isSchemaDatabase: boolean | undefined;
-    #limit: ReturnType<typeof promiseLimit<ResultSet>>;
+    #limit: ReturnType<typeof promiseLimit<any>>;
 
     /** @private */
     constructor(
@@ -94,7 +94,7 @@ export class HttpClient implements Client {
         this.protocol = "http";
         this.#url = url;
         this.#authToken = authToken;
-        this.#limit = promiseLimit<ResultSet>(concurrency);
+        this.#limit = promiseLimit<any>(concurrency);
     }
 
     async getIsSchemaDatabase(): Promise<boolean> {
@@ -144,82 +144,88 @@ export class HttpClient implements Client {
         stmts: Array<InStatement>,
         mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
-        try {
-            const isSchemaDatabasePromise = this.getIsSchemaDatabase();
-            const hranaStmts = stmts.map(stmtToHrana);
-            const version = await this.#client.getVersion();
-
-            // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the batch and
-            // close the stream in a single HTTP request.
-            let resultsPromise: Promise<Array<ResultSet>>;
-            const stream = this.#client.openStream();
+        return this.#limit(async () => {
             try {
-                // It makes sense to use a SQL cache even for a single batch, because it may contain the same
-                // statement repeated multiple times.
-                const sqlCache = new SqlCache(stream, sqlCacheCapacity);
-                sqlCache.apply(hranaStmts);
+                const isSchemaDatabasePromise = this.getIsSchemaDatabase();
+                const hranaStmts = stmts.map(stmtToHrana);
+                const version = await this.#client.getVersion();
 
-                // TODO: we do not use a cursor here, because it would cause three roundtrips:
-                // 1. pipeline request to store SQL texts
-                // 2. cursor request
-                // 3. pipeline request to close the stream
-                const batch = stream.batch(false);
-                resultsPromise = executeHranaBatch(
-                    mode,
-                    version,
-                    batch,
-                    hranaStmts,
-                );
-            } finally {
-                stream.closeGracefully();
+                // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the batch and
+                // close the stream in a single HTTP request.
+                let resultsPromise: Promise<Array<ResultSet>>;
+                const stream = this.#client.openStream();
+                try {
+                    // It makes sense to use a SQL cache even for a single batch, because it may contain the same
+                    // statement repeated multiple times.
+                    const sqlCache = new SqlCache(stream, sqlCacheCapacity);
+                    sqlCache.apply(hranaStmts);
+
+                    // TODO: we do not use a cursor here, because it would cause three roundtrips:
+                    // 1. pipeline request to store SQL texts
+                    // 2. cursor request
+                    // 3. pipeline request to close the stream
+                    const batch = stream.batch(false);
+                    resultsPromise = executeHranaBatch(
+                        mode,
+                        version,
+                        batch,
+                        hranaStmts,
+                    );
+                } finally {
+                    stream.closeGracefully();
+                }
+
+                const results = await resultsPromise;
+                const isSchemaDatabase = await isSchemaDatabasePromise;
+                if (isSchemaDatabase) {
+                    await waitForLastMigrationJobToFinish({
+                        authToken: this.#authToken,
+                        baseUrl: this.#url.origin,
+                    });
+                }
+
+                return results;
+            } catch (e) {
+                throw mapHranaError(e);
             }
-
-            const results = await resultsPromise;
-            const isSchemaDatabase = await isSchemaDatabasePromise;
-            if (isSchemaDatabase) {
-                await waitForLastMigrationJobToFinish({
-                    authToken: this.#authToken,
-                    baseUrl: this.#url.origin,
-                });
-            }
-
-            return results;
-        } catch (e) {
-            throw mapHranaError(e);
-        }
+        });
     }
 
     async transaction(
         mode: TransactionMode = "write",
     ): Promise<HttpTransaction> {
-        try {
-            const version = await this.#client.getVersion();
-            return new HttpTransaction(
-                this.#client.openStream(),
-                mode,
-                version,
-            );
-        } catch (e) {
-            throw mapHranaError(e);
-        }
+        return this.#limit(async () => {
+            try {
+                const version = await this.#client.getVersion();
+                return new HttpTransaction(
+                    this.#client.openStream(),
+                    mode,
+                    version,
+                );
+            } catch (e) {
+                throw mapHranaError(e);
+            }
+        });
     }
 
     async executeMultiple(sql: string): Promise<void> {
-        try {
-            // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the sequence and
-            // close the stream in a single HTTP request.
-            let promise: Promise<void>;
-            const stream = this.#client.openStream();
+        this.#limit(async () => {
             try {
-                promise = stream.sequence(sql);
-            } finally {
-                stream.closeGracefully();
-            }
+                // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the sequence and
+                // close the stream in a single HTTP request.
+                let promise: Promise<void>;
+                const stream = this.#client.openStream();
+                try {
+                    promise = stream.sequence(sql);
+                } finally {
+                    stream.closeGracefully();
+                }
 
-            await promise;
-        } catch (e) {
-            throw mapHranaError(e);
-        }
+                await promise;
+            } catch (e) {
+                throw mapHranaError(e);
+            }
+        });
     }
 
     sync(): Promise<void> {

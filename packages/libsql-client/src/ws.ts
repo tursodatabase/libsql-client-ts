@@ -132,7 +132,7 @@ export class WsClient implements Client {
     closed: boolean;
     protocol: "ws";
     #isSchemaDatabase: boolean | undefined;
-    #limit: ReturnType<typeof promiseLimit<ResultSet>>;
+    #limit: ReturnType<typeof promiseLimit<any>>;
 
     /** @private */
     constructor(
@@ -149,7 +149,7 @@ export class WsClient implements Client {
         this.#futureConnState = undefined;
         this.closed = false;
         this.protocol = "ws";
-        this.#limit = promiseLimit<ResultSet>(concurrency);
+        this.#limit = promiseLimit(concurrency);
     }
 
     async getIsSchemaDatabase(): Promise<boolean> {
@@ -198,67 +198,73 @@ export class WsClient implements Client {
         stmts: Array<InStatement>,
         mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
-        const streamState = await this.#openStream();
-        try {
-            const isSchemaDatabasePromise = this.getIsSchemaDatabase();
-            const hranaStmts = stmts.map(stmtToHrana);
-            const version = await streamState.conn.client.getVersion();
+        return this.#limit(async () => {
+            const streamState = await this.#openStream();
+            try {
+                const isSchemaDatabasePromise = this.getIsSchemaDatabase();
+                const hranaStmts = stmts.map(stmtToHrana);
+                const version = await streamState.conn.client.getVersion();
 
-            // Schedule all operations synchronously, so they will be pipelined and executed in a single
-            // network roundtrip.
-            streamState.conn.sqlCache.apply(hranaStmts);
-            const batch = streamState.stream.batch(version >= 3);
-            const resultsPromise = executeHranaBatch(
-                mode,
-                version,
-                batch,
-                hranaStmts,
-            );
+                // Schedule all operations synchronously, so they will be pipelined and executed in a single
+                // network roundtrip.
+                streamState.conn.sqlCache.apply(hranaStmts);
+                const batch = streamState.stream.batch(version >= 3);
+                const resultsPromise = executeHranaBatch(
+                    mode,
+                    version,
+                    batch,
+                    hranaStmts,
+                );
 
-            const results = await resultsPromise;
-            const isSchemaDatabase = await isSchemaDatabasePromise;
-            if (isSchemaDatabase) {
-                await waitForLastMigrationJobToFinish({
-                    authToken: this.#authToken,
-                    baseUrl: this.#url.origin,
-                });
+                const results = await resultsPromise;
+                const isSchemaDatabase = await isSchemaDatabasePromise;
+                if (isSchemaDatabase) {
+                    await waitForLastMigrationJobToFinish({
+                        authToken: this.#authToken,
+                        baseUrl: this.#url.origin,
+                    });
+                }
+
+                return results;
+            } catch (e) {
+                throw mapHranaError(e);
+            } finally {
+                this._closeStream(streamState);
             }
-
-            return results;
-        } catch (e) {
-            throw mapHranaError(e);
-        } finally {
-            this._closeStream(streamState);
-        }
+        });
     }
 
     async transaction(mode: TransactionMode = "write"): Promise<WsTransaction> {
-        const streamState = await this.#openStream();
-        try {
-            const version = await streamState.conn.client.getVersion();
-            // the BEGIN statement will be batched with the first statement on the transaction to save a
-            // network roundtrip
-            return new WsTransaction(this, streamState, mode, version);
-        } catch (e) {
-            this._closeStream(streamState);
-            throw mapHranaError(e);
-        }
+        return this.#limit(async () => {
+            const streamState = await this.#openStream();
+            try {
+                const version = await streamState.conn.client.getVersion();
+                // the BEGIN statement will be batched with the first statement on the transaction to save a
+                // network roundtrip
+                return new WsTransaction(this, streamState, mode, version);
+            } catch (e) {
+                this._closeStream(streamState);
+                throw mapHranaError(e);
+            }
+        });
     }
 
     async executeMultiple(sql: string): Promise<void> {
-        const streamState = await this.#openStream();
-        try {
-            // Schedule all operations synchronously, so they will be pipelined and executed in a single
-            // network roundtrip.
-            const promise = streamState.stream.sequence(sql);
-            streamState.stream.closeGracefully();
+        this.#limit(async () => {
+            const streamState = await this.#openStream();
+            try {
+                // Schedule all operations synchronously, so they will be pipelined and executed in a single
+                // network roundtrip.
+                const promise = streamState.stream.sequence(sql);
+                streamState.stream.closeGracefully();
 
-            await promise;
-        } catch (e) {
-            throw mapHranaError(e);
-        } finally {
-            this._closeStream(streamState);
-        }
+                await promise;
+            } catch (e) {
+                throw mapHranaError(e);
+            } finally {
+                this._closeStream(streamState);
+            }
+        });
     }
 
     sync(): Promise<void> {
