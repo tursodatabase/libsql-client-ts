@@ -28,8 +28,6 @@ import promiseLimit from "promise-limit";
 
 export * from "@libsql/core/api";
 
-const limit = promiseLimit<ResultSet>(1);
-
 export function createClient(config: Config): Client {
     return _createClient(expandConfig(config, true));
 }
@@ -64,7 +62,13 @@ export function _createClient(config: ExpandedConfig): Client {
     }
 
     const url = encodeBaseUrl(config.scheme, config.authority, config.path);
-    return new HttpClient(url, config.authToken, config.intMode, config.fetch);
+    return new HttpClient(
+        url,
+        config.authToken,
+        config.intMode,
+        config.fetch,
+        config.concurrency,
+    );
 }
 
 const sqlCacheCapacity = 30;
@@ -75,6 +79,7 @@ export class HttpClient implements Client {
     #url: URL;
     #authToken: string | undefined;
     #isSchemaDatabase: boolean | undefined;
+    #limit: ReturnType<typeof promiseLimit<ResultSet>>;
 
     /** @private */
     constructor(
@@ -82,12 +87,14 @@ export class HttpClient implements Client {
         authToken: string | undefined,
         intMode: IntMode,
         customFetch: Function | undefined,
+        concurrency: number | undefined,
     ) {
         this.#client = hrana.openHttp(url, authToken, customFetch);
         this.#client.intMode = intMode;
         this.protocol = "http";
         this.#url = url;
         this.#authToken = authToken;
+        this.#limit = promiseLimit<ResultSet>(concurrency);
     }
 
     async getIsSchemaDatabase(): Promise<boolean> {
@@ -102,7 +109,7 @@ export class HttpClient implements Client {
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
-        return limit(async () => {
+        return this.#limit(async () => {
             try {
                 const isSchemaDatabasePromise = this.getIsSchemaDatabase();
                 const hranaStmt = stmtToHrana(stmt);

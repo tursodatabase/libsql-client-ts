@@ -25,6 +25,7 @@ import {
     getIsSchemaDatabase,
     waitForLastMigrationJobToFinish,
 } from "./migrations.js";
+import promiseLimit from "promise-limit";
 
 export * from "@libsql/core/api";
 
@@ -84,7 +85,13 @@ export function _createClient(config: ExpandedConfig): WsClient {
         throw mapHranaError(e);
     }
 
-    return new WsClient(client, url, config.authToken, config.intMode);
+    return new WsClient(
+        client,
+        url,
+        config.authToken,
+        config.intMode,
+        config.concurrency,
+    );
 }
 
 // This object maintains state for a single WebSocket connection.
@@ -125,6 +132,7 @@ export class WsClient implements Client {
     closed: boolean;
     protocol: "ws";
     #isSchemaDatabase: boolean | undefined;
+    #limit: ReturnType<typeof promiseLimit<ResultSet>>;
 
     /** @private */
     constructor(
@@ -132,6 +140,7 @@ export class WsClient implements Client {
         url: URL,
         authToken: string | undefined,
         intMode: IntMode,
+        concurrency: number | undefined,
     ) {
         this.#url = url;
         this.#authToken = authToken;
@@ -140,6 +149,7 @@ export class WsClient implements Client {
         this.#futureConnState = undefined;
         this.closed = false;
         this.protocol = "ws";
+        this.#limit = promiseLimit<ResultSet>(concurrency);
     }
 
     async getIsSchemaDatabase(): Promise<boolean> {
@@ -154,32 +164,34 @@ export class WsClient implements Client {
     }
 
     async execute(stmt: InStatement): Promise<ResultSet> {
-        const streamState = await this.#openStream();
-        try {
-            const isSchemaDatabasePromise = this.getIsSchemaDatabase();
-            const hranaStmt = stmtToHrana(stmt);
+        return this.#limit(async () => {
+            const streamState = await this.#openStream();
+            try {
+                const isSchemaDatabasePromise = this.getIsSchemaDatabase();
+                const hranaStmt = stmtToHrana(stmt);
 
-            // Schedule all operations synchronously, so they will be pipelined and executed in a single
-            // network roundtrip.
-            streamState.conn.sqlCache.apply([hranaStmt]);
-            const hranaRowsPromise = streamState.stream.query(hranaStmt);
-            streamState.stream.closeGracefully();
+                // Schedule all operations synchronously, so they will be pipelined and executed in a single
+                // network roundtrip.
+                streamState.conn.sqlCache.apply([hranaStmt]);
+                const hranaRowsPromise = streamState.stream.query(hranaStmt);
+                streamState.stream.closeGracefully();
 
-            const hranaRowsResult = await hranaRowsPromise;
-            const isSchemaDatabase = await isSchemaDatabasePromise;
-            if (isSchemaDatabase) {
-                await waitForLastMigrationJobToFinish({
-                    authToken: this.#authToken,
-                    baseUrl: this.#url.origin,
-                });
+                const hranaRowsResult = await hranaRowsPromise;
+                const isSchemaDatabase = await isSchemaDatabasePromise;
+                if (isSchemaDatabase) {
+                    await waitForLastMigrationJobToFinish({
+                        authToken: this.#authToken,
+                        baseUrl: this.#url.origin,
+                    });
+                }
+
+                return resultSetFromHrana(hranaRowsResult);
+            } catch (e) {
+                throw mapHranaError(e);
+            } finally {
+                this._closeStream(streamState);
             }
-
-            return resultSetFromHrana(hranaRowsResult);
-        } catch (e) {
-            throw mapHranaError(e);
-        } finally {
-            this._closeStream(streamState);
-        }
+        });
     }
 
     async batch(
