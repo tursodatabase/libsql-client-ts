@@ -15,7 +15,7 @@ export interface ExpandedConfig {
     syncInterval: number | undefined;
     intMode: IntMode;
     fetch: Function | undefined;
-    concurrency: number | undefined;
+    concurrency: number;
 }
 
 export type ExpandedScheme = "wss" | "ws" | "https" | "http" | "file";
@@ -32,7 +32,7 @@ export function expandConfig(
         );
     }
 
-    const concurrency = "concurrency" in config ? config.concurrency : 20;
+    const concurrency = Math.max(0, config.concurrency || 20);
     let tls: boolean | undefined = config.tls;
     let authToken = config.authToken;
     let encryptionKey = config.encryptionKey;
