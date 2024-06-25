@@ -50,7 +50,7 @@ export interface Config {
     /** Concurrency limit.
      *
      * By default, the client performs up to 20 concurrent requests. You can set this option to a higher
-     * number to increase the concurrency limit. You can also set this option to `0` to disable concurrency limits.
+     * number to increase the concurrency limit or set it to `0` to disable concurrency limits completely.
      */
     concurrency?: number | undefined;
 }
