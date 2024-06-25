@@ -42,7 +42,7 @@ export function parseUri(text: string): Uri {
     const match = URI_RE.exec(text);
     if (match === null) {
         throw new LibsqlError(
-            "The URL is not in a valid format",
+            `The URL '${text}' is not in a valid format`,
             "URL_INVALID",
         );
     }
