@@ -46,6 +46,14 @@ export interface Config {
      * with the Web `Response`.
      */
     fetch?: Function;
+
+    /** Concurrency limit.
+     *
+     * By default, the client performs up to 20 concurrent requests. You can set this option to a higher
+     * number to increase the concurrency limit. You can also set this option to `undefined` to disable concurrency
+     * completely.
+     */
+    concurrency?: number | undefined;
 }
 
 /** Representation of integers from database as JavaScript values. See {@link Config.intMode}. */
