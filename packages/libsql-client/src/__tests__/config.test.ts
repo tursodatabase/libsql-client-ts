@@ -116,6 +116,7 @@ describe("expandConfig - parsing of valid arguments", () => {
                 tls: false,
                 intMode: "number",
                 path: ":memory:",
+                concurrency: 20,
             },
         },
         {
@@ -126,6 +127,7 @@ describe("expandConfig - parsing of valid arguments", () => {
                 tls: false,
                 intMode: "number",
                 path: ":memory:?cache=shared",
+                concurrency: 20,
             },
         },
         {
@@ -137,6 +139,7 @@ describe("expandConfig - parsing of valid arguments", () => {
                 tls: true,
                 intMode: "number",
                 path: "",
+                concurrency: 20,
             },
         },
         {
@@ -148,12 +151,14 @@ describe("expandConfig - parsing of valid arguments", () => {
                 tls: true,
                 intMode: "number",
                 path: "/libsql/connect",
+                concurrency: 20,
             },
         },
         {
             name: "wss with user info",
             config: {
                 url: "wss://user:password@localhost:8888/libsql/connect",
+                concurrency: 20,
             },
             expanded: {
                 scheme: "wss",
@@ -165,6 +170,7 @@ describe("expandConfig - parsing of valid arguments", () => {
                 tls: true,
                 intMode: "number",
                 path: "/libsql/connect",
+                concurrency: 20,
             },
         },
         {
@@ -176,6 +182,7 @@ describe("expandConfig - parsing of valid arguments", () => {
                 tls: false,
                 intMode: "number",
                 path: "/libsql/connect",
+                concurrency: 20,
             },
         },
         {
@@ -187,6 +194,7 @@ describe("expandConfig - parsing of valid arguments", () => {
                 tls: true,
                 intMode: "number",
                 path: "/libsql/connect",
+                concurrency: 20,
             },
         },
         {
@@ -202,6 +210,7 @@ describe("expandConfig - parsing of valid arguments", () => {
                 tls: true,
                 intMode: "number",
                 path: "/libsql/connect",
+                concurrency: 20,
             },
         },
     ];
