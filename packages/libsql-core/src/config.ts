@@ -15,6 +15,7 @@ export interface ExpandedConfig {
     syncInterval: number | undefined;
     intMode: IntMode;
     fetch: Function | undefined;
+    concurrency: number;
 }
 
 export type ExpandedScheme = "wss" | "ws" | "https" | "http" | "file";
@@ -39,7 +40,11 @@ export function expandConfig(
         );
     }
 
-    let { url, authToken, tls, intMode } = config;
+    let { url, authToken, tls, intMode, concurrency } = config;
+    // fill simple defaults right here
+    concurrency = Math.max(0, concurrency || 20);
+    intMode ??= "number";
+
     let connectionQueryParams: string[] = []; // recognized query parameters which we sanitize through white list of valid key-value pairs
 
     // convert plain :memory: url to URI format to make logic more uniform
@@ -98,7 +103,7 @@ export function expandConfig(
         }
     }
 
-    // fill defaults & validate config
+    // fill complex defaults & validate config
     const connectionQueryParamsString =
         connectionQueryParams.length === 0
             ? ""
@@ -121,8 +126,6 @@ export function expandConfig(
     } else {
         scheme = originalUriScheme;
     }
-
-    intMode ??= "number";
     if (scheme === "http" || scheme === "ws") {
         tls ??= false;
     } else {
@@ -161,6 +164,7 @@ export function expandConfig(
             tls: false,
             path,
             intMode,
+            concurrency,
             syncUrl: config.syncUrl,
             syncInterval: config.syncInterval,
             fetch: config.fetch,
@@ -177,6 +181,7 @@ export function expandConfig(
         path,
         authToken,
         intMode,
+        concurrency,
         encryptionKey: config.encryptionKey,
         syncUrl: config.syncUrl,
         syncInterval: config.syncInterval,

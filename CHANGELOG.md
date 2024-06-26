@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0 -- 2024-06-25
+
+-   Add configurable concurrency limit for parallel query execution
+    (defaults to 20) to address socket hangup errors.
+
 ## 0.6.2 -- 2024-06-01
 
 -   Fix compatibility issue with libSQL server versions that don't have migrations endpoint.
