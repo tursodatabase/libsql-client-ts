@@ -20,8 +20,16 @@ export interface ExpandedConfig {
 
 export type ExpandedScheme = "wss" | "ws" | "https" | "http" | "file";
 
+type queryParamDef = {
+    values?: string[];
+    update?: (key: string, value: string) => void;
+};
+type queryParamsDef = { [key: string]: queryParamDef };
+
+const inMemoryMode = ":memory:";
+
 export function expandConfig(
-    config: Config,
+    config: Readonly<Config>,
     preferHttp: boolean,
 ): ExpandedConfig {
     if (typeof config !== "object") {
@@ -32,63 +40,78 @@ export function expandConfig(
         );
     }
 
-    const concurrency = Math.max(0, config.concurrency || 20);
-    let tls: boolean | undefined = config.tls;
-    let authToken = config.authToken;
-    let encryptionKey = config.encryptionKey;
-    let syncUrl = config.syncUrl;
-    let syncInterval = config.syncInterval;
-    const intMode = "" + (config.intMode ?? "number");
-    if (intMode !== "number" && intMode !== "bigint" && intMode !== "string") {
-        throw new TypeError(
-            `Invalid value for intMode, expected "number", "bigint" or "string", \
-            got ${JSON.stringify(intMode)}`,
-        );
+    let { url, authToken, tls, intMode, concurrency } = config;
+    // fill simple defaults right here
+    concurrency = Math.max(0, concurrency || 20);
+    intMode ??= "number";
+
+    let connectionQueryParams: string[] = []; // recognized query parameters which we sanitize through white list of valid key-value pairs
+
+    // convert plain :memory: url to URI format to make logic more uniform
+    if (url === inMemoryMode) {
+        url = "file::memory:";
     }
 
-    if (config.url === ":memory:") {
-        return {
-            path: ":memory:",
-            scheme: "file",
-            syncUrl,
-            syncInterval,
-            intMode,
-            fetch: config.fetch,
-            tls: false,
-            authToken: undefined,
-            encryptionKey: undefined,
-            authority: undefined,
-            concurrency,
+    // parse url parameters first and override config with update values
+    const uri = parseUri(url);
+    const originalUriScheme = uri.scheme.toLowerCase();
+    const isInMemoryMode =
+        originalUriScheme === "file" &&
+        uri.path === inMemoryMode &&
+        uri.authority === undefined;
+
+    let queryParamsDef: queryParamsDef;
+    if (isInMemoryMode) {
+        queryParamsDef = {
+            cache: {
+                values: ["shared", "private"],
+                update: (key, value) =>
+                    connectionQueryParams.push(`${key}=${value}`),
+            },
+        };
+    } else {
+        queryParamsDef = {
+            tls: {
+                values: ["0", "1"],
+                update: (_, value) => (tls = value === "1"),
+            },
+            authToken: {
+                update: (_, value) => (authToken = value),
+            },
         };
     }
 
-    const uri = parseUri(config.url);
     for (const { key, value } of uri.query?.pairs ?? []) {
-        if (key === "authToken") {
-            authToken = value ? value : undefined;
-        } else if (key === "tls") {
-            if (value === "0") {
-                tls = false;
-            } else if (value === "1") {
-                tls = true;
-            } else {
-                throw new LibsqlError(
-                    `Unknown value for the "tls" query argument: ${JSON.stringify(value)}. ` +
-                        'Supported values are "0" and "1"',
-                    "URL_INVALID",
-                );
-            }
-        } else {
+        if (!Object.hasOwn(queryParamsDef, key)) {
             throw new LibsqlError(
-                `Unknown URL query parameter ${JSON.stringify(key)}`,
+                `Unsupported URL query parameter ${JSON.stringify(key)}`,
                 "URL_PARAM_NOT_SUPPORTED",
             );
         }
+        const queryParamDef = queryParamsDef[key];
+        if (
+            queryParamDef.values !== undefined &&
+            !queryParamDef.values.includes(value)
+        ) {
+            throw new LibsqlError(
+                `Unknown value for the "${key}" query argument: ${JSON.stringify(value)}. Supported values are: [${queryParamDef.values.map((x) => '"' + x + '"').join(", ")}]`,
+                "URL_INVALID",
+            );
+        }
+        if (queryParamDef.update !== undefined) {
+            queryParamDef?.update(key, value);
+        }
     }
 
-    const uriScheme = uri.scheme.toLowerCase();
-    let scheme: ExpandedScheme;
-    if (uriScheme === "libsql") {
+    // fill complex defaults & validate config
+    const connectionQueryParamsString =
+        connectionQueryParams.length === 0
+            ? ""
+            : `?${connectionQueryParams.join("&")}`;
+    const path = uri.path + connectionQueryParamsString;
+
+    let scheme: string;
+    if (originalUriScheme === "libsql") {
         if (tls === false) {
             if (uri.authority?.port === undefined) {
                 throw new LibsqlError(
@@ -100,16 +123,22 @@ export function expandConfig(
         } else {
             scheme = preferHttp ? "https" : "wss";
         }
-    } else if (uriScheme === "http" || uriScheme === "ws") {
-        scheme = uriScheme;
-        tls ??= false;
-    } else if (
-        uriScheme === "https" ||
-        uriScheme === "wss" ||
-        uriScheme === "file"
-    ) {
-        scheme = uriScheme;
     } else {
+        scheme = originalUriScheme;
+    }
+    if (scheme === "http" || scheme === "ws") {
+        tls ??= false;
+    } else {
+        tls ??= true;
+    }
+
+    if (
+        scheme !== "http" &&
+        scheme !== "ws" &&
+        scheme !== "https" &&
+        scheme !== "wss" &&
+        scheme !== "file"
+    ) {
         throw new LibsqlError(
             'The client supports only "libsql:", "wss:", "ws:", "https:", "http:" and "file:" URLs, ' +
                 `got ${JSON.stringify(uri.scheme + ":")}. ` +
@@ -117,7 +146,11 @@ export function expandConfig(
             "URL_SCHEME_NOT_SUPPORTED",
         );
     }
-
+    if (intMode !== "number" && intMode !== "bigint" && intMode !== "string") {
+        throw new TypeError(
+            `Invalid value for intMode, expected "number", "bigint" or "string", got ${JSON.stringify(intMode)}`,
+        );
+    }
     if (uri.fragment !== undefined) {
         throw new LibsqlError(
             `URL fragments are not supported: ${JSON.stringify("#" + uri.fragment)}`,
@@ -125,17 +158,33 @@ export function expandConfig(
         );
     }
 
+    if (isInMemoryMode) {
+        return {
+            scheme: "file",
+            tls: false,
+            path,
+            intMode,
+            concurrency,
+            syncUrl: config.syncUrl,
+            syncInterval: config.syncInterval,
+            fetch: config.fetch,
+            authToken: undefined,
+            encryptionKey: undefined,
+            authority: undefined,
+        };
+    }
+
     return {
         scheme,
-        tls: tls ?? true,
+        tls,
         authority: uri.authority,
-        path: uri.path,
+        path,
         authToken,
-        encryptionKey,
-        syncUrl,
-        syncInterval,
         intMode,
-        fetch: config.fetch,
         concurrency,
+        encryptionKey: config.encryptionKey,
+        syncUrl: config.syncUrl,
+        syncInterval: config.syncInterval,
+        fetch: config.fetch,
     };
 }

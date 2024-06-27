@@ -291,6 +291,44 @@ describe("execute()", () => {
             expect(Array.from(selectRs.rows[0])).toStrictEqual(["three"]);
         }),
     );
+
+    // see issue https://github.com/tursodatabase/libsql/issues/1411
+    test(
+        "execute transaction against in memory database with shared cache",
+        withClient(
+            async (c) => {
+                await c.execute("CREATE TABLE t (a)");
+                const transaction = await c.transaction();
+                transaction.close();
+                await c.execute("SELECT * FROM t");
+            },
+            { url: "file::memory:?cache=shared" },
+        ),
+    );
+    test(
+        "execute transaction against in memory database with private cache",
+        withClient(
+            async (c) => {
+                await c.execute("CREATE TABLE t (a)");
+                const transaction = await c.transaction();
+                transaction.close();
+                expect(() => c.execute("SELECT * FROM t")).rejects.toThrow();
+            },
+            { url: "file::memory:?cache=private" },
+        ),
+    );
+    test(
+        "execute transaction against in memory database with default cache",
+        withClient(
+            async (c) => {
+                await c.execute("CREATE TABLE t (a)");
+                const transaction = await c.transaction();
+                transaction.close();
+                expect(() => c.execute("SELECT * FROM t")).rejects.toThrow();
+            },
+            { url: ":memory:" },
+        ),
+    );
 });
 
 describe("values", () => {
