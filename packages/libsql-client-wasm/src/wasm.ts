@@ -195,7 +195,7 @@ export class Sqlite3Client implements Client {
     // Lazily creates the database connection and returns it
     #getDb(): Database {
         if (this.#db === null) {
-            this.#db = new this.#sqlite3.oo1.DB("/mydb.sqlite3", "ct");
+            this.#db = new sqlite3.oo1.DB(this.#path, "c");
         }
         return this.#db;
     }
