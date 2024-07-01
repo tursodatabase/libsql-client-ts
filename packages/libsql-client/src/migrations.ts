@@ -121,7 +121,7 @@ export async function getIsSchemaDatabase({
 async function getLastMigrationJob({
     authToken,
     baseUrl,
-}: getLastMigrationJobProps): Promise<MigrationJobType> {
+}: getLastMigrationJobProps): Promise<MigrationJobType | null> {
     const url = normalizeURLScheme(baseUrl + "/v1/jobs");
     const result = await fetch(url, {
         method: "GET",
@@ -138,7 +138,7 @@ async function getLastMigrationJob({
 
     const json = (await result.json()) as MigrationResult;
     if (!json.migrations || json.migrations.length === 0) {
-        throw new Error("No migrations found");
+        return null;
     }
 
     const migrations = json.migrations || [];
@@ -171,6 +171,9 @@ export async function waitForLastMigrationJobToFinish({
         authToken: authToken,
         baseUrl,
     });
+    if (!lastMigrationJob) {
+        return;
+    }
     if (lastMigrationJob.status !== "RunSuccess") {
         let i = 0;
         while (i < SCHEMA_MIGRATION_MAX_RETRIES) {
