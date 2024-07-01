@@ -4,6 +4,7 @@
 
 -   Bump hrana client to 0.6.2.
 -   Support `cache=private|shared` [query parameter](https://www.sqlite.org/uri.html#recognized_query_parameters) in the connection string to local SQLite (https://github.com/tursodatabase/libsql-client-ts/pull/220)
+-   Fix bug in wasm experimental client which appears when transaction are used in local mode (https://github.com/tursodatabase/libsql-client-ts/pull/231)
 
 ## 0.7.0 -- 2024-06-25
 
