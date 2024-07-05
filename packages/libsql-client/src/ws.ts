@@ -7,6 +7,7 @@ import type {
     Transaction,
     ResultSet,
     InStatement,
+    InArgs
 } from "@libsql/core/api";
 import { TransactionMode, LibsqlError } from "@libsql/core/api";
 import type { ExpandedConfig } from "@libsql/core/config";
@@ -167,7 +168,21 @@ export class WsClient implements Client {
         return this.#promiseLimitFunction(fn);
     }
 
-    async execute(stmt: InStatement): Promise<ResultSet> {
+    async execute(stmt: InStatement): Promise<ResultSet>;
+    async execute(sql: string, args?: InArgs): Promise<ResultSet>;
+
+    async execute(stmtOrSql: InStatement | string, args?: InArgs): Promise<ResultSet> {
+      let stmt: InStatement;
+
+      if (typeof stmtOrSql === 'string') {
+        stmt = {
+            sql: stmtOrSql,
+            args: args || []
+        };
+      } else {
+          stmt = stmtOrSql;
+      }
+
         return this.limit<ResultSet>(async () => {
             const streamState = await this.#openStream();
             try {
