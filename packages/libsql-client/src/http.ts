@@ -20,10 +20,6 @@ import {
 import { SqlCache } from "./sql_cache.js";
 import { encodeBaseUrl } from "@libsql/core/uri";
 import { supportedUrlLink } from "@libsql/core/util";
-import {
-    getIsSchemaDatabase,
-    waitForLastMigrationJobToFinish,
-} from "./migrations.js";
 import promiseLimit from "promise-limit";
 
 export * from "@libsql/core/api";
@@ -76,9 +72,7 @@ const sqlCacheCapacity = 30;
 export class HttpClient implements Client {
     #client: hrana.HttpClient;
     protocol: "http";
-    #url: URL;
     #authToken: string | undefined;
-    #isSchemaDatabase: Promise<boolean> | undefined;
     #promiseLimitFunction: ReturnType<typeof promiseLimit<any>>;
 
     /** @private */
@@ -92,20 +86,8 @@ export class HttpClient implements Client {
         this.#client = hrana.openHttp(url, authToken, customFetch);
         this.#client.intMode = intMode;
         this.protocol = "http";
-        this.#url = url;
         this.#authToken = authToken;
         this.#promiseLimitFunction = promiseLimit<any>(concurrency);
-    }
-
-    getIsSchemaDatabase(): Promise<boolean> {
-        if (this.#isSchemaDatabase === undefined) {
-            this.#isSchemaDatabase = getIsSchemaDatabase({
-                authToken: this.#authToken,
-                baseUrl: this.#url.origin,
-            });
-        }
-
-        return this.#isSchemaDatabase;
     }
 
     private async limit<T>(fn: () => Promise<T>): Promise<T> {
@@ -115,7 +97,6 @@ export class HttpClient implements Client {
     async execute(stmt: InStatement): Promise<ResultSet> {
         return this.limit<ResultSet>(async () => {
             try {
-                const isSchemaDatabasePromise = this.getIsSchemaDatabase();
                 const hranaStmt = stmtToHrana(stmt);
 
                 // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the statement and
@@ -129,13 +110,6 @@ export class HttpClient implements Client {
                 }
 
                 const rowsResult = await rowsPromise;
-                const isSchemaDatabase = await isSchemaDatabasePromise;
-                if (isSchemaDatabase) {
-                    await waitForLastMigrationJobToFinish({
-                        authToken: this.#authToken,
-                        baseUrl: this.#url.origin,
-                    });
-                }
 
                 return resultSetFromHrana(rowsResult);
             } catch (e) {
@@ -150,7 +124,6 @@ export class HttpClient implements Client {
     ): Promise<Array<ResultSet>> {
         return this.limit<Array<ResultSet>>(async () => {
             try {
-                const isSchemaDatabasePromise = this.getIsSchemaDatabase();
                 const hranaStmts = stmts.map(stmtToHrana);
                 const version = await this.#client.getVersion();
 
@@ -180,13 +153,6 @@ export class HttpClient implements Client {
                 }
 
                 const results = await resultsPromise;
-                const isSchemaDatabase = await isSchemaDatabasePromise;
-                if (isSchemaDatabase) {
-                    await waitForLastMigrationJobToFinish({
-                        authToken: this.#authToken,
-                        baseUrl: this.#url.origin,
-                    });
-                }
 
                 return results;
             } catch (e) {

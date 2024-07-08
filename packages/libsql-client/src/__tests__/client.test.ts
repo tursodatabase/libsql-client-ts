@@ -9,11 +9,6 @@ import "./helpers.js";
 
 import type * as libsql from "../node.js";
 import { createClient } from "../node.js";
-import * as migrations from "../migrations";
-
-jest.spyOn(migrations, "getIsSchemaDatabase").mockImplementation(
-    (_params) => new Promise((resolve) => resolve(false)),
-);
 
 const config = {
     url: process.env.URL ?? "ws://localhost:8080",
