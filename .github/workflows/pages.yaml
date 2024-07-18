@@ -18,6 +18,9 @@ jobs:
               with:
                   node-version: "${{ matrix.node-version }}"
                   cache: "npm"
+            - name: "Build core"
+              run: "npm ci && npm run build"
+              working-directory: ./packages/libsql-core
             - name: "Install npm dependencies"
               run: "npm ci"
             - name: "Build"
