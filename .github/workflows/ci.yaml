@@ -20,7 +20,6 @@ jobs:
               uses: actions/setup-node@v3
               with:
                   node-version: "18.x"
-                  cache: "npm"
                   cache-dependency-path: "packages/libsql-client-wasm"
             - name: "Build core"
               run: "npm ci && npm run build"
