@@ -28,7 +28,7 @@ jobs:
             - name: "Upload GitHub Pages artifact"
               uses: actions/upload-pages-artifact@v1
               with:
-                  path: "./docs"
+                  path: "./packages/libsql-client/docs"
 
     "deploy":
         name: "Deploy the docs to GitHub Pages"
