@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0 -- 2024-07-30
+
+-   No changes from 0.8.0-pre.1.
+
 ## 0.8.0-pre.1 -- 2024-07-18
 
 -   Bump hrana client to 0.6.2.
