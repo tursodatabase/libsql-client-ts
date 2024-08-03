@@ -31,8 +31,10 @@ const isFile = config.url.startsWith("file:");
 // - "sqld" is sqld
 const server = process.env.SERVER ?? "test_v3";
 
+const isSqld = server === "sqld";
 const hasHrana2 = server !== "test_v1";
-const hasHrana3 = server !== "test_v1" && server !== "test_v2";
+const hasHrana3 =
+    server !== "test_v1" && server !== "test_v2" && server !== "sqld";
 const hasNetworkErrors =
     isWs &&
     (server === "test_v1" || server === "test_v2" || server === "test_v3");
@@ -1425,4 +1427,33 @@ describe("transaction()", () => {
     } finally {
         c.close();
     }
+});
+
+(isSqld ? test : test.skip)("embedded replica test", async () => {
+    const remote = createClient(config);
+    const embedded = createClient({
+        ...config,
+        url: "file:///tmp/local.db",
+        syncUrl: config.url,
+    });
+    await remote.execute("CREATE TABLE embedded(a)");
+    await embedded.sync();
+
+    let embedded1 = await embedded.execute("SELECT * FROM embedded");
+    expect(embedded1.columns).toStrictEqual(["a"]);
+    expect(embedded1.rows.length).toStrictEqual(0);
+
+    await remote.execute("INSERT INTO embedded VALUES (1), (2), (3)");
+    let embedded2 = await embedded.execute("SELECT * FROM embedded");
+    expect(embedded2.columns).toStrictEqual(["a"]);
+    expect(embedded2.rows.length).toStrictEqual(0);
+
+    let remote1 = await remote.execute("SELECT * FROM embedded");
+    expect(remote1.columns).toStrictEqual(["a"]);
+    expect(remote1.rows.length).toStrictEqual(3);
+
+    await embedded.sync();
+    let embedded3 = await embedded.execute("SELECT * FROM embedded");
+    expect(embedded3.columns).toStrictEqual(["a"]);
+    expect(embedded3.rows.length).toStrictEqual(3);
 });
