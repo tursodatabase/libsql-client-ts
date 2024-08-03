@@ -28,6 +28,13 @@ type queryParamsDef = { [key: string]: queryParamDef };
 
 const inMemoryMode = ":memory:";
 
+export function isInMemoryConfig(config: ExpandedConfig): boolean {
+    return (
+        config.scheme === "file" &&
+        (config.path === ":memory:" || config.path.startsWith(":memory:?"))
+    );
+}
+
 export function expandConfig(
     config: Readonly<Config>,
     preferHttp: boolean,

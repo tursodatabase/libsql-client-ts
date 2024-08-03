@@ -12,11 +12,11 @@ import type {
     Value,
     InValue,
     InStatement,
-    InArgs
+    InArgs,
 } from "@libsql/core/api";
 import { LibsqlError } from "@libsql/core/api";
 import type { ExpandedConfig } from "@libsql/core/config";
-import { expandConfig } from "@libsql/core/config";
+import { expandConfig, isInMemoryConfig } from "@libsql/core/config";
 import {
     supportedUrlLink,
     transactionModeToBegin,
@@ -63,8 +63,20 @@ export function _createClient(config: ExpandedConfig): Client {
         }
     }
 
-    // note: we must always prepend file scheme in order for SQLite3 to recognize :memory: connection query parameters
-    const path = `${config.scheme}:${config.path}`;
+    let isInMemory = isInMemoryConfig(config);
+    if (isInMemory && config.syncUrl) {
+        throw new LibsqlError(
+            `Embedded replica must use file for local db but URI with in-memory mode were provided instead: ${config.path}`,
+            "URL_INVALID",
+        );
+    }
+
+    let path = config.path;
+    if (isInMemory) {
+        // note: we should prepend file scheme in order for SQLite3 to recognize :memory: connection query parameters
+        path = `${config.scheme}:${config.path}`;
+    }
+
     const options = {
         authToken: config.authToken,
         encryptionKey: config.encryptionKey,
@@ -109,17 +121,20 @@ export class Sqlite3Client implements Client {
     async execute(stmt: InStatement): Promise<ResultSet>;
     async execute(sql: string, args?: InArgs): Promise<ResultSet>;
 
-    async execute(stmtOrSql: InStatement | string, args?: InArgs): Promise<ResultSet> {
-      let stmt: InStatement;
+    async execute(
+        stmtOrSql: InStatement | string,
+        args?: InArgs,
+    ): Promise<ResultSet> {
+        let stmt: InStatement;
 
-      if (typeof stmtOrSql === 'string') {
-        stmt = {
-            sql: stmtOrSql,
-            args: args || []
-        };
-      } else {
-          stmt = stmtOrSql;
-      }
+        if (typeof stmtOrSql === "string") {
+            stmt = {
+                sql: stmtOrSql,
+                args: args || [],
+            };
+        } else {
+            stmt = stmtOrSql;
+        }
 
         this.#checkNotClosed();
         return executeStmt(this.#getDb(), stmt, this.#intMode);
@@ -208,19 +223,22 @@ export class Sqlite3Transaction implements Transaction {
     }
 
     async execute(stmt: InStatement): Promise<ResultSet>;
-        async execute(sql: string, args?: InArgs): Promise<ResultSet>;
+    async execute(sql: string, args?: InArgs): Promise<ResultSet>;
 
-        async execute(stmtOrSql: InStatement | string, args?: InArgs): Promise<ResultSet> {
-          let stmt: InStatement;
+    async execute(
+        stmtOrSql: InStatement | string,
+        args?: InArgs,
+    ): Promise<ResultSet> {
+        let stmt: InStatement;
 
-          if (typeof stmtOrSql === 'string') {
+        if (typeof stmtOrSql === "string") {
             stmt = {
                 sql: stmtOrSql,
-                args: args || []
+                args: args || [],
             };
-          } else {
-              stmt = stmtOrSql;
-          }
+        } else {
+            stmt = stmtOrSql;
+        }
 
         this.#checkNotClosed();
         return executeStmt(this.#database, stmt, this.#intMode);
