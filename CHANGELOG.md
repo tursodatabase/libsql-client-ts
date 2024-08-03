@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.1 -- 2024-08-03
 
 -   Fix embedded replica sync WAL index path name , which caused "No such file or directory" for local sync in some cases ([#244](https://github.com/tursodatabase/libsql-client-ts/issues/244)).
 
