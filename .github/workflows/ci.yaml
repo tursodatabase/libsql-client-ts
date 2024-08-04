@@ -33,7 +33,7 @@ jobs:
               run: docker ps
             - name: "Test against sqld"
               run: "npm test"
-              env: { "URL": "ws://localhost:8080", "SERVER": "sqld" }
+              env: { "URL": "http://localhost:8080", "SERVER": "sqld" }
 
     "wasm-test":
         name: "Build and test Wasm on Node.js"
