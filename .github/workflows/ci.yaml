@@ -5,6 +5,36 @@ on:
     pull_request:
 
 jobs:
+    "test-against-sqld":
+        name: "Tests against sqld"
+        runs-on: ubuntu-latest
+        timeout-minutes: 2
+        defaults:
+            run:
+                working-directory: ./packages/libsql-client
+        env: { "NODE_OPTIONS": "--trace-warnings" }
+        steps:
+            - name: "Checkout this repo"
+              uses: actions/checkout@v3
+            - name: "Setup Node.js"
+              uses: actions/setup-node@v3
+              with:
+                  node-version: "18.x"
+            - name: "Build core"
+              run: "npm ci && npm run build"
+              working-directory: ./packages/libsql-core
+            - name: "Install npm dependencies"
+              run: "npm ci"
+            - name: "Build"
+              run: "npm run build"
+            - name: Run Docker container in the background
+              run: docker run -d -p 8080:8080 -e SQLD_NODE=primary ghcr.io/tursodatabase/libsql-server:latest
+            - name: Verify container is running
+              run: docker ps
+            - name: "Test against sqld"
+              run: "npm test"
+              env: { "URL": "http://localhost:8080", "SERVER": "sqld" }
+
     "wasm-test":
         name: "Build and test Wasm on Node.js"
         runs-on: ubuntu-latest
