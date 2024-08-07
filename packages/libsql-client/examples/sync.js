@@ -12,7 +12,9 @@ async function example() {
     await db.execute(
         "CREATE TABLE IF NOT EXISTS guest_book_entries (comment TEXT)",
     );
-    await db.sync();
+    const rep = await db.sync();
+
+    console.log("frames_synced: " + rep.frames_synced);
 
     const comment = reader.question("Enter your comment: ");
 
@@ -20,7 +22,10 @@ async function example() {
         sql: "INSERT INTO guest_book_entries (comment) VALUES (?)",
         args: [comment],
     });
-    await db.sync();
+
+    const rep2 = await db.sync();
+
+    console.log("frames_synced: " + rep2.frames_synced);
 
     console.log("Guest book entries:");
     const rs = await db.execute("SELECT * FROM guest_book_entries");
