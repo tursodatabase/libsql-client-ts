@@ -188,7 +188,7 @@ export class Sqlite3Client implements Client {
 
     async sync(): Promise<Replicated> {
         this.#checkNotClosed();
-        const rep = (await this.#getDb().sync()) as any;
+        const rep = await this.#getDb().sync();
         return {
             frames_synced: rep.frames_synced,
             frame_no: rep.frame_no,
