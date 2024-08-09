@@ -13,6 +13,7 @@ import type {
     InValue,
     InStatement,
     InArgs,
+    Replicated,
 } from "@libsql/core/api";
 import { LibsqlError } from "@libsql/core/api";
 import type { ExpandedConfig } from "@libsql/core/config";
@@ -185,9 +186,13 @@ export class Sqlite3Client implements Client {
         }
     }
 
-    async sync(): Promise<void> {
+    async sync(): Promise<Replicated> {
         this.#checkNotClosed();
-        await this.#getDb().sync();
+        const rep = await this.#getDb().sync();
+        return {
+            frames_synced: rep.frames_synced,
+            frame_no: rep.frame_no,
+        } as Replicated;
     }
 
     close(): void {

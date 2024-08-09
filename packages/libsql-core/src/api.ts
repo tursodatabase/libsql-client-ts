@@ -193,7 +193,7 @@ export interface Client {
      */
     executeMultiple(sql: string): Promise<void>;
 
-    sync(): Promise<void>;
+    sync(): Promise<Replicated>;
 
     /** Close the client and release resources.
      *
@@ -428,6 +428,10 @@ export interface Row {
     /** Columns can be accessed like an object by column names. */
     [name: string]: Value;
 }
+
+export type Replicated =
+    | { frame_no: number; frames_synced: number }
+    | undefined;
 
 export type Value = null | string | number | bigint | ArrayBuffer;
 

@@ -17,7 +17,8 @@ import type {
     Value,
     InValue,
     InStatement,
-    InArgs
+    InArgs,
+    Replicated,
 } from "@libsql/core/api";
 import { LibsqlError } from "@libsql/core/api";
 import type { ExpandedConfig } from "@libsql/core/config";
@@ -125,17 +126,20 @@ export class Sqlite3Client implements Client {
     async execute(stmt: InStatement): Promise<ResultSet>;
     async execute(sql: string, args?: InArgs): Promise<ResultSet>;
 
-    async execute(stmtOrSql: InStatement | string, args?: InArgs): Promise<ResultSet> {
-      let stmt: InStatement;
+    async execute(
+        stmtOrSql: InStatement | string,
+        args?: InArgs,
+    ): Promise<ResultSet> {
+        let stmt: InStatement;
 
-      if (typeof stmtOrSql === 'string') {
-        stmt = {
-            sql: stmtOrSql,
-            args: args || []
-        };
-      } else {
-          stmt = stmtOrSql;
-      }
+        if (typeof stmtOrSql === "string") {
+            stmt = {
+                sql: stmtOrSql,
+                args: args || [],
+            };
+        } else {
+            stmt = stmtOrSql;
+        }
 
         this.#checkNotClosed();
         return executeStmt(this.#getDb(), stmt, this.#intMode);
@@ -186,7 +190,7 @@ export class Sqlite3Client implements Client {
         }
     }
 
-    async sync(): Promise<void> {
+    async sync(): Promise<Replicated> {
         throw new LibsqlError(
             "sync not supported in wasm mode",
             "SYNC_NOT_SUPPORTED",
