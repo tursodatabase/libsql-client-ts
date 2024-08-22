@@ -226,6 +226,37 @@ export class WsClient implements Client {
         });
     }
 
+    async migrate(
+        stmts: Array<InStatement>,
+    ): Promise<Array<ResultSet>> {
+        return this.limit<Array<ResultSet>>(async () => {
+            const streamState = await this.#openStream();
+            try {
+                const hranaStmts = stmts.map(stmtToHrana);
+                const version = await streamState.conn.client.getVersion();
+
+                // Schedule all operations synchronously, so they will be pipelined and executed in a single
+                // network roundtrip.
+                const batch = streamState.stream.batch(version >= 3);
+                const resultsPromise = executeHranaBatch(
+                    "deferred",
+                    version,
+                    batch,
+                    hranaStmts,
+                    true,
+                );
+
+                const results = await resultsPromise;
+
+                return results;
+            } catch (e) {
+                throw mapHranaError(e);
+            } finally {
+                this._closeStream(streamState);
+            }
+        });
+    }
+
     async transaction(mode: TransactionMode = "write"): Promise<WsTransaction> {
         return this.limit<WsTransaction>(async () => {
             const streamState = await this.#openStream();

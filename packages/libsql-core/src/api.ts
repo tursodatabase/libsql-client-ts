@@ -126,6 +126,39 @@ export interface Client {
         mode?: TransactionMode,
     ): Promise<Array<ResultSet>>;
 
+    /** Execute a batch of SQL statements in a transaction with PRAGMA foreign_keys=off; before and PRAGMA foreign_keys=on; after.
+     *
+     * The batch is executed in its own logical database connection and the statements are wrapped in a
+     * transaction. This ensures that the batch is applied atomically: either all or no changes are applied.
+     *
+     * The transaction mode is `"deferred"`.
+     *
+     * If any of the statements in the batch fails with an error, the batch is aborted, the transaction is
+     * rolled back and the returned promise is rejected.
+     *
+     * ```javascript
+     * const rss = await client.migrate([
+     *     // statement without arguments
+     *     "CREATE TABLE test (a INT)",
+     *
+     *     // statement with positional arguments
+     *     {
+     *         sql: "INSERT INTO books (name, author, published_at) VALUES (?, ?, ?)",
+     *         args: ["First Impressions", "Jane Austen", 1813],
+     *     },
+     *
+     *     // statement with named arguments
+     *     {
+     *         sql: "UPDATE books SET name = $new WHERE name = $old",
+     *         args: {old: "First Impressions", new: "Pride and Prejudice"},
+     *     },
+     * ]);
+     * ```
+     */
+    migrate(
+        stmts: Array<InStatement>,
+    ): Promise<Array<ResultSet>>;
+
     /** Start an interactive transaction.
      *
      * Interactive transactions allow you to interleave execution of SQL statements with your application

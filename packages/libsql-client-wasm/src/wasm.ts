@@ -171,6 +171,33 @@ export class Sqlite3Client implements Client {
         }
     }
 
+    async migrate(
+        stmts: Array<InStatement>,
+    ): Promise<Array<ResultSet>> {
+        this.#checkNotClosed();
+        const db = this.#getDb();
+        try {
+            executeStmt(db, "PRAGMA foreign_keys=off", this.#intMode);
+            executeStmt(db, transactionModeToBegin("deferred"), this.#intMode);
+            const resultSets = stmts.map((stmt) => {
+                if (!inTransaction(db)) {
+                    throw new LibsqlError(
+                        "The transaction has been rolled back",
+                        "TRANSACTION_CLOSED",
+                    );
+                }
+                return executeStmt(db, stmt, this.#intMode);
+            });
+            executeStmt(db, "COMMIT", this.#intMode);
+            return resultSets;
+        } finally {
+            if (inTransaction(db)) {
+                executeStmt(db, "ROLLBACK", this.#intMode);
+            }
+            executeStmt(db, "PRAGMA foreign_keys=on", this.#intMode);
+        }
+    }
+
     async transaction(mode: TransactionMode = "write"): Promise<Transaction> {
         const db = this.#getDb();
         executeStmt(db, transactionModeToBegin(mode), this.#intMode);

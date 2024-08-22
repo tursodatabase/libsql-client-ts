@@ -252,7 +252,11 @@ export async function executeHranaBatch(
     version: hrana.ProtocolVersion,
     batch: hrana.Batch,
     hranaStmts: Array<hrana.Stmt>,
+    disableForeignKeys: boolean = false,
 ): Promise<Array<ResultSet>> {
+    if (disableForeignKeys) {
+        batch.step().run("PRAGMA foreign_keys=off")
+    }
     const beginStep = batch.step();
     const beginPromise = beginStep.run(transactionModeToBegin(mode));
 
@@ -282,6 +286,9 @@ export async function executeHranaBatch(
         .step()
         .condition(hrana.BatchCond.not(hrana.BatchCond.ok(commitStep)));
     rollbackStep.run("ROLLBACK").catch((_) => undefined);
+    if (disableForeignKeys) {
+        batch.step().run("PRAGMA foreign_keys=on")
+    }
 
     await batch.execute();
 

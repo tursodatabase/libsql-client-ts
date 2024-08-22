@@ -180,6 +180,40 @@ export class HttpClient implements Client {
         });
     }
 
+    async migrate(
+        stmts: Array<InStatement>,
+    ): Promise<Array<ResultSet>> {
+        return this.limit<Array<ResultSet>>(async () => {
+            try {
+                const hranaStmts = stmts.map(stmtToHrana);
+                const version = await this.#client.getVersion();
+
+                // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the batch and
+                // close the stream in a single HTTP request.
+                let resultsPromise: Promise<Array<ResultSet>>;
+                const stream = this.#client.openStream();
+                try {
+                    const batch = stream.batch(false);
+                    resultsPromise = executeHranaBatch(
+                        "deferred",
+                        version,
+                        batch,
+                        hranaStmts,
+                        true,
+                    );
+                } finally {
+                    stream.closeGracefully();
+                }
+
+                const results = await resultsPromise;
+
+                return results;
+            } catch (e) {
+                throw mapHranaError(e);
+            }
+        });
+    }
+
     async transaction(
         mode: TransactionMode = "write",
     ): Promise<HttpTransaction> {
