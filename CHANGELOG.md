@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.0 -- 2024-08-26
+
+-   Add a migrate() API that can be used to do migrations on both schema databases and regular databases. It is mostly dedicated to schema migration tools.
+
 ## 0.8.1 -- 2024-08-03
 
 -   Fix embedded replica sync WAL index path name , which caused "No such file or directory" for local sync in some cases ([#244](https://github.com/tursodatabase/libsql-client-ts/issues/244)).
