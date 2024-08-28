@@ -18,16 +18,13 @@ async function example() {
     await db.batch(
         [
             {
-                sql: "INSERT INTO users (email, age) VALUES (?, ?)",
-                args: ["alice@example.com", 30],
+                sql: "INSERT INTO users (email) VALUES (?)",
+                args: ["alice@example.com"],
             },
-            [
-                "INSERT INTO users (email, age) VALUES (?, ?)",
-                ["bob@example.com", 25],
-            ],
+            ["INSERT INTO users (email) VALUES (?)", ["bob@example.com"]],
             {
-                sql: "INSERT INTO users (email, age) VALUES (:email, :age)",
-                args: { email: "charlie@example.com", age: 35 },
+                sql: "INSERT INTO users (email) VALUES (:email)",
+                args: { email: "charlie@example.com" },
             },
         ],
         "write",
