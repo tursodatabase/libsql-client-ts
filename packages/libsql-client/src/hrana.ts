@@ -32,7 +32,7 @@ export abstract class HranaTransaction implements Transaction {
     abstract close(): void;
     abstract get closed(): boolean;
 
-    async execute(stmt: InStatement): Promise<ResultSet> {
+    execute(stmt: InStatement): Promise<ResultSet> {
         return this.batch([stmt]).then((results) => results[0]);
     }
 
