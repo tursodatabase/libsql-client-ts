@@ -4,7 +4,7 @@ import type {
     ResultSet,
     Transaction,
     TransactionMode,
-    InArgs
+    InArgs,
 } from "@libsql/core/api";
 import { LibsqlError } from "@libsql/core/api";
 import type { SqlCache } from "./sql_cache.js";
@@ -32,7 +32,7 @@ export abstract class HranaTransaction implements Transaction {
     abstract close(): void;
     abstract get closed(): boolean;
 
-    execute(stmt: InStatement): Promise<ResultSet> {
+    async execute(stmt: InStatement): Promise<ResultSet> {
         return this.batch([stmt]).then((results) => results[0]);
     }
 
@@ -256,7 +256,7 @@ export async function executeHranaBatch(
     disableForeignKeys: boolean = false,
 ): Promise<Array<ResultSet>> {
     if (disableForeignKeys) {
-        batch.step().run("PRAGMA foreign_keys=off")
+        batch.step().run("PRAGMA foreign_keys=off");
     }
     const beginStep = batch.step();
     const beginPromise = beginStep.run(transactionModeToBegin(mode));
@@ -288,7 +288,7 @@ export async function executeHranaBatch(
         .condition(hrana.BatchCond.not(hrana.BatchCond.ok(commitStep)));
     rollbackStep.run("ROLLBACK").catch((_) => undefined);
     if (disableForeignKeys) {
-        batch.step().run("PRAGMA foreign_keys=on")
+        batch.step().run("PRAGMA foreign_keys=on");
     }
 
     await batch.execute();

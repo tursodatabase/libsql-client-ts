@@ -142,7 +142,7 @@ export class Sqlite3Client implements Client {
     }
 
     async batch(
-        stmts: Array<InStatement>,
+        stmts: Array<InStatement | [string, InArgs?]>,
         mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
         this.#checkNotClosed();
@@ -156,7 +156,10 @@ export class Sqlite3Client implements Client {
                         "TRANSACTION_CLOSED",
                     );
                 }
-                return executeStmt(db, stmt, this.#intMode);
+                const normalizedStmt: InStatement = Array.isArray(stmt)
+                    ? { sql: stmt[0], args: stmt[1] || [] }
+                    : stmt;
+                return executeStmt(db, normalizedStmt, this.#intMode);
             });
             executeStmt(db, "COMMIT", this.#intMode);
             return resultSets;
@@ -167,9 +170,7 @@ export class Sqlite3Client implements Client {
         }
     }
 
-    async migrate(
-        stmts: Array<InStatement>,
-    ): Promise<Array<ResultSet>> {
+    async migrate(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
         this.#checkNotClosed();
         const db = this.#getDb();
         try {
@@ -276,10 +277,15 @@ export class Sqlite3Transaction implements Transaction {
         return executeStmt(this.#database, stmt, this.#intMode);
     }
 
-    async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
+    async batch(
+        stmts: Array<InStatement | [string, InArgs?]>,
+    ): Promise<Array<ResultSet>> {
         return stmts.map((stmt) => {
             this.#checkNotClosed();
-            return executeStmt(this.#database, stmt, this.#intMode);
+            const normalizedStmt: InStatement = Array.isArray(stmt)
+                ? { sql: stmt[0], args: stmt[1] || [] }
+                : stmt;
+            return executeStmt(this.#database, normalizedStmt, this.#intMode);
         });
     }
 
