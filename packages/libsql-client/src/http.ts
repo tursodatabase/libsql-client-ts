@@ -138,12 +138,22 @@ export class HttpClient implements Client {
     }
 
     async batch(
-        stmts: Array<InStatement>,
+        stmts: Array<InStatement | [string, InArgs?]>,
         mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
         return this.limit<Array<ResultSet>>(async () => {
             try {
-                const hranaStmts = stmts.map(stmtToHrana);
+                const normalizedStmts = stmts.map(stmt => {
+                    if (Array.isArray(stmt)) {
+                        return {
+                            sql: stmt[0],
+                            args: stmt[1] || []
+                        };
+                    }
+                    return stmt;
+                });
+
+                const hranaStmts = normalizedStmts.map(stmtToHrana);
                 const version = await this.#client.getVersion();
 
                 // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the batch and
