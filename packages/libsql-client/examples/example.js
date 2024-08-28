@@ -14,6 +14,25 @@ async function example() {
         ],
         "write",
     );
+
+    await db.batch(
+        [
+            {
+                sql: "INSERT INTO users (email, age) VALUES (?, ?)",
+                args: ["alice@example.com", 30],
+            },
+            [
+                "INSERT INTO users (email, age) VALUES (?, ?)",
+                ["bob@example.com", 25],
+            ],
+            {
+                sql: "INSERT INTO users (email, age) VALUES (:email, :age)",
+                args: { email: "charlie@example.com", age: 35 },
+            },
+        ],
+        "write",
+    );
+
     const rs = await db.execute("SELECT * FROM users");
     console.log(rs);
 }
