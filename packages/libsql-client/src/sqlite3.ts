@@ -167,9 +167,7 @@ export class Sqlite3Client implements Client {
         }
     }
 
-    async migrate(
-        stmts: Array<InStatement>,
-    ): Promise<Array<ResultSet>> {
+    async migrate(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
         this.#checkNotClosed();
         const db = this.#getDb();
         try {

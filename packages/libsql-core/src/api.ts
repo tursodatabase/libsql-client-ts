@@ -155,9 +155,7 @@ export interface Client {
      * ]);
      * ```
      */
-    migrate(
-        stmts: Array<InStatement>,
-    ): Promise<Array<ResultSet>>;
+    migrate(stmts: Array<InStatement>): Promise<Array<ResultSet>>;
 
     /** Start an interactive transaction.
      *
