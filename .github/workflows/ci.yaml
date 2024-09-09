@@ -228,7 +228,7 @@ jobs:
           run: "pip install -r hrana-test-server/requirements.txt"
 
         - name: "Build"
-          run: "npm ci && npm run build"
+          run: "npm ci && npm link ../libsql-core && npm run build"
         - name: "Install npm dependencies of the Vercel test"
           run: "cd smoke_test/vercel && npm link ../.."
 
