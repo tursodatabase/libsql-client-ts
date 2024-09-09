@@ -230,7 +230,7 @@ jobs:
         - name: "Build"
           run: "npm run build"
         - name: "Install npm dependencies of the Vercel test"
-          run: "cd smoke_test/vercel && npm install"
+          run: "cd smoke_test/vercel && npm link ../.."
 
         - name: "Test with Hrana 1 over WebSocket"
           run: "cd smoke_test/vercel && python ../../hrana-test-server/server_v1.py node test.js"
