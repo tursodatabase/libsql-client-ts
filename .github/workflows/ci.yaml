@@ -218,7 +218,7 @@ jobs:
           uses: actions/checkout@v3
           with:
             repository: "libsql/hrana-test-server"
-            path: "hrana-test-server"
+            path: "packages/libsql-client/hrana-test-server"
         - name: "Setup Python"
           uses: actions/setup-python@v4
           with:
