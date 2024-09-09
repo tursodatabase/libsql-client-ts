@@ -193,50 +193,50 @@ jobs:
 #      run: "cd smoke_test/workers && python ../../hrana-test-server/server_v3.py node test.js"
 #      env: {"LOCAL": "0", "URL": "http://localhost:8080"}
 
-# "vercel-test":
-#   name: "Build and test with Vercel Edge Functions"
-#   runs-on: ubuntu-latest
-#   env:
-#     VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}"
-#     VERCEL_PROJECT_NAME: "smoke-test"
-#   steps:
-#   - name: "Checkout this repo"
-#     uses: actions/checkout@v3
-#   - name: "Setup Node.js"
-#     uses: actions/setup-node@v3
-#     with:
-#       node-version: "lts/Hydrogen"
-#       cache: "npm"
-#   - name: "Install npm dependencies"
-#     run: "npm ci"
+  "vercel-test":
+    name: "Build and test with Vercel Edge Functions"
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}"
+      VERCEL_PROJECT_NAME: "smoke-test"
+    steps:
+    - name: "Checkout this repo"
+      uses: actions/checkout@v3
+    - name: "Setup Node.js"
+      uses: actions/setup-node@v3
+      with:
+        node-version: "lts/Hydrogen"
+        cache: "npm"
+    - name: "Install npm dependencies"
+      run: "npm ci"
 
-#   - name: "Checkout hrana-test-server"
-#     uses: actions/checkout@v3
-#     with:
-#       repository: "libsql/hrana-test-server"
-#       path: "hrana-test-server"
-#   - name: "Setup Python"
-#     uses: actions/setup-python@v4
-#     with:
-#       python-version: "3.10"
-#       cache: "pip"
-#   - name: "Install pip dependencies"
-#     run: "pip install -r hrana-test-server/requirements.txt"
+    - name: "Checkout hrana-test-server"
+      uses: actions/checkout@v3
+      with:
+        repository: "libsql/hrana-test-server"
+        path: "hrana-test-server"
+    - name: "Setup Python"
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        cache: "pip"
+    - name: "Install pip dependencies"
+      run: "pip install -r hrana-test-server/requirements.txt"
 
-#   - name: "Build"
-#     run: "npm run build"
-#   - name: "Install npm dependencies of the Vercel test"
-#     run: "cd smoke_test/vercel && npm install"
+    - name: "Build"
+      run: "npm run build"
+    - name: "Install npm dependencies of the Vercel test"
+      run: "cd smoke_test/vercel && npm install"
 
-#   - name: "Test with Hrana 1 over WebSocket"
-#     run: "cd smoke_test/vercel && python ../../hrana-test-server/server_v1.py node test.js"
-#     env: {"URL": "ws://localhost:8080"}
-#   - name: "Test with Hrana 2 over WebSocket"
-#     run: "cd smoke_test/vercel && python ../../hrana-test-server/server_v2.py node test.js"
-#     env: {"URL": "ws://localhost:8080"}
-#   - name: "Test with Hrana 2 over HTTP"
-#     run: "cd smoke_test/vercel && python ../../hrana-test-server/server_v2.py node test.js"
-#     env: {"URL": "http://localhost:8080"}
+    - name: "Test with Hrana 1 over WebSocket"
+      run: "cd smoke_test/vercel && python ../../hrana-test-server/server_v1.py node test.js"
+      env: {"URL": "ws://localhost:8080"}
+    - name: "Test with Hrana 2 over WebSocket"
+      run: "cd smoke_test/vercel && python ../../hrana-test-server/server_v2.py node test.js"
+      env: {"URL": "ws://localhost:8080"}
+    - name: "Test with Hrana 2 over HTTP"
+      run: "cd smoke_test/vercel && python ../../hrana-test-server/server_v2.py node test.js"
+      env: {"URL": "http://localhost:8080"}
 #    - name: "Test with Hrana 3 over WebSocket"
 #      run: "cd smoke_test/vercel && python ../../hrana-test-server/server_v3.py node test.js"
 #      env: {"URL": "ws://localhost:8080"}
