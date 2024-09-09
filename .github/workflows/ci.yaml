@@ -196,6 +196,10 @@ jobs:
     "vercel-test":
         name: "Build and test with Vercel Edge Functions"
         runs-on: ubuntu-latest
+        timeout-minutes: 2
+        defaults:
+            run:
+                working-directory: ./packages/libsql-client
         env:
           VERCEL_TOKEN: "${{ secrets.VERCEL_TOKEN }}"
           VERCEL_PROJECT_NAME: "smoke-test"
