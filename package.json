@@ -9,7 +9,10 @@
         "lint-staged": "^15.2.2"
     },
     "scripts": {
-        "prepare": "node .husky/install.mjs",
+        "prepare": "node .husky/install.mjs && husky install",
         "lint-staged": "lint-staged"
+    },
+    "devDependencies": {
+        "husky": "^8.0.0"
     }
 }
