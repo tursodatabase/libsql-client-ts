@@ -96,9 +96,6 @@ export class HttpClient implements Client {
         return this.#promiseLimitFunction(fn);
     }
 
-    async execute(stmt: InStatement): Promise<ResultSet>;
-    async execute(sql: string, args?: InArgs): Promise<ResultSet>;
-
     async execute(
         stmtOrSql: InStatement | string,
         args?: InArgs,
@@ -180,9 +177,7 @@ export class HttpClient implements Client {
         });
     }
 
-    async migrate(
-        stmts: Array<InStatement>,
-    ): Promise<Array<ResultSet>> {
+    async migrate(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
         return this.limit<Array<ResultSet>>(async () => {
             try {
                 const hranaStmts = stmts.map(stmtToHrana);
