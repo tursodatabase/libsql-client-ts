@@ -1,5 +1,5 @@
 
-# Perquisites
+# Prerequisites
 - have `npm` installed and in path
 - have `git` installed and in path
 
