@@ -1,0 +1,44 @@
+name: publish
+
+env:
+  NPM_REGISTRY: 'https://registry.npmjs.org'
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  publish-to-npm:
+    name: "Publish new version to NPM"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+        run:
+            working-directory: ./packages/libsql-client
+    env:
+      NODE_OPTIONS: "--trace-warnings"
+#      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+        - name: "Checkout this repo"
+          uses: actions/checkout@v3
+
+        - name: "Setup Node.js"
+          uses: actions/setup-node@v3
+          with:
+              node-version: "18.x"
+
+        - name: "Build core"
+          run: "npm ci && npm run build"
+          working-directory: ./packages/libsql-core
+
+        - name: "Install npm dependencies"
+          run: "npm ci"
+
+        - name: "Publish pre-release version"
+          if: contains(github.ref, '-pre')
+          run: "npm publish --tag next"
+
+        - name: "Publish latest version"
+          if: "!contains(github.ref, '-pre')"
+          run: "npm publish"
