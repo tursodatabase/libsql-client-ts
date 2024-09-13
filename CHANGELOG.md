@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.0 -- 2024-09-13
+
+-   Upgrade `libsql-js` to latest 0.4.4 version which brings full vector search support for embedded replicas (see vector search documentation here: https://docs.turso.tech/features/ai-and-embeddings)
+
 ## 0.10.0 -- 2024-08-26
 
 -   Add a migrate() API that can be used to do migrations on both schema databases and regular databases. It is mostly dedicated to schema migration tools.
