@@ -5,6 +5,38 @@ on:
     pull_request:
 
 jobs:
+    "typecheck":
+        name: "Typecheck"
+        runs-on: ubuntu-latest
+        timeout-minutes: 2
+        steps:
+            - name: "Checkout this repo"
+              uses: actions/checkout@v4
+            - name: "Setup Node.js"
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "18.x"
+            - name: "Install node dependencies and build"
+              run: "npm ci && npm run build"
+            - name: "Typecheck"
+              run: "npm run typecheck"
+
+    "format-check":
+        name: "Check formatting"
+        runs-on: ubuntu-latest
+        timeout-minutes: 2
+        steps:
+            - name: "Checkout this repo"
+              uses: actions/checkout@v4
+            - name: "Setup Node.js"
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "18.x"
+            - name: "Install node dependencies"
+              run: "npm ci"
+            - name: "Check formatting"
+              run: "npm run format:check"
+
     "test-against-sqld":
         name: "Tests against sqld"
         runs-on: ubuntu-latest
