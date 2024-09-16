@@ -103,7 +103,7 @@
     },
     "dependencies": {
         "@libsql/core": "^0.11.0",
-        "@libsql/hrana-client": "^0.6.2",
+        "@libsql/hrana-client": "^0.7.0",
         "js-base64": "^3.7.5",
         "libsql": "^0.4.4",
         "promise-limit": "^2.7.0"
