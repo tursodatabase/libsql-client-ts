@@ -29,38 +29,40 @@ jobs:
           run: "npm ci && npm run build"
           working-directory: ./packages/libsql-core
 
-        - name: "Install npm dependencies (client)"
-          run: "npm ci"
-          working-directory: ./packages/libsql-client
-
-        - name: "Install npm dependencies (client wasm)"
-          run: "npm ci"
-          working-directory: ./packages/libsql-client-wasm
-
         - name: "Publish core (pre-release)"
           if: contains(github.ref, '-pre')
           run: npm publish --tag next
           working-directory: ./packages/libsql-core
-
-        - name: "Publish client (pre-release)"
-          if: contains(github.ref, '-pre')
-          run: npm publish --tag next
-          working-directory: ./packages/libsql-client
-
-        - name: "Publish client-wasm (pre-release)"
-          if: contains(github.ref, '-pre')
-          run: npm publish --tag next
-          working-directory: ./packages/libsql-client-wasm
 
         - name: "Publish core (latest)"
           if: "!contains(github.ref, '-pre')"
           run: npm publish
           working-directory: ./packages/libsql-core
 
+
+        - name: "Install npm dependencies (client)"
+          run: "npm ci"
+          working-directory: ./packages/libsql-client
+
+        - name: "Publish client (pre-release)"
+          if: contains(github.ref, '-pre')
+          run: npm publish --tag next
+          working-directory: ./packages/libsql-client
+
         - name: "Publish client (latest)"
           if: "!contains(github.ref, '-pre')"
           run: npm publish
           working-directory: ./packages/libsql-client
+
+
+        - name: "Install npm dependencies (client wasm)"
+          run: "npm ci"
+          working-directory: ./packages/libsql-client-wasm
+
+        - name: "Publish client-wasm (pre-release)"
+          if: contains(github.ref, '-pre')
+          run: npm publish --tag next
+          working-directory: ./packages/libsql-client-wasm
 
         - name: "Publish client-wasm (latest)"
           if: "!contains(github.ref, '-pre')"
