@@ -1,6 +1,6 @@
 {
     "name": "@libsql/core",
-    "version": "0.12.1-pre.6",
+    "version": "0.13.0",
     "keywords": [
         "libsql",
         "database",
