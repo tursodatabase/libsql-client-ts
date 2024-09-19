@@ -13,9 +13,6 @@ jobs:
     name: "Publish new version to NPM"
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    defaults:
-        run:
-            working-directory: ./packages/libsql-client
     env:
       NODE_OPTIONS: "--trace-warnings"
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -32,13 +29,42 @@ jobs:
           run: "npm ci && npm run build"
           working-directory: ./packages/libsql-core
 
-        - name: "Install npm dependencies"
-          run: "npm ci"
-
-        - name: "Publish pre-release version"
+        - name: "Publish core (pre-release)"
           if: contains(github.ref, '-pre')
-          run: "npm publish --tag next"
+          run: npm publish --tag next
+          working-directory: ./packages/libsql-core
 
-        - name: "Publish latest version"
+        - name: "Publish core (latest)"
           if: "!contains(github.ref, '-pre')"
-          run: "npm publish"
+          run: npm publish
+          working-directory: ./packages/libsql-core
+
+
+        - name: "Install npm dependencies (client)"
+          run: "npm ci"
+          working-directory: ./packages/libsql-client
+
+        - name: "Publish client (pre-release)"
+          if: contains(github.ref, '-pre')
+          run: npm publish --tag next
+          working-directory: ./packages/libsql-client
+
+        - name: "Publish client (latest)"
+          if: "!contains(github.ref, '-pre')"
+          run: npm publish
+          working-directory: ./packages/libsql-client
+
+
+        - name: "Install npm dependencies (client wasm)"
+          run: "npm ci"
+          working-directory: ./packages/libsql-client-wasm
+
+        - name: "Publish client-wasm (pre-release)"
+          if: contains(github.ref, '-pre')
+          run: npm publish --tag next
+          working-directory: ./packages/libsql-client-wasm
+
+        - name: "Publish client-wasm (latest)"
+          if: "!contains(github.ref, '-pre')"
+          run: npm publish
+          working-directory: ./packages/libsql-client-wasm
