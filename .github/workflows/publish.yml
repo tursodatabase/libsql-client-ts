@@ -37,8 +37,14 @@ jobs:
 
         - name: "Publish pre-release version"
           if: contains(github.ref, '-pre')
-          run: "npm publish --workspaces --tag next"
+          run: |
+            npm publish --workspace packages/libsql-core --tag next
+            npm publish --workspace packages/libsql-client-wasm --tag next
+            npm publish --workspace packages/libsql-client --tag next
 
         - name: "Publish latest version"
           if: "!contains(github.ref, '-pre')"
-          run: "npm publish --workspaces"
+          run: |
+            npm publish --workspace packages/libsql-core
+            npm publish --workspace packages/libsql-client-wasm
+            npm publish --workspace packages/libsql-client
