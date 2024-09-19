@@ -37,8 +37,8 @@ jobs:
 
         - name: "Publish pre-release version"
           if: contains(github.ref, '-pre')
-          run: "npm publish --tag next"
+          run: "npm publish --workspaces --tag next"
 
         - name: "Publish latest version"
           if: "!contains(github.ref, '-pre')"
-          run: "npm publish"
+          run: "npm publish --workspaces"
