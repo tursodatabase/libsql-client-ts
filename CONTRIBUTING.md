@@ -1,13 +1,13 @@
 # Prerequisites
 
--   have `npm` installed and in PATH
--   have `git` installed and in PATH
+-   Have `npm` installed and in PATH
+-   Have `git` installed and in PATH
 
 # Setting up the repo for contributing
 
--   clone this repo (`git clone <this repo's url> libsql-client-ts` on \*nix)
--   change the current working directory to the cloned repo (`cd libsql-client-ts` on \*nix)
--   `npm i`
--   change the current working directory to `libsql-core`'s workspace (`cd packages/libsql-core` on \*nix)
--   build it (`npm run build` on \*nix)
--   finally change back to base directory and start experimenting! (`cd ../..` on \*nix)
+- Clone this repository: `git clone https://github.com/tursodatabase/libsql-client-ts`
+- Change the current working directory to the cloned repository: `cd libsql-client-ts`
+- Install dependencies:  `npm i`
+- Change the current working directory to `libsql-core`'s workspace: `cd packages/libsql-core`
+- Built the core package: `npm run build`
+- Go back to the root directory to start making changes: `cd ../..`
