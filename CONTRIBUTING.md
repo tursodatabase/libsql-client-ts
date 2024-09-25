@@ -3,7 +3,7 @@
 -   Have `npm` installed and in PATH
 -   Have `git` installed and in PATH
 
-# Setting up the repo for contributing
+# Setting up the repository for contribution
 
 -   Clone this repository: `git clone https://github.com/tursodatabase/libsql-client-ts`
 -   Change the current working directory to the cloned repository: `cd libsql-client-ts`
