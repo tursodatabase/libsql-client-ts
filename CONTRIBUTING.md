@@ -1,7 +1,7 @@
 # Prerequisites
 
--   have `npm` installed and in path
--   have `git` installed and in path
+-   have `npm` installed and in PATH
+-   have `git` installed and in PATH
 
 # Setting up the repo for contributing
 
