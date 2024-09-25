@@ -814,7 +814,7 @@ describe("batch()", () => {
             );
 
             const n = 100;
-            const promises = [];
+            const promises = [] as Array<any>;
             for (let i = 0; i < n; ++i) {
                 const ii = i;
                 promises.push(
@@ -885,7 +885,7 @@ describe("batch()", () => {
     test(
         "batch with a lot of different statements",
         withClient(async (c) => {
-            const stmts = [];
+            const stmts = [] as Array<any>;
             for (let i = 0; i < 1000; ++i) {
                 stmts.push(`SELECT ${i}`);
             }
@@ -902,7 +902,7 @@ describe("batch()", () => {
             const n = 20;
             const m = 200;
 
-            const stmts = [];
+            const stmts = [] as Array<any>;
             for (let i = 0; i < n; ++i) {
                 for (let j = 0; j < m; ++j) {
                     stmts.push({ sql: `SELECT ?, ${j}`, args: [i] });

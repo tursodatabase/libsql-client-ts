@@ -87,6 +87,7 @@ export interface Client {
      * ```
      */
     execute(stmt: InStatement): Promise<ResultSet>;
+    execute(sql: string, args?: InArgs): Promise<ResultSet>;
 
     /** Execute a batch of SQL statements in a transaction.
      *
@@ -155,9 +156,7 @@ export interface Client {
      * ]);
      * ```
      */
-    migrate(
-        stmts: Array<InStatement>,
-    ): Promise<Array<ResultSet>>;
+    migrate(stmts: Array<InStatement>): Promise<Array<ResultSet>>;
 
     /** Start an interactive transaction.
      *

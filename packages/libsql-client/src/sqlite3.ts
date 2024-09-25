@@ -119,9 +119,6 @@ export class Sqlite3Client implements Client {
         this.protocol = "file";
     }
 
-    async execute(stmt: InStatement): Promise<ResultSet>;
-    async execute(sql: string, args?: InArgs): Promise<ResultSet>;
-
     async execute(
         stmtOrSql: InStatement | string,
         args?: InArgs,
@@ -167,9 +164,7 @@ export class Sqlite3Client implements Client {
         }
     }
 
-    async migrate(
-        stmts: Array<InStatement>,
-    ): Promise<Array<ResultSet>> {
+    async migrate(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
         this.#checkNotClosed();
         const db = this.#getDb();
         try {
