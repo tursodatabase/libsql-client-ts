@@ -192,13 +192,23 @@ export class WsClient implements Client {
     }
 
     async batch(
-        stmts: Array<InStatement>,
+        stmts: Array<InStatement | [string, InArgs?]>,
         mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
         return this.limit<Array<ResultSet>>(async () => {
             const streamState = await this.#openStream();
             try {
-                const hranaStmts = stmts.map(stmtToHrana);
+                const normalizedStmts = stmts.map(stmt => {
+                    if (Array.isArray(stmt)) {
+                        return {
+                            sql: stmt[0],
+                            args: stmt[1] || []
+                        };
+                    }
+                    return stmt;
+                });
+
+                const hranaStmts = normalizedStmts.map(stmtToHrana);
                 const version = await streamState.conn.client.getVersion();
 
                 // Schedule all operations synchronously, so they will be pipelined and executed in a single

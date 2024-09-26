@@ -123,7 +123,7 @@ export interface Client {
      * ```
      */
     batch(
-        stmts: Array<InStatement>,
+        stmts: Array<InStatement | [string, InArgs?]>,
         mode?: TransactionMode,
     ): Promise<Array<ResultSet>>;
 
@@ -469,7 +469,7 @@ export type Value = null | string | number | bigint | ArrayBuffer;
 
 export type InValue = Value | boolean | Uint8Array | Date;
 
-export type InStatement = { sql: string; args: InArgs } | string;
+export type InStatement = { sql: string; args?: InArgs } | string;
 export type InArgs = Array<InValue> | Record<string, InValue>;
 
 /** Error thrown by the client. */

@@ -4,6 +4,7 @@ import type {
     ResultSet,
     Transaction,
     TransactionMode,
+    InArgs,
 } from "@libsql/core/api";
 import { LibsqlError } from "@libsql/core/api";
 import type { SqlCache } from "./sql_cache.js";
@@ -309,17 +310,27 @@ export async function executeHranaBatch(
     return resultSets;
 }
 
-export function stmtToHrana(stmt: InStatement): hrana.Stmt {
-    if (typeof stmt === "string") {
-        return new hrana.Stmt(stmt);
+export function stmtToHrana(stmt: InStatement | [string, InArgs?]): hrana.Stmt {
+    let sql: string;
+    let args: InArgs | undefined;
+
+    if (Array.isArray(stmt)) {
+        [sql, args] = stmt;
+    } else if (typeof stmt === "string") {
+        sql = stmt;
+    } else {
+        sql = stmt.sql;
+        args = stmt.args;
     }
 
-    const hranaStmt = new hrana.Stmt(stmt.sql);
-    if (Array.isArray(stmt.args)) {
-        hranaStmt.bindIndexes(stmt.args);
-    } else {
-        for (const [key, value] of Object.entries(stmt.args)) {
-            hranaStmt.bindName(key, value);
+    const hranaStmt = new hrana.Stmt(sql);
+    if (args) {
+        if (Array.isArray(args)) {
+            hranaStmt.bindIndexes(args);
+        } else {
+            for (const [key, value] of Object.entries(args)) {
+                hranaStmt.bindName(key, value);
+            }
         }
     }
 
