@@ -9,6 +9,9 @@
         "lint-staged": "^15.2.2"
     },
     "scripts": {
+        "build": "npm run build --workspaces",
+        "typecheck": "npm run typecheck --workspaces",
+        "format:check": "npm run format:check --workspaces",
         "prepare": "node .husky/install.mjs",
         "lint-staged": "lint-staged"
     }
