@@ -52,7 +52,7 @@
 -   🔌 Works offline with [Embedded Replicas](https://docs.turso.tech/features/embedded-replicas/introduction)
 -   🌎 Works with remote Turso databases
 -   ✨ Works with Turso [AI & Vector Search](https://docs.turso.tech/features/ai-and-embeddings)
--   🐘 Works Android PDO
+-   🔐 Supports [encryption at rest](https://docs.turso.tech/libsql#encryption-at-rest)
 
 > [!WARNING]
 > This SDK is currently in technical preview. <a href="https://tur.so/discord-ts">Join us in Discord</a> to report any issues.
