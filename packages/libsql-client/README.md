@@ -60,9 +60,6 @@
 npm install @libsql/client
 ```
 
-> [!NOTE]
-> This will only work with the Android Gradle Plugin for now.
-
 ## Quickstart
 
 The example below uses Embedded Replicas and syncs every minute from Turso.
