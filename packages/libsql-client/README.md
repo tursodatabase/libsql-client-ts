@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  Databases for TypeScript and JS multi-tenant AI Apps.
+  Databases for all TypeScript and JS multi-tenant apps.
 </p>
 
 <p align="center">
@@ -53,9 +53,6 @@
 -   🌎 Works with remote Turso databases
 -   ✨ Works with Turso [AI & Vector Search](https://docs.turso.tech/features/ai-and-embeddings)
 -   🔐 Supports [encryption at rest](https://docs.turso.tech/libsql#encryption-at-rest)
-
-> [!WARNING]
-> This SDK is currently in technical preview. <a href="https://tur.so/discord-ts">Join us in Discord</a> to report any issues.
 
 ## Install
 
