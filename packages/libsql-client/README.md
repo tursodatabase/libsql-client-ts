@@ -94,6 +94,19 @@ await turso.execute({
 });
 ```
 
+## Examples
+
+| Example                               | Description                                                                             |
+| ------------------------------------- | --------------------------------------------------------------------------------------- |
+| [local](examples/local)               | Uses libsql with a local SQLite file. Creates database, inserts data, and queries.      |
+| [remote](examples/remote)             | Connects to a remote database. Requires environment variables for URL and auth token.   |
+| [sync](examples/sync)                 | Demonstrates synchronization between local and remote databases.                        |
+| [batch](examples/batch)               | Executes multiple SQL statements in a single batch operation.                           |
+| [transactions](examples/transactions) | Shows transaction usage: starting, performing operations, and committing/rolling back.  |
+| [memory](examples/memory)             | Uses an in-memory SQLite database for temporary storage or fast access.                 |
+| [vector](examples/vector)             | Works with vector embeddings, storing and querying for similarity search.               |
+| [encryption](examples/encryption)     | Creates and uses an encrypted SQLite database, demonstrating setup and data operations. |
+
 ## Documentation
 
 Visit our [official documentation](https://docs.turso.tech/sdk/kotlin).
