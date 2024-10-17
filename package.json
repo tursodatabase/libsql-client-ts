@@ -4,12 +4,12 @@
         "packages/libsql-client",
         "packages/libsql-client-wasm"
     ],
-    "dependencies": {
-        "husky": "^9.0.11",
-        "lint-staged": "^15.2.2"
-    },
+    "dependencies": {},
     "scripts": {
-        "prepare": "node .husky/install.mjs",
-        "lint-staged": "lint-staged"
+        "prepare": "node .husky/install.mjs"
+    },
+    "devDependencies": {
+        "lint-staged": "^15.2.2",
+        "husky": "^9.1.5"
     }
 }
