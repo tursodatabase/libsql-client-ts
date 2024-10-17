@@ -1,51 +1,125 @@
 <p align="center">
-  <a href="https://docs.turso.tech/sdk/ts/quickstart">
-    <img alt="Turso + TypeScript" src="https://github.com/tursodatabase/libsql-client-ts/assets/950181/5d3a2693-75f9-4c56-9107-8ccaa96785fd" width="1000">
-    <h3 align="center">Turso + TypeScript / JS</h3>
+  <a href="https://tur.so/turso-ts">
+    <picture>
+      <img src="/.github/cover.png" alt="libSQL TypeScript" />
+    </picture>
   </a>
+  <h1 align="center">libSQL TypeScript</h1>
 </p>
 
 <p align="center">
-  SQLite for Production. Powered by <a href="https://turso.tech/libsql">libSQL</a>.
+  Databases for all TypeScript and JS multi-tenant apps.
 </p>
 
 <p align="center">
-  <a href="https://turso.tech"><strong>Turso</strong></a> ·
-  <a href="https://docs.turso.tech/quickstart"><strong>Quickstart</strong></a> ·
-  <a href="/examples"><strong>Examples</strong></a> ·
+  <a href="https://tur.so/turso-ts"><strong>Turso</strong></a> ·
   <a href="https://docs.turso.tech"><strong>Docs</strong></a> ·
-  <a href="https://discord.com/invite/4B5D7hYwub"><strong>Discord</strong></a> ·
-  <a href="https://blog.turso.tech/"><strong>Blog &amp; Tutorials</strong></a>
+  <a href="https://docs.turso.tech/sdk/ts/quickstart"><strong>Quickstart</strong></a> ·
+  <a href="https://docs.turso.tech/sdk/ts/reference"><strong>SDK Reference</strong></a> ·
+  <a href="https://turso.tech/blog"><strong>Blog &amp; Tutorials</strong></a>
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/@libsql/client">
-    <img src="https://badge.fury.io/js/@libsql%2Fclient.svg" alt="npm version" title="npm version" />
+  <a href="LICENSE">
+    <picture>
+      <img src="https://img.shields.io/github/license/tursodatabase/libsql-client-ts?color=0F624B" alt="MIT License" />
+    </picture>
   </a>
-  <a href="https://discord.com/invite/4B5D7hYwub">
-    <img src="https://dcbadge.vercel.app/api/server/4B5D7hYwub?style=flat" alt="discord activity" title="join us on discord" />
+  <a href="https://tur.so/discord-ts">
+    <picture>
+      <img src="https://img.shields.io/discord/933071162680958986?color=0F624B" alt="Discord" />
+    </picture>
   </a>
-   <a href="https://www.phorm.ai/query?projectId=3c9a471f-4a47-469f-81f6-4ea1ff9ab418"><img src="https://img.shields.io/badge/Phorm-Ask_AI-%23F2777A.svg?&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNSIgaGVpZ2h0PSI0IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgogIDxwYXRoIGQ9Ik00LjQzIDEuODgyYTEuNDQgMS40NCAwIDAgMS0uMDk4LjQyNmMtLjA1LjEyMy0uMTE1LjIzLS4xOTIuMzIyLS4wNzUuMDktLjE2LjE2NS0uMjU1LjIyNmExLjM1MyAxLjM1MyAwIDAgMS0uNTk1LjIxMmMtLjA5OS4wMTItLjE5Mi4wMTQtLjI3OS4wMDZsLTEuNTkzLS4xNHYtLjQwNmgxLjY1OGMuMDkuMDAxLjE3LS4xNjkuMjQ2LS4xOTFhLjYwMy42MDMgMCAwIDAgLjItLjEwNi41MjkuNTI5IDAgMCAwIC4xMzgtLjE3LjY1NC42NTQgMCAwIDAgLjA2NS0uMjRsLjAyOC0uMzJhLjkzLjkzIDAgMCAwLS4wMzYtLjI0OS41NjcuNTY3IDAgMCAwLS4xMDMtLjIuNTAyLjUwMiAwIDAgMC0uMTY4LS4xMzguNjA4LjYwOCAwIDAgMC0uMjQtLjA2N0wyLjQzNy43MjkgMS42MjUuNjcxYS4zMjIuMzIyIDAgMCAwLS4yMzIuMDU4LjM3NS4zNzUgMCAwIDAtLjExNi4yMzJsLS4xMTYgMS40NS0uMDU4LjY5Ny0uMDU4Ljc1NEwuNzA1IDRsLS4zNTctLjA3OUwuNjAyLjkwNkMuNjE3LjcyNi42NjMuNTc0LjczOS40NTRhLjk1OC45NTggMCAwIDEgLjI3NC0uMjg1Ljk3MS45NzEgMCAwIDEgLjMzNy0uMTRjLjExOS0uMDI2LjIyNy0uMDM0LjMyNS0uMDI2TDMuMjMyLjE2Yy4xNTkuMDE0LjMzNi4wMy40NTkuMDgyYTEuMTczIDEuMTczIDAgMCAxIC41NDUuNDQ3Yy4wNi4wOTQuMTA5LjE5Mi4xNDQuMjkzYTEuMzkyIDEuMzkyIDAgMCAxIC4wNzguNThsLS4wMjkuMzJaIiBmaWxsPSIjRjI3NzdBIi8+CiAgPHBhdGggZD0iTTQuMDgyIDIuMDA3YTEuNDU1IDEuNDU1IDAgMCAxLS4wOTguNDI3Yy0uMDUuMTI0LS4xMTQuMjMyLS4xOTIuMzI0YTEuMTMgMS4xMyAwIDAgMS0uMjU0LjIyNyAxLjM1MyAxLjM1MyAwIDAgMS0uNTk1LjIxNGMtLjEuMDEyLS4xOTMuMDE0LS4yOC4wMDZsLTEuNTYtLjEwOC4wMzQtLjQwNi4wMy0uMzQ4IDEuNTU5LjE1NGMuMDkgMCAuMTczLS4wMS4yNDgtLjAzM2EuNjAzLjYwMyAwIDAgMCAuMi0uMTA2LjUzMi41MzIgMCAwIDAgLjEzOS0uMTcyLjY2LjY2IDAgMCAwIC4wNjQtLjI0MWwuMDI5LS4zMjFhLjk0Ljk0IDAgMCAwLS4wMzYtLjI1LjU3LjU3IDAgMCAwLS4xMDMtLjIwMi41MDIuNTAyIDAgMCAwLS4xNjgtLjEzOC42MDUuNjA1IDAgMCAwLS4yNC0uMDY3TDEuMjczLjgyN2MtLjA5NC0uMDA4LS4xNjguMDEtLjIyMS4wNTUtLjA1My4wNDUtLjA4NC4xMTQtLjA5Mi4yMDZMLjcwNSA0IDAgMy45MzhsLjI1NS0yLjkxMUExLjAxIDEuMDEgMCAwIDEgLjM5My41NzIuOTYyLjk2MiAwIDAgMSAuNjY2LjI4NmEuOTcuOTcgMCAwIDEgLjMzOC0uMTRDMS4xMjIuMTIgMS4yMy4xMSAxLjMyOC4xMTlsMS41OTMuMTRjLjE2LjAxNC4zLjA0Ny40MjMuMWExLjE3IDEuMTcgMCAwIDEgLjU0NS40NDhjLjA2MS4wOTUuMTA5LjE5My4xNDQuMjk1YTEuNDA2IDEuNDA2IDAgMCAxIC4wNzcuNTgzbC0uMDI4LjMyMloiIGZpbGw9IndoaXRlIi8+CiAgPHBhdGggZD0iTTQuMDgyIDIuMDA3YTEuNDU1IDEuNDU1IDAgMCAxLS4wOTguNDI3Yy0uMDUuMTI0LS4xMTQuMjMyLS4xOTIuMzI0YTEuMTMgMS4xMyAwIDAgMS0uMjU0LjIyNyAxLjM1MyAxLjM1MyAwIDAgMS0uNTk1LjIxNGMtLjEuMDEyLS4xOTMuMDE0LS4yOC4wMDZsLTEuNTYtLjEwOC4wMzQtLjQwNi4wMy0uMzQ4IDEuNTU5LjE1NGMuMDkgMCAuMTczLS4wMS4yNDgtLjAzM2EuNjAzLjYwMyAwIDAgMCAuMi0uMTA2LjUzMi41MzIgMCAwIDAgLjEzOS0uMTcyLjY2LjY2IDAgMCAwIC4wNjQtLjI0MWwuMDI5LS4zMjFhLjk0Ljk0IDAgMCAwLS4wMzYtLjI1LjU3LjU3IDAgMCAwLS4xMDMtLjIwMi41MDIuNTAyIDAgMCAwLS4xNjgtLjEzOC42MDUuNjA1IDAgMCAwLS4yNC0uMDY3TDEuMjczLjgyN2MtLjA5NC0uMDA4LS4xNjguMDEtLjIyMS4wNTUtLjA1My4wNDUtLjA4NC4xMTQtLjA5Mi4yMDZMLjcwNSA0IDAgMy45MzhsLjI1NS0yLjkxMUExLjAxIDEuMDEgMCAwIDEgLjM5My41NzIuOTYyLjk2MiAwIDAgMSAuNjY2LjI4NmEuOTcuOTcgMCAwIDEgLjMzOC0uMTRDMS4xMjIuMTIgMS4yMy4xMSAxLjMyOC4xMTlsMS41OTMuMTRjLjE2LjAxNC4zLjA0Ny40MjMuMWExLjE3IDEuMTcgMCAwIDEgLjU0NS40NDhjLjA2MS4wOTUuMTA5LjE5My4xNDQuMjk1YTEuNDA2IDEuNDA2IDAgMCAxIC4wNzcuNTgzbC0uMDI4LjMyMloiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=" alt="phorm.ai">
+  <a href="#contributors">
+    <picture>
+      <img src="https://img.shields.io/github/contributors/tursodatabase/libsql-client-ts?color=0F624B" alt="Contributors" />
+    </picture>
+  </a>
+  <a href="https://packagist.org/packages/turso/libsql">
+    <picture>
+      <img src="https://img.shields.io/packagist/dt/turso/libsql?color=0F624B" alt="Total downloads" />
+    </picture>
+  </a>
+  <a href="/examples">
+    <picture>
+      <img src="https://img.shields.io/badge/browse-examples-0F624B" alt="Examples" />
+    </picture>
   </a>
 </p>
 
----
+## Features
+
+-   🔌 Works offline with [Embedded Replicas](https://docs.turso.tech/features/embedded-replicas/introduction)
+-   🌎 Works with remote Turso databases
+-   ✨ Works with Turso [AI & Vector Search](https://docs.turso.tech/features/ai-and-embeddings)
+-   🔐 Supports [encryption at rest](https://docs.turso.tech/libsql#encryption-at-rest)
+
+## Install
+
+```bash
+npm install @libsql/client
+```
+
+## Quickstart
+
+The example below uses Embedded Replicas and syncs every minute from Turso.
+
+```ts
+import { createClient } from "@libsql/client";
+
+export const turso = createClient({
+    url: "file:local.db",
+    syncUrl: process.env.TURSO_DATABASE_URL,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+    syncInterval: 60000,
+});
+
+await client.batch(
+    [
+        "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)",
+        {
+            sql: "INSERT INTO users VALUES (?)",
+            args: ["Iku"],
+        },
+    ],
+    "write",
+);
+
+await turso.execute({
+    sql: "SELECT * FROM users WHERE id = ?",
+    args: [1],
+});
+```
+
+## Examples
+
+| Example                               | Description                                                                             |
+| ------------------------------------- | --------------------------------------------------------------------------------------- |
+| [local](examples/local)               | Uses libsql with a local SQLite file. Creates database, inserts data, and queries.      |
+| [remote](examples/remote)             | Connects to a remote database. Requires environment variables for URL and auth token.   |
+| [sync](examples/sync)                 | Demonstrates synchronization between local and remote databases.                        |
+| [batch](examples/batch)               | Executes multiple SQL statements in a single batch operation.                           |
+| [transactions](examples/transactions) | Shows transaction usage: starting, performing operations, and committing/rolling back.  |
+| [memory](examples/memory)             | Uses an in-memory SQLite database for temporary storage or fast access.                 |
+| [vector](examples/vector)             | Works with vector embeddings, storing and querying for similarity search.               |
+| [encryption](examples/encryption)     | Creates and uses an encrypted SQLite database, demonstrating setup and data operations. |
 
 ## Documentation
 
-1. [Turso Quickstart](https://docs.turso.tech/quickstart) &mdash; Learn how create and connect your first database.
-2. [SDK Quickstart](https://docs.turso.tech/sdk/ts/quickstart) &mdash; Learn how to install and execute queries using the libSQL client.
-3. [SDK Reference](https://docs.turso.tech/sdk/ts/reference) &mdash; Dive deeper with the libSQL SDK reference and examples.
+Visit our [official documentation](https://docs.turso.tech/sdk/kotlin).
 
-### What is Turso?
+## Support
 
-[Turso](https://turso.tech) is a SQLite-compatible database built on [libSQL](https://docs.turso.tech/libsql), the Open Contribution fork of SQLite. It enables scaling to hundreds of thousands of databases per organization and supports replication to any location, including your own servers, for microsecond-latency access.
+Join us [on Discord](https://tur.so/discord-ts) to get help using this SDK. Report security issues [via email](mailto:security@turso.tech).
 
-Learn more about what you can do with Turso:
+## Contributors
 
--   [Embedded Replicas](https://docs.turso.tech/features/embedded-replicas)
--   [Platform API](https://docs.turso.tech/features/platform-api)
--   [Data Edge](https://docs.turso.tech/features/data-edge)
--   [Branching](https://docs.turso.tech/features/branching)
--   [Point-in-Time Recovery](https://docs.turso.tech/features/point-in-time-recovery)
--   [Scale to Zero](https://docs.turso.tech/features/scale-to-zero)
+See the [contributing guide](CONTRIBUTING.md) to learn how to get involved.
+
+![Contributors](https://contrib.nn.ci/api?repo=tursodatabase/libsql-client-ts)
+
+<a href="https://github.com/tursodatabase/libsql-client-ts/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22">
+  <picture>
+    <img src="https://img.shields.io/github/issues-search/tursodatabase/libsql-client-ts?label=good%20first%20issue&query=label%3A%22good%20first%20issue%22%20&color=0F624B" alt="good first issue" />
+  </picture>
+</a>
