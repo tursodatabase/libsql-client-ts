@@ -35,9 +35,9 @@
       <img src="https://img.shields.io/github/contributors/tursodatabase/libsql-client-ts?color=0F624B" alt="Contributors" />
     </picture>
   </a>
-  <a href="https://packagist.org/packages/turso/libsql">
+  <a href="https://www.npmjs.com/package/@libsql/client">
     <picture>
-      <img src="https://img.shields.io/packagist/dt/turso/libsql?color=0F624B" alt="Total downloads" />
+      <img src="https://img.shields.io/npm/dw/%40libsql%2Fclient?color=0F624B" alt="Weekly downloads" />
     </picture>
   </a>
   <a href="/examples">
