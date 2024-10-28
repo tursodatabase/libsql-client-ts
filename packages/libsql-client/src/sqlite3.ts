@@ -83,6 +83,7 @@ export function _createClient(config: ExpandedConfig): Client {
         encryptionKey: config.encryptionKey,
         syncUrl: config.syncUrl,
         syncPeriod: config.syncInterval,
+        readYourWrites: config.readYourWrites,
     };
 
     const db = new Database(path, options);

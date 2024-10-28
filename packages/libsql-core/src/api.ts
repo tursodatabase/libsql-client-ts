@@ -21,6 +21,9 @@ export interface Config {
     /** Sync interval in seconds. */
     syncInterval?: number;
 
+    /** Read your writes */
+    readYourWrites?: boolean;
+
     /** Enables or disables TLS for `libsql:` URLs.
      *
      * By default, `libsql:` URLs use TLS. You can set this option to `false` to disable TLS.
