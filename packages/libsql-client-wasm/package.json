@@ -13,7 +13,8 @@
     "description": "libSQL driver for TypeScript and JavaScript",
     "repository": {
         "type": "git",
-        "url": "https://github.com/libsql/libsql-client-ts"
+        "url": "git+https://github.com/libsql/libsql-client-ts",
+        "directory": "packages/libsql-client-wasm"
     },
     "authors": [
         "Jan Špaček <honza@chiselstrike.com>",
