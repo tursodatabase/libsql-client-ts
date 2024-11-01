@@ -106,7 +106,7 @@ await turso.execute({
 
 ## Documentation
 
-Visit our [official documentation](https://docs.turso.tech/sdk/kotlin).
+Visit our [official documentation](https://docs.turso.tech/sdk/ts).
 
 ## Support
 
