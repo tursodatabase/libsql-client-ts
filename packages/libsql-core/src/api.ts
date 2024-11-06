@@ -21,6 +21,9 @@ export interface Config {
     /** Sync interval in seconds. */
     syncInterval?: number;
 
+    /** Read your writes */
+    readYourWrites?: boolean;
+
     /** Enables or disables TLS for `libsql:` URLs.
      *
      * By default, `libsql:` URLs use TLS. You can set this option to `false` to disable TLS.
@@ -87,6 +90,7 @@ export interface Client {
      * ```
      */
     execute(stmt: InStatement): Promise<ResultSet>;
+    execute(sql: string, args?: InArgs): Promise<ResultSet>;
 
     /** Execute a batch of SQL statements in a transaction.
      *
@@ -122,7 +126,7 @@ export interface Client {
      * ```
      */
     batch(
-        stmts: Array<InStatement>,
+        stmts: Array<InStatement | [string, InArgs?]>,
         mode?: TransactionMode,
     ): Promise<Array<ResultSet>>;
 
@@ -155,9 +159,7 @@ export interface Client {
      * ]);
      * ```
      */
-    migrate(
-        stmts: Array<InStatement>,
-    ): Promise<Array<ResultSet>>;
+    migrate(stmts: Array<InStatement>): Promise<Array<ResultSet>>;
 
     /** Start an interactive transaction.
      *
@@ -470,7 +472,7 @@ export type Value = null | string | number | bigint | ArrayBuffer;
 
 export type InValue = Value | boolean | Uint8Array | Date;
 
-export type InStatement = { sql: string; args: InArgs } | string;
+export type InStatement = { sql: string; args?: InArgs } | string;
 export type InArgs = Array<InValue> | Record<string, InValue>;
 
 /** Error thrown by the client. */

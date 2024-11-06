@@ -96,9 +96,6 @@ export class HttpClient implements Client {
         return this.#promiseLimitFunction(fn);
     }
 
-    async execute(stmt: InStatement): Promise<ResultSet>;
-    async execute(sql: string, args?: InArgs): Promise<ResultSet>;
-
     async execute(
         stmtOrSql: InStatement | string,
         args?: InArgs,
@@ -138,12 +135,22 @@ export class HttpClient implements Client {
     }
 
     async batch(
-        stmts: Array<InStatement>,
+        stmts: Array<InStatement | [string, InArgs?]>,
         mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
         return this.limit<Array<ResultSet>>(async () => {
             try {
-                const hranaStmts = stmts.map(stmtToHrana);
+                const normalizedStmts = stmts.map(stmt => {
+                    if (Array.isArray(stmt)) {
+                        return {
+                            sql: stmt[0],
+                            args: stmt[1] || []
+                        };
+                    }
+                    return stmt;
+                });
+
+                const hranaStmts = normalizedStmts.map(stmtToHrana);
                 const version = await this.#client.getVersion();
 
                 // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the batch and
@@ -180,9 +187,7 @@ export class HttpClient implements Client {
         });
     }
 
-    async migrate(
-        stmts: Array<InStatement>,
-    ): Promise<Array<ResultSet>> {
+    async migrate(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
         return this.limit<Array<ResultSet>>(async () => {
             try {
                 const hranaStmts = stmts.map(stmtToHrana);

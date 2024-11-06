@@ -1,6 +1,6 @@
 {
     "name": "@libsql/client-wasm",
-    "version": "0.10.0",
+    "version": "0.14.0",
     "keywords": [
         "libsql",
         "database",
@@ -13,7 +13,8 @@
     "description": "libSQL driver for TypeScript and JavaScript",
     "repository": {
         "type": "git",
-        "url": "https://github.com/libsql/libsql-client-ts"
+        "url": "git+https://github.com/libsql/libsql-client-ts",
+        "directory": "packages/libsql-client-wasm"
     },
     "authors": [
         "Jan Špaček <honza@chiselstrike.com>",
@@ -51,12 +52,13 @@
         "build": "npm run build:esm",
         "build:esm": "tsc -p tsconfig.build-esm.json",
         "bundle": "rm -rf node_modules && mkdir -p node_modules/@libsql/libsql-wasm-experimental && cp -R ../../node_modules/@libsql/libsql-wasm-experimental/* node_modules/@libsql/libsql-wasm-experimental",
+        "format:check": "prettier --check .",
         "test": "jest --runInBand",
         "typecheck": "tsc --noEmit",
         "typedoc": "rm -rf ./docs && typedoc"
     },
     "dependencies": {
-        "@libsql/core": "^0.10.0",
+        "@libsql/core": "^0.14.0",
         "@libsql/libsql-wasm-experimental": "^0.0.2",
         "js-base64": "^3.7.5"
     },

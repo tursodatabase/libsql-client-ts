@@ -1,6 +1,6 @@
 {
     "name": "@libsql/client",
-    "version": "0.10.0",
+    "version": "0.14.0",
     "keywords": [
         "libsql",
         "database",
@@ -13,7 +13,8 @@
     "description": "libSQL driver for TypeScript and JavaScript",
     "repository": {
         "type": "git",
-        "url": "https://github.com/libsql/libsql-client-ts"
+        "url": "git+https://github.com/libsql/libsql-client-ts",
+        "directory": "packages/libsql-client"
     },
     "authors": [
         "Jan Špaček <honza@chiselstrike.com>",
@@ -94,6 +95,7 @@
         "build": "npm run build:cjs && npm run build:esm",
         "build:cjs": "tsc -p tsconfig.build-cjs.json",
         "build:esm": "tsc -p tsconfig.build-esm.json",
+        "format:check": "prettier --check .",
         "postbuild": "cp package-cjs.json ./lib-cjs/package.json",
         "test": "jest --runInBand",
         "typecheck": "tsc --noEmit",
@@ -101,10 +103,10 @@
         "lint-staged": "lint-staged"
     },
     "dependencies": {
-        "@libsql/core": "^0.10.0",
-        "@libsql/hrana-client": "^0.6.2",
+        "@libsql/core": "^0.14.0",
+        "@libsql/hrana-client": "^0.7.0",
         "js-base64": "^3.7.5",
-        "libsql": "^0.4.1",
+        "libsql": "^0.4.4",
         "promise-limit": "^2.7.0"
     },
     "devDependencies": {

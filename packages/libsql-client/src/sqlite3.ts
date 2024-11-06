@@ -83,6 +83,7 @@ export function _createClient(config: ExpandedConfig): Client {
         encryptionKey: config.encryptionKey,
         syncUrl: config.syncUrl,
         syncPeriod: config.syncInterval,
+        readYourWrites: config.readYourWrites,
     };
 
     const db = new Database(path, options);
@@ -119,9 +120,6 @@ export class Sqlite3Client implements Client {
         this.protocol = "file";
     }
 
-    async execute(stmt: InStatement): Promise<ResultSet>;
-    async execute(sql: string, args?: InArgs): Promise<ResultSet>;
-
     async execute(
         stmtOrSql: InStatement | string,
         args?: InArgs,
@@ -142,7 +140,7 @@ export class Sqlite3Client implements Client {
     }
 
     async batch(
-        stmts: Array<InStatement>,
+        stmts: Array<InStatement | [string, InArgs?]>,
         mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
         this.#checkNotClosed();
@@ -156,7 +154,10 @@ export class Sqlite3Client implements Client {
                         "TRANSACTION_CLOSED",
                     );
                 }
-                return executeStmt(db, stmt, this.#intMode);
+                const normalizedStmt: InStatement = Array.isArray(stmt)
+                    ? { sql: stmt[0], args: stmt[1] || [] }
+                    : stmt;
+                return executeStmt(db, normalizedStmt, this.#intMode);
             });
             executeStmt(db, "COMMIT", this.#intMode);
             return resultSets;
@@ -167,9 +168,7 @@ export class Sqlite3Client implements Client {
         }
     }
 
-    async migrate(
-        stmts: Array<InStatement>,
-    ): Promise<Array<ResultSet>> {
+    async migrate(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
         this.#checkNotClosed();
         const db = this.#getDb();
         try {
@@ -276,10 +275,15 @@ export class Sqlite3Transaction implements Transaction {
         return executeStmt(this.#database, stmt, this.#intMode);
     }
 
-    async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
+    async batch(
+        stmts: Array<InStatement | [string, InArgs?]>,
+    ): Promise<Array<ResultSet>> {
         return stmts.map((stmt) => {
             this.#checkNotClosed();
-            return executeStmt(this.#database, stmt, this.#intMode);
+            const normalizedStmt: InStatement = Array.isArray(stmt)
+                ? { sql: stmt[0], args: stmt[1] || [] }
+                : stmt;
+            return executeStmt(this.#database, normalizedStmt, this.#intMode);
         });
     }
 

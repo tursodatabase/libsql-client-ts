@@ -154,9 +154,6 @@ export class WsClient implements Client {
         return this.#promiseLimitFunction(fn);
     }
 
-    async execute(stmt: InStatement): Promise<ResultSet>;
-    async execute(sql: string, args?: InArgs): Promise<ResultSet>;
-
     async execute(
         stmtOrSql: InStatement | string,
         args?: InArgs,
@@ -195,13 +192,23 @@ export class WsClient implements Client {
     }
 
     async batch(
-        stmts: Array<InStatement>,
+        stmts: Array<InStatement | [string, InArgs?]>,
         mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
         return this.limit<Array<ResultSet>>(async () => {
             const streamState = await this.#openStream();
             try {
-                const hranaStmts = stmts.map(stmtToHrana);
+                const normalizedStmts = stmts.map(stmt => {
+                    if (Array.isArray(stmt)) {
+                        return {
+                            sql: stmt[0],
+                            args: stmt[1] || []
+                        };
+                    }
+                    return stmt;
+                });
+
+                const hranaStmts = normalizedStmts.map(stmtToHrana);
                 const version = await streamState.conn.client.getVersion();
 
                 // Schedule all operations synchronously, so they will be pipelined and executed in a single
@@ -226,9 +233,7 @@ export class WsClient implements Client {
         });
     }
 
-    async migrate(
-        stmts: Array<InStatement>,
-    ): Promise<Array<ResultSet>> {
+    async migrate(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
         return this.limit<Array<ResultSet>>(async () => {
             const streamState = await this.#openStream();
             try {

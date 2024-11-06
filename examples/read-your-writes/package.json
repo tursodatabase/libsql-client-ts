@@ -1,0 +1,10 @@
+{
+    "name": "read-your-writes",
+    "version": "1.0.0",
+    "main": "index.mjs",
+    "author": "Levy Albuquerque",
+    "license": "MIT",
+    "dependencies": {
+        "@libsql/client": "^0.14.0"
+    }
+}

@@ -5,6 +5,38 @@ on:
     pull_request:
 
 jobs:
+    "typecheck":
+        name: "Typecheck"
+        runs-on: ubuntu-latest
+        timeout-minutes: 2
+        steps:
+            - name: "Checkout this repo"
+              uses: actions/checkout@v4
+            - name: "Setup Node.js"
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "18.x"
+            - name: "Install node dependencies and build"
+              run: "npm ci && npm run build"
+            - name: "Typecheck"
+              run: "npm run typecheck"
+
+    "format-check":
+        name: "Check formatting"
+        runs-on: ubuntu-latest
+        timeout-minutes: 2
+        steps:
+            - name: "Checkout this repo"
+              uses: actions/checkout@v4
+            - name: "Setup Node.js"
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "18.x"
+            - name: "Install node dependencies"
+              run: "npm ci"
+            - name: "Check formatting"
+              run: "npm run format:check"
+
     "test-against-sqld":
         name: "Tests against sqld"
         runs-on: ubuntu-latest
@@ -15,9 +47,9 @@ jobs:
         env: { "NODE_OPTIONS": "--trace-warnings" }
         steps:
             - name: "Checkout this repo"
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
             - name: "Setup Node.js"
-              uses: actions/setup-node@v3
+              uses: actions/setup-node@v4
               with:
                   node-version: "18.x"
             - name: "Build core"
@@ -45,9 +77,9 @@ jobs:
         env: { "NODE_OPTIONS": "--trace-warnings" }
         steps:
             - name: "Checkout this repo"
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
             - name: "Setup Node.js"
-              uses: actions/setup-node@v3
+              uses: actions/setup-node@v4
               with:
                   node-version: "18.x"
                   cache-dependency-path: "packages/libsql-client-wasm"
@@ -72,9 +104,9 @@ jobs:
         env: { "NODE_OPTIONS": "--trace-warnings" }
         steps:
             - name: "Checkout this repo"
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
             - name: "Setup Node.js"
-              uses: actions/setup-node@v3
+              uses: actions/setup-node@v4
               with:
                   node-version: "18.x"
             - name: "Build core"
@@ -83,7 +115,7 @@ jobs:
             - name: "Install npm dependencies"
               run: "npm ci"
             - name: "Checkout hrana-test-server"
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
               with:
                   repository: "libsql/hrana-test-server"
                   path: "packages/libsql-client/hrana-test-server"
@@ -133,9 +165,9 @@ jobs:
             "CLOUDFLARE_ACCOUNT_ID": "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}"
         steps:
             - name: "Checkout this repo"
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
             - name: "Setup Node.js"
-              uses: actions/setup-node@v3
+              uses: actions/setup-node@v4
               with:
                   node-version: "lts/Hydrogen"
             - name: "Build core"
@@ -145,7 +177,7 @@ jobs:
               run: "npm ci"
 
             - name: "Checkout hrana-test-server"
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
               with:
                   repository: "libsql/hrana-test-server"
                   path: "packages/libsql-client/hrana-test-server"
@@ -201,9 +233,9 @@ jobs:
 #     VERCEL_PROJECT_NAME: "smoke-test"
 #   steps:
 #   - name: "Checkout this repo"
-#     uses: actions/checkout@v3
+#     uses: actions/checkout@v4
 #   - name: "Setup Node.js"
-#     uses: actions/setup-node@v3
+#     uses: actions/setup-node@v4
 #     with:
 #       node-version: "lts/Hydrogen"
 #       cache: "npm"
@@ -211,7 +243,7 @@ jobs:
 #     run: "npm ci"
 
 #   - name: "Checkout hrana-test-server"
-#     uses: actions/checkout@v3
+#     uses: actions/checkout@v4
 #     with:
 #       repository: "libsql/hrana-test-server"
 #       path: "hrana-test-server"
