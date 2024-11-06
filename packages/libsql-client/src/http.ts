@@ -140,11 +140,11 @@ export class HttpClient implements Client {
     ): Promise<Array<ResultSet>> {
         return this.limit<Array<ResultSet>>(async () => {
             try {
-                const normalizedStmts = stmts.map(stmt => {
+                const normalizedStmts = stmts.map((stmt) => {
                     if (Array.isArray(stmt)) {
                         return {
                             sql: stmt[0],
-                            args: stmt[1] || []
+                            args: stmt[1] || [],
                         };
                     }
                     return stmt;

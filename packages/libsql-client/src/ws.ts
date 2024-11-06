@@ -198,11 +198,11 @@ export class WsClient implements Client {
         return this.limit<Array<ResultSet>>(async () => {
             const streamState = await this.#openStream();
             try {
-                const normalizedStmts = stmts.map(stmt => {
+                const normalizedStmts = stmts.map((stmt) => {
                     if (Array.isArray(stmt)) {
                         return {
                             sql: stmt[0],
-                            args: stmt[1] || []
+                            args: stmt[1] || [],
                         };
                     }
                     return stmt;
