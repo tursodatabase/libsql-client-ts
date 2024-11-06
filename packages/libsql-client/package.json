@@ -95,6 +95,7 @@
         "build": "npm run build:cjs && npm run build:esm",
         "build:cjs": "tsc -p tsconfig.build-cjs.json",
         "build:esm": "tsc -p tsconfig.build-esm.json",
+        "format:check": "prettier --check .",
         "postbuild": "cp package-cjs.json ./lib-cjs/package.json",
         "test": "jest --runInBand",
         "typecheck": "tsc --noEmit",
