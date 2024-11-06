@@ -6,15 +6,15 @@
     ],
     "dependencies": {},
     "scripts": {
-        "prepare": "node .husky/install.mjs"
-    },
-    "devDependencies": {
-        "lint-staged": "^15.2.2",
-        "husky": "^9.1.5",
+        "prepare": "node .husky/install.mjs",
         "build": "npm run build --workspaces",
         "typecheck": "npm run typecheck --workspaces",
         "format:check": "npm run format:check --workspaces",
         "prepare": "node .husky/install.mjs",
         "lint-staged": "lint-staged"
+    },
+    "devDependencies": {
+        "lint-staged": "^15.2.2",
+        "husky": "^9.1.5"
     }
 }
