@@ -84,6 +84,7 @@ export function _createClient(config: ExpandedConfig): Client {
         syncUrl: config.syncUrl,
         syncPeriod: config.syncInterval,
         readYourWrites: config.readYourWrites,
+        offline: config.offline,
     };
 
     const db = new Database(path, options);

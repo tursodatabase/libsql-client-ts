@@ -14,6 +14,7 @@ export interface ExpandedConfig {
     syncUrl: string | undefined;
     syncInterval: number | undefined;
     readYourWrites: boolean | undefined;
+    offline: boolean | undefined;
     intMode: IntMode;
     fetch: Function | undefined;
     concurrency: number;
@@ -176,6 +177,7 @@ export function expandConfig(
             syncUrl: config.syncUrl,
             syncInterval: config.syncInterval,
             readYourWrites: config.readYourWrites,
+            offline: config.offline,
             fetch: config.fetch,
             authToken: undefined,
             encryptionKey: undefined,
@@ -195,6 +197,7 @@ export function expandConfig(
         syncUrl: config.syncUrl,
         syncInterval: config.syncInterval,
         readYourWrites: config.readYourWrites,
+        offline: config.offline,
         fetch: config.fetch,
     };
 }
