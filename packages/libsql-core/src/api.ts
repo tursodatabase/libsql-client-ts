@@ -24,6 +24,9 @@ export interface Config {
     /** Read your writes */
     readYourWrites?: boolean;
 
+    /** Enable offline writes */
+    offline?: boolean;
+
     /** Enables or disables TLS for `libsql:` URLs.
      *
      * By default, `libsql:` URLs use TLS. You can set this option to `false` to disable TLS.
