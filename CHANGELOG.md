@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.0-pre.1 -- 2024-11-15
+
+-   Initial support for offline writes.
+
 ## 0.12.0 -- 2024-09-16
 
 -   Upgrade `hrana-client-ts` to latest 0.7.0 version which has stable `isomorphic-fetch` implementation (see https://github.com/libsql/hrana-client-ts/pull/19)
