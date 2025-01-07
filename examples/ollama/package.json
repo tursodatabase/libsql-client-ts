@@ -1,9 +1,7 @@
 {
     "name": "ollama",
-    "version": "1.0.0",
+    "private": true,
     "main": "index.mjs",
-    "author": "Giovanni Benussi",
-    "license": "MIT",
     "dependencies": {
         "@libsql/client": "^0.14.0",
         "ollama": "^0.5.11"
