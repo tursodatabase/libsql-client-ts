@@ -22,16 +22,27 @@ async function getEmbedding(prompt) {
     return response.embedding;
 }
 
-async function insertMovie(title, description) {
+async function insertMovie(id, title, description) {
     const embedding = await getEmbedding(description);
 
     await client.execute({
-        sql: `
-      INSERT INTO movies (title, description, embedding)
-      VALUES (?, ?, vector(?))
-    `,
-        args: [title, description, JSON.stringify(embedding)],
+        sql: `INSERT OR REPLACE INTO movies (id, title, description, embedding) VALUES (?, ?, ?, vector(?))`,
+        args: [id, title, description, JSON.stringify(embedding)],
     });
+}
+
+async function insertMovieIfNotExists(id, title, description) {
+    const existing = await client.execute({
+        sql: "SELECT id FROM movies WHERE id = ?",
+        args: [id],
+    });
+
+    if (existing.rows.length === 0) {
+        await insertMovie(id, title, description);
+        console.log(`Inserted: ${title} (ID: ${id})`);
+    } else {
+        console.log(`Movie already exists: ${title} (ID: ${id})`);
+    }
 }
 
 async function findSimilarMovies(description, limit = 3) {
@@ -40,11 +51,10 @@ async function findSimilarMovies(description, limit = 3) {
     const results = await client.execute({
         sql: `
           WITH vector_scores AS (
-            SELECT
-              rowid as id,
+            SELECT DISTINCT
+              id,
               title,
               description,
-              embedding,
               1 - vector_distance_cos(embedding, vector32(?)) AS similarity
             FROM movies
             ORDER BY similarity DESC
@@ -61,16 +71,19 @@ async function findSimilarMovies(description, limit = 3) {
 try {
     const sampleMovies = [
         {
+            id: 1,
             title: "Inception",
             description:
                 "A thief who enters the dreams of others to steal secrets from their subconscious.",
         },
         {
+            id: 2,
             title: "The Matrix",
             description:
                 "A computer programmer discovers that reality as he knows it is a simulation created by machines.",
         },
         {
+            id: 3,
             title: "Interstellar",
             description:
                 "Astronauts travel through a wormhole in search of a new habitable planet for humanity.",
@@ -78,8 +91,7 @@ try {
     ];
 
     for (const movie of sampleMovies) {
-        await insertMovie(movie.title, movie.description);
-        console.log(`Inserted: ${movie.title}`);
+        await insertMovieIfNotExists(movie.id, movie.title, movie.description);
     }
 
     const query =
@@ -91,6 +103,7 @@ try {
     similarMovies.forEach((movie) => {
         console.log(`\nTitle: ${movie.title}`);
         console.log(`Description: ${movie.description}`);
+        console.log(`Similarity: ${movie.similarity.toFixed(4)}`);
     });
 } catch (error) {
     console.error("Error:", error);
