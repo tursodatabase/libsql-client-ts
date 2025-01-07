@@ -103,6 +103,7 @@ await turso.execute({
 | [memory](examples/memory)             | Uses an in-memory SQLite database for temporary storage or fast access.                 |
 | [vector](examples/vector)             | Works with vector embeddings, storing and querying for similarity search.               |
 | [encryption](examples/encryption)     | Creates and uses an encrypted SQLite database, demonstrating setup and data operations. |
+| [ollama](examples/ollama)             | Similarity search with Ollama and Mistral.                                              |
 
 ## Documentation
 
