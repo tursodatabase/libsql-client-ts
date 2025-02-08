@@ -152,6 +152,50 @@ jobs:
               run: "cd examples && npm i && node example.js"
               env: { "URL": "file:///tmp/example.db" }
 
+    "deno-test":
+        name: "Build on Node.js and test on Deno"
+        runs-on: ubuntu-latest
+        timeout-minutes: 2
+        defaults:
+            run:
+                working-directory: ./packages/libsql-client
+        env: { "NODE_OPTIONS": "--trace-warnings" }
+        steps:
+            - name: "Checkout this repo"
+              uses: actions/checkout@v4
+            - name: "Setup Node.js"
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "18.x"
+            - name: "Build core"
+              run: "npm ci && npm run build"
+              working-directory: ./packages/libsql-core
+            - name: "Install npm dependencies"
+              run: "npm ci"
+            - name: "Checkout hrana-test-server"
+              uses: actions/checkout@v4
+              with:
+                  repository: "libsql/hrana-test-server"
+                  path: "packages/libsql-client/hrana-test-server"
+            - name: "Setup Python"
+              uses: actions/setup-python@v4
+              with:
+                  python-version: "3.10"
+            - name: "Install pip dependencies"
+              run: "pip install -r hrana-test-server/requirements.txt"
+
+            - name: "Build"
+              run: "npm run build"
+
+            - name: "Setup Deno"
+              uses: denolib/setup-deno@v2
+              with:
+                  deno-version: "2.x"
+
+            - name: "Test example"
+              run: cd examples && deno -ERS --allow-ffi example.js
+              env: { "URL": "file:///tmp/example.db" }
+
     "workers-test":
         name: "Build and test with Cloudflare Workers"
         if: false
