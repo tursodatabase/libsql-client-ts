@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.0-pre.2 -- 2024-02-11
+
+-   Bump to latest `libsql` package.
+
 ## 0.15.0-pre.1 -- 2024-11-15
 
 -   Initial support for offline writes.
