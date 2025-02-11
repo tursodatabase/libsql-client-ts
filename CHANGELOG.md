@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.0-pre.3 -- 2024-03-11
+
+-   Fix Bun complaint about duplicate "prepare" key in `package.json`
+
 ## 0.15.0-pre.2 -- 2024-02-11
 
 -   Bump to latest `libsql` package.
