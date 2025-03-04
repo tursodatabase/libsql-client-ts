@@ -31,6 +31,7 @@ import {
 
 export * from "@libsql/core/api";
 
+// Related to the PR
 const sqlite3 = await sqlite3InitModule();
 
 export function createClient(config: Config): Client {
@@ -41,16 +42,18 @@ export function createClient(config: Config): Client {
 export function _createClient(config: ExpandedConfig): Client {
     if (config.scheme !== "file") {
         throw new LibsqlError(
-            `URL scheme ${JSON.stringify(config.scheme + ":")} is not supported by the local sqlite3 client. ` +
+            `URL scheme ${JSON.stringify(
+                config.scheme + ":"
+            )} is not supported by the local sqlite3 client. ` +
                 `For more information, please read ${supportedUrlLink}`,
-            "URL_SCHEME_NOT_SUPPORTED",
+            "URL_SCHEME_NOT_SUPPORTED"
         );
     }
 
     if (config.encryptionKey !== undefined) {
         throw new LibsqlError(
             "Encryption key is not supported by the Wasm client.",
-            "ENCRYPTION_KEY_NOT_SUPPORTED",
+            "ENCRYPTION_KEY_NOT_SUPPORTED"
         );
     }
 
@@ -59,11 +62,13 @@ export function _createClient(config: ExpandedConfig): Client {
         const host = authority.host.toLowerCase();
         if (host !== "" && host !== "localhost") {
             throw new LibsqlError(
-                `Invalid host in file URL: ${JSON.stringify(authority.host)}. ` +
+                `Invalid host in file URL: ${JSON.stringify(
+                    authority.host
+                )}. ` +
                     'A "file:" URL with an absolute path should start with one slash ("file:/absolute/path.db") ' +
                     'or with three slashes ("file:///absolute/path.db"). ' +
                     `For more information, please read ${supportedUrlLink}`,
-                "URL_INVALID",
+                "URL_INVALID"
             );
         }
 
@@ -73,7 +78,7 @@ export function _createClient(config: ExpandedConfig): Client {
         if (authority.userinfo !== undefined) {
             throw new LibsqlError(
                 "File URL cannot have username and password",
-                "URL_INVALID",
+                "URL_INVALID"
             );
         }
     }
@@ -85,11 +90,13 @@ export function _createClient(config: ExpandedConfig): Client {
     };
 
     const db: Database = new sqlite3.oo1.DB(path, "c");
+    // To enable OPFS, use the following line instead of the one above
+    // const db: Database = new sqlite3.oo1.OpfsDb(path);
 
     executeStmt(
         db,
         "SELECT 1 AS checkThatTheDatabaseCanBeOpened",
-        config.intMode,
+        config.intMode
     );
 
     return new Sqlite3Client(sqlite3, path, /*options,*/ db, config.intMode);
@@ -112,7 +119,7 @@ export class Sqlite3Client implements Client {
         sqlite3: Sqlite3Static,
         path: string,
         /*options: Database.Options,*/ db: Database,
-        intMode: IntMode,
+        intMode: IntMode
     ) {
         this.#sqlite3 = sqlite3;
         this.#path = path;
@@ -125,7 +132,7 @@ export class Sqlite3Client implements Client {
 
     async execute(
         stmtOrSql: InStatement | string,
-        args?: InArgs,
+        args?: InArgs
     ): Promise<ResultSet> {
         let stmt: InStatement;
 
@@ -144,7 +151,7 @@ export class Sqlite3Client implements Client {
 
     async batch(
         stmts: Array<InStatement>,
-        mode: TransactionMode = "deferred",
+        mode: TransactionMode = "deferred"
     ): Promise<Array<ResultSet>> {
         this.#checkNotClosed();
         const db = this.#getDb();
@@ -154,7 +161,7 @@ export class Sqlite3Client implements Client {
                 if (!inTransaction(db)) {
                     throw new LibsqlError(
                         "The transaction has been rolled back",
-                        "TRANSACTION_CLOSED",
+                        "TRANSACTION_CLOSED"
                     );
                 }
                 return executeStmt(db, stmt, this.#intMode);
@@ -178,7 +185,7 @@ export class Sqlite3Client implements Client {
                 if (!inTransaction(db)) {
                     throw new LibsqlError(
                         "The transaction has been rolled back",
-                        "TRANSACTION_CLOSED",
+                        "TRANSACTION_CLOSED"
                     );
                 }
                 return executeStmt(db, stmt, this.#intMode);
@@ -215,7 +222,7 @@ export class Sqlite3Client implements Client {
     async sync(): Promise<Replicated> {
         throw new LibsqlError(
             "sync not supported in wasm mode",
-            "SYNC_NOT_SUPPORTED",
+            "SYNC_NOT_SUPPORTED"
         );
     }
 
@@ -236,6 +243,8 @@ export class Sqlite3Client implements Client {
     #getDb(): Database {
         if (this.#db === null) {
             this.#db = new sqlite3.oo1.DB(this.#path, "c");
+            // To enable OPFS, use the following line instead of the one above
+            // this.#db = new sqlite3.oo1.OpfsDb(this.#path);
         }
         return this.#db;
     }
@@ -295,7 +304,7 @@ export class Sqlite3Transaction implements Transaction {
         if (this.closed) {
             throw new LibsqlError(
                 "The transaction is closed",
-                "TRANSACTION_CLOSED",
+                "TRANSACTION_CLOSED"
             );
         }
     }
@@ -304,7 +313,7 @@ export class Sqlite3Transaction implements Transaction {
 function executeStmt(
     db: Database,
     stmt: InStatement,
-    intMode: IntMode,
+    intMode: IntMode
 ): ResultSet {
     let sql: string;
     let args: Array<SqlValue> | Record<string, SqlValue>;
@@ -364,7 +373,7 @@ function executeStmt(
                 columnTypes,
                 rows,
                 rowsAffected,
-                lastInsertRowid,
+                lastInsertRowid
             );
         } else {
             sqlStmt.step(); // TODO: check return value
@@ -380,7 +389,7 @@ function executeStmt(
 function rowFromSql(
     sqlRow: Array<unknown>,
     columns: Array<string>,
-    intMode: IntMode,
+    intMode: IntMode
 ): Row {
     const row = {};
     // make sure that the "length" property is not enumerable
@@ -407,7 +416,7 @@ function valueFromSql(sqlValue: unknown, intMode: IntMode): Value {
         if (intMode === "number") {
             if (sqlValue < minSafeBigint || sqlValue > maxSafeBigint) {
                 throw new RangeError(
-                    "Received integer which cannot be safely represented as a JavaScript number",
+                    "Received integer which cannot be safely represented as a JavaScript number"
                 );
             }
             return Number(sqlValue);
@@ -429,14 +438,14 @@ function valueToSql(value: InValue, intMode: IntMode): SqlValue {
     if (typeof value === "number") {
         if (!Number.isFinite(value)) {
             throw new RangeError(
-                "Only finite numbers (not Infinity or NaN) can be passed as arguments",
+                "Only finite numbers (not Infinity or NaN) can be passed as arguments"
             );
         }
         return value;
     } else if (typeof value === "bigint") {
         if (value < minInteger || value > maxInteger) {
             throw new RangeError(
-                "bigint is too large to be represented as a 64-bit integer and passed as argument",
+                "bigint is too large to be represented as a 64-bit integer and passed as argument"
             );
         }
         return value;
@@ -453,7 +462,7 @@ function valueToSql(value: InValue, intMode: IntMode): SqlValue {
         return value.valueOf();
     } else if (value === undefined) {
         throw new TypeError(
-            "undefined cannot be passed as argument to the database",
+            "undefined cannot be passed as argument to the database"
         );
     } else {
         return value;
