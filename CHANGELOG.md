@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.4 -- 2025-04-15
+
+-   Bump to latest `libsql` package.
+
 ## 0.15.3 -- 2025-04-11
 
 -   Bump to latest `libsql` package.
