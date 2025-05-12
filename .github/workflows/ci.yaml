@@ -188,12 +188,15 @@ jobs:
               run: "npm run build"
 
             - name: "Setup Deno"
-              uses: denolib/setup-deno@v2
+              id: deno
+              uses: denoland/setup-deno@v2
               with:
                   deno-version: "2.x"
 
+            - run: echo "Deno version is ${{ steps.deno.outputs.deno-version }}"
+
             - name: "Test example"
-              run: cd examples && deno -ERS --allow-ffi example.js
+              run: cd examples && deno -ERS example.js
               env: { "URL": "file:///tmp/example.db" }
 
     "workers-test":
