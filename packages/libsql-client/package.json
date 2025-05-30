@@ -1,6 +1,6 @@
 {
     "name": "@libsql/client",
-    "version": "0.15.7",
+    "version": "0.15.8",
     "keywords": [
         "libsql",
         "database",
@@ -103,7 +103,7 @@
         "lint-staged": "lint-staged"
     },
     "dependencies": {
-        "@libsql/core": "^0.15.7",
+        "@libsql/core": "^0.15.8",
         "@libsql/hrana-client": "^0.7.0",
         "js-base64": "^3.7.5",
         "libsql": "^0.5.12",
