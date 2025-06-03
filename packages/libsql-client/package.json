@@ -30,7 +30,7 @@
             "types": "./lib-esm/node.d.ts",
             "import": {
                 "workerd": "./lib-esm/web.js",
-                "deno": "./lib-esm/web.js",
+                "deno": "./lib-esm/node.js",
                 "edge-light": "./lib-esm/web.js",
                 "netlify": "./lib-esm/web.js",
                 "node": "./lib-esm/node.js",
