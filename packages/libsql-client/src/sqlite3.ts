@@ -222,10 +222,22 @@ export class Sqlite3Client implements Client {
         } as Replicated;
     }
 
+    async reconnect(): Promise<void> {
+        try {
+            if (!this.closed && this.#db !== null) {
+                this.#db.close();
+            }
+        } finally {
+            this.#db = new Database(this.#path, this.#options);
+            this.closed = false;
+        }
+    }
+
     close(): void {
         this.closed = true;
         if (this.#db !== null) {
             this.#db.close();
+            this.#db = null;
         }
     }
 

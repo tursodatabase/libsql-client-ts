@@ -219,10 +219,22 @@ export class Sqlite3Client implements Client {
         );
     }
 
+    async reconnect(): Promise<void> {
+        try {
+            if (!this.closed && this.#db !== null) {
+                this.#db.close();
+            }
+        } finally {
+            this.#db = new this.#sqlite3.oo1.DB(this.#path, "c");
+            this.closed = false;
+        }
+    }
+
     close(): void {
         this.closed = true;
         if (this.#db !== null) {
             this.#db.close();
+            this.#db = null;
         }
     }
 

@@ -74,6 +74,10 @@ const sqlCacheCapacity = 30;
 export class HttpClient implements Client {
     #client: hrana.HttpClient;
     protocol: "http";
+    #url: URL;
+    #intMode: IntMode;
+    #customFetch: Function | undefined;
+    #concurrency: number;
     #authToken: string | undefined;
     #promiseLimitFunction: ReturnType<typeof promiseLimit<any>>;
 
@@ -85,11 +89,20 @@ export class HttpClient implements Client {
         customFetch: Function | undefined,
         concurrency: number,
     ) {
-        this.#client = hrana.openHttp(url, authToken, customFetch);
-        this.#client.intMode = intMode;
-        this.protocol = "http";
+        this.#url = url;
         this.#authToken = authToken;
-        this.#promiseLimitFunction = promiseLimit<any>(concurrency);
+        this.#intMode = intMode;
+        this.#customFetch = customFetch;
+        this.#concurrency = concurrency;
+
+        this.#client = hrana.openHttp(
+            this.#url,
+            this.#authToken,
+            this.#customFetch,
+        );
+        this.#client.intMode = this.#intMode;
+        this.protocol = "http";
+        this.#promiseLimitFunction = promiseLimit<any>(this.#concurrency);
     }
 
     private async limit<T>(fn: () => Promise<T>): Promise<T> {
@@ -265,6 +278,23 @@ export class HttpClient implements Client {
 
     close(): void {
         this.#client.close();
+    }
+
+    async reconnect(): Promise<void> {
+        try {
+            if (!this.closed) {
+                // Abort in-flight ops and free resources
+                this.#client.close();
+            }
+        } finally {
+            // Recreate the underlying hrana client
+            this.#client = hrana.openHttp(
+                this.#url,
+                this.#authToken,
+                this.#customFetch,
+            );
+            this.#client.intMode = this.#intMode;
+        }
     }
 
     get closed(): boolean {
