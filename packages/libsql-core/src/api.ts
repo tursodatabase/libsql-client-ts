@@ -240,6 +240,10 @@ export interface Client {
      */
     close(): void;
 
+    /** Reconnect after the client has been closed.
+     */
+    reconnect(): void;
+
     /** Is the client closed?
      *
      * This is set to `true` after a call to {@link close} or if the client encounters an unrecoverable

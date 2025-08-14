@@ -403,6 +403,35 @@ export class WsClient implements Client {
         }
     }
 
+    async reconnect(): Promise<void> {
+        try {
+            for (const st of Array.from(this.#connState.streamStates)) {
+                try {
+                    st.stream.close();
+                } catch {}
+            }
+            this.#connState.client.close();
+        } catch {}
+
+        if (this.#futureConnState) {
+            try {
+                this.#futureConnState.client.close();
+            } catch {}
+            this.#futureConnState = undefined;
+        }
+
+        const next = this.#openConn();
+        const version = await next.client.getVersion();
+
+        next.useSqlCache = version >= 2;
+        if (next.useSqlCache) {
+            next.sqlCache.capacity = sqlCacheCapacity;
+        }
+
+        this.#connState = next;
+        this.closed = false;
+    }
+
     _closeStream(streamState: StreamState): void {
         streamState.stream.close();
 
@@ -420,6 +449,13 @@ export class WsClient implements Client {
 
     close(): void {
         this.#connState.client.close();
+        this.closed = true;
+        if (this.#futureConnState) {
+            try {
+                this.#futureConnState.client.close();
+            } catch {}
+            this.#futureConnState = undefined;
+        }
         this.closed = true;
     }
 }
