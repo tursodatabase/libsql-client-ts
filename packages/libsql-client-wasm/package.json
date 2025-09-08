@@ -1,6 +1,6 @@
 {
     "name": "@libsql/client-wasm",
-    "version": "0.15.14",
+    "version": "0.15.15",
     "keywords": [
         "libsql",
         "database",
