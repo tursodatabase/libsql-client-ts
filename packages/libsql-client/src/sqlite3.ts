@@ -103,6 +103,7 @@ export class Sqlite3Client implements Client {
     #options: Database.Options;
     #db: Database.Database | null;
     #intMode: IntMode;
+    #attachedDatabases: Map<string, string>; // schema name → database path
     closed: boolean;
     protocol: "file";
 
@@ -117,6 +118,7 @@ export class Sqlite3Client implements Client {
         this.#options = options;
         this.#db = db;
         this.#intMode = intMode;
+        this.#attachedDatabases = new Map();
         this.closed = false;
         this.protocol = "file";
     }
@@ -132,6 +134,8 @@ export class Sqlite3Client implements Client {
                 sql: stmtOrSql,
                 args: args || [],
             };
+            // Track ATTACH/DETACH statements
+            this.#trackAttachStatements(stmtOrSql);
         } else {
             stmt = stmtOrSql;
         }
@@ -235,6 +239,7 @@ export class Sqlite3Client implements Client {
 
     close(): void {
         this.closed = true;
+        this.#attachedDatabases.clear();
         if (this.#db !== null) {
             this.#db.close();
             this.#db = null;
@@ -247,10 +252,48 @@ export class Sqlite3Client implements Client {
         }
     }
 
+    // Track ATTACH and DETACH statements
+    #trackAttachStatements(sql: string): void {
+        // Detect ATTACH DATABASE statements
+        const attachMatch = sql.match(
+            /ATTACH\s+DATABASE\s+['"]([^'"]+)['"]\s+AS\s+(\w+)/i,
+        );
+        if (attachMatch) {
+            const [, dbPath, schemaName] = attachMatch;
+            this.#attachedDatabases.set(schemaName, dbPath);
+            return;
+        }
+
+        // Detect DETACH DATABASE statements
+        const detachMatch = sql.match(/DETACH\s+(?:DATABASE\s+)?(\w+)/i);
+        if (detachMatch) {
+            const [, schemaName] = detachMatch;
+            this.#attachedDatabases.delete(schemaName);
+            return;
+        }
+    }
+
     // Lazily creates the database connection and returns it
     #getDb(): Database.Database {
         if (this.#db === null) {
             this.#db = new Database(this.#path, this.#options);
+
+            // Re-apply all ATTACH statements to new connection
+            for (const [
+                schemaName,
+                dbPath,
+            ] of this.#attachedDatabases.entries()) {
+                try {
+                    // Use native prepare/run to avoid recursion
+                    const attachSql = `ATTACH DATABASE '${dbPath}' AS ${schemaName}`;
+                    const stmt = this.#db.prepare(attachSql);
+                    stmt.run();
+                } catch (err) {
+                    // Log but don't throw - database might not exist yet
+                    // Allow connection to be created (attached DB is optional)
+                    console.warn(`Failed to re-attach ${schemaName}: ${err}`);
+                }
+            }
         }
         return this.#db;
     }
