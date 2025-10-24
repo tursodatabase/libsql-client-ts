@@ -18,6 +18,7 @@ export interface ExpandedConfig {
     intMode: IntMode;
     fetch: Function | undefined;
     concurrency: number;
+    attach: import("./api.js").AttachConfig[] | undefined;
 }
 
 export type ExpandedScheme = "wss" | "ws" | "https" | "http" | "file";
@@ -182,6 +183,7 @@ export function expandConfig(
             authToken: undefined,
             encryptionKey: undefined,
             authority: undefined,
+            attach: config.attach,
         };
     }
 
@@ -199,5 +201,6 @@ export function expandConfig(
         readYourWrites: config.readYourWrites,
         offline: config.offline,
         fetch: config.fetch,
+        attach: config.attach,
     };
 }
