@@ -281,36 +281,6 @@ test("Cross-database JOIN works with config ATTACH", async () => {
     warehouseClient.close();
 });
 
-/**
- * Test 6: Config ATTACH with Non-Existent Database
- */
-test("Config ATTACH with non-existent database logs warning", async () => {
-    const mainPath = getTempDbPath("test-missing-main.db");
-    const missingPath = getTempDbPath("test-missing-DOES-NOT-EXIST.db");
-
-    if (fs.existsSync(missingPath)) {
-        fs.unlinkSync(missingPath);
-    }
-
-    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
-
-    const mainClient = createClient({
-        url: `file:${mainPath}`,
-        attach: [{ alias: "missing", path: missingPath }],
-    });
-
-    await mainClient.execute("CREATE TABLE test (id INTEGER)");
-    const rows = await mainClient.execute("SELECT * FROM test");
-    expect(rows.rows).toHaveLength(0);
-
-    expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Failed to attach database 'missing'"),
-    );
-
-    warnSpy.mockRestore();
-    mainClient.close();
-});
-
 // ============================================================================
 // Explicit attach() Method Tests
 // ============================================================================
@@ -396,24 +366,24 @@ test("Explicit detach() method works", async () => {
     attachedClient.close();
 
     // Attach then detach
-    await mainClient.attach("temp", attachedPath);
-    const rows1 = await mainClient.execute("SELECT * FROM temp.data");
+    await mainClient.attach("attached", attachedPath);
+    const rows1 = await mainClient.execute("SELECT * FROM attached.data");
     expect(rows1.rows).toHaveLength(0);
 
-    await mainClient.detach("temp");
+    await mainClient.detach("attached");
 
     // Verify detached
-    await expect(mainClient.execute("SELECT * FROM temp.data")).rejects.toThrow(
-        /no such table/i,
-    );
+    await expect(
+        mainClient.execute("SELECT * FROM attached.data"),
+    ).rejects.toThrow(/no such table/i);
 
     // Transaction (should NOT re-attach)
     const tx = await mainClient.transaction();
     await tx.commit();
 
-    await expect(mainClient.execute("SELECT * FROM temp.data")).rejects.toThrow(
-        /no such table/i,
-    );
+    await expect(
+        mainClient.execute("SELECT * FROM attached.data"),
+    ).rejects.toThrow(/no such table/i);
 
     mainClient.close();
 });

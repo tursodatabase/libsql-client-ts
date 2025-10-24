@@ -317,7 +317,7 @@ export class Sqlite3Client implements Client {
                 `Failed to attach database '${alias}' from '${path}': ${(err as Error).message}`,
                 "ATTACH_FAILED",
                 undefined,
-                err,
+                err as Error,
             );
         }
     }
