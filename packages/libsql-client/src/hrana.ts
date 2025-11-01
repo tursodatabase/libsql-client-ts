@@ -6,7 +6,7 @@ import type {
     TransactionMode,
     InArgs,
 } from "@libsql/core/api";
-import { LibsqlError } from "@libsql/core/api";
+import { LibsqlError, LibsqlBatchError } from "@libsql/core/api";
 import type { SqlCache } from "./sql_cache.js";
 import { transactionModeToBegin, ResultSetImpl } from "@libsql/core/util";
 
@@ -134,16 +134,37 @@ export abstract class HranaTransaction implements Transaction {
             }
 
             const resultSets = [];
-            for (const rowsPromise of rowsPromises) {
-                const rows = await rowsPromise;
-                if (rows === undefined) {
-                    throw new LibsqlError(
-                        "Statement in a transaction was not executed, " +
-                            "probably because the transaction has been rolled back",
-                        "TRANSACTION_CLOSED",
-                    );
+            for (let i = 0; i < rowsPromises.length; i++) {
+                try {
+                    const rows = await rowsPromises[i];
+                    if (rows === undefined) {
+                        throw new LibsqlBatchError(
+                            "Statement in a transaction was not executed, " +
+                                "probably because the transaction has been rolled back",
+                            i,
+                            "TRANSACTION_CLOSED",
+                        );
+                    }
+                    resultSets.push(resultSetFromHrana(rows));
+                } catch (e) {
+                    if (e instanceof LibsqlBatchError) {
+                        throw e;
+                    }
+                    // Map hrana errors to LibsqlError first, then wrap in LibsqlBatchError
+                    const mappedError = mapHranaError(e);
+                    if (mappedError instanceof LibsqlError) {
+                        throw new LibsqlBatchError(
+                            mappedError.message,
+                            i,
+                            mappedError.code,
+                            mappedError.rawCode,
+                            mappedError.cause instanceof Error
+                                ? mappedError.cause
+                                : undefined,
+                        );
+                    }
+                    throw mappedError;
                 }
-                resultSets.push(resultSetFromHrana(rows));
             }
             return resultSets;
         } catch (e) {
@@ -295,15 +316,36 @@ export async function executeHranaBatch(
 
     const resultSets = [];
     await beginPromise;
-    for (const stmtPromise of stmtPromises) {
-        const hranaRows = await stmtPromise;
-        if (hranaRows === undefined) {
-            throw new LibsqlError(
-                "Statement in a batch was not executed, probably because the transaction has been rolled back",
-                "TRANSACTION_CLOSED",
-            );
+    for (let i = 0; i < stmtPromises.length; i++) {
+        try {
+            const hranaRows = await stmtPromises[i];
+            if (hranaRows === undefined) {
+                throw new LibsqlBatchError(
+                    "Statement in a batch was not executed, probably because the transaction has been rolled back",
+                    i,
+                    "TRANSACTION_CLOSED",
+                );
+            }
+            resultSets.push(resultSetFromHrana(hranaRows));
+        } catch (e) {
+            if (e instanceof LibsqlBatchError) {
+                throw e;
+            }
+            // Map hrana errors to LibsqlError first, then wrap in LibsqlBatchError
+            const mappedError = mapHranaError(e);
+            if (mappedError instanceof LibsqlError) {
+                throw new LibsqlBatchError(
+                    mappedError.message,
+                    i,
+                    mappedError.code,
+                    mappedError.rawCode,
+                    mappedError.cause instanceof Error
+                        ? mappedError.cause
+                        : undefined,
+                );
+            }
+            throw mappedError;
         }
-        resultSets.push(resultSetFromHrana(hranaRows));
     }
     await commitPromise;
 

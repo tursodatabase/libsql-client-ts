@@ -883,6 +883,110 @@ describe("batch()", () => {
     );
 
     test(
+        "batch error reports statement index - error at index 0",
+        withClient(async (c) => {
+            try {
+                await c.batch(
+                    ["SELECT invalid_column", "SELECT 1", "SELECT 2"],
+                    "read",
+                );
+                throw new Error("Expected batch to fail");
+            } catch (e: any) {
+                expect(e.name).toBe("LibsqlBatchError");
+                expect(e.statementIndex).toBe(0);
+                expect(e.code).toBeDefined();
+            }
+        }),
+    );
+
+    test(
+        "batch error reports statement index - error at index 1",
+        withClient(async (c) => {
+            try {
+                await c.batch(
+                    ["SELECT 1", "SELECT invalid_column", "SELECT 2"],
+                    "read",
+                );
+                throw new Error("Expected batch to fail");
+            } catch (e: any) {
+                expect(e.name).toBe("LibsqlBatchError");
+                expect(e.statementIndex).toBe(1);
+                expect(e.code).toBeDefined();
+            }
+        }),
+    );
+
+    test(
+        "batch error reports statement index - error at index 2",
+        withClient(async (c) => {
+            try {
+                await c.batch(
+                    ["SELECT 1", "SELECT 2", "SELECT invalid_column"],
+                    "read",
+                );
+                throw new Error("Expected batch to fail");
+            } catch (e: any) {
+                expect(e.name).toBe("LibsqlBatchError");
+                expect(e.statementIndex).toBe(2);
+                expect(e.code).toBeDefined();
+            }
+        }),
+    );
+
+    test(
+        "batch error with write mode reports statement index",
+        withClient(async (c) => {
+            await c.execute("DROP TABLE IF EXISTS t");
+            await c.execute("CREATE TABLE t (a UNIQUE)");
+            await c.execute("INSERT INTO t VALUES (1)");
+
+            try {
+                await c.batch(
+                    [
+                        "INSERT INTO t VALUES (2)",
+                        "INSERT INTO t VALUES (3)",
+                        "INSERT INTO t VALUES (1)", // Duplicate, will fail
+                        "INSERT INTO t VALUES (4)",
+                    ],
+                    "write",
+                );
+                throw new Error("Expected batch to fail");
+            } catch (e: any) {
+                expect(e.name).toBe("LibsqlBatchError");
+                expect(e.statementIndex).toBe(2);
+                expect(e.code).toBeDefined();
+            }
+
+            // Verify rollback happened
+            const rs = await c.execute("SELECT COUNT(*) FROM t");
+            expect(rs.rows[0][0]).toBe(1);
+        }),
+    );
+
+    test(
+        "batch error in in-memory database reports statement index",
+        withInMemoryClient(async (c) => {
+            await c.execute("CREATE TABLE t (a)");
+
+            try {
+                await c.batch(
+                    [
+                        "INSERT INTO t VALUES (1)",
+                        "SELECT invalid_column FROM t",
+                        "INSERT INTO t VALUES (2)",
+                    ],
+                    "write",
+                );
+                throw new Error("Expected batch to fail");
+            } catch (e: any) {
+                expect(e.name).toBe("LibsqlBatchError");
+                expect(e.statementIndex).toBe(1);
+                expect(e.code).toBeDefined();
+            }
+        }),
+    );
+
+    test(
         "batch with a lot of different statements",
         withClient(async (c) => {
             const stmts = [] as Array<any>;
@@ -1214,6 +1318,79 @@ describe("transaction()", () => {
                 expect(rs.rows[0][0]).toStrictEqual(7);
 
                 await txn.commit();
+            }),
+        );
+
+        test(
+            "batch error reports statement index in transaction",
+            withClient(async (c) => {
+                const txn = await c.transaction("write");
+
+                try {
+                    await txn.batch([
+                        "DROP TABLE IF EXISTS t",
+                        "CREATE TABLE t (a UNIQUE)",
+                        "INSERT INTO t VALUES (1), (2), (3)",
+                        "INSERT INTO t VALUES (1)", // Duplicate, will fail at index 3
+                        "INSERT INTO t VALUES (4), (5)",
+                    ]);
+                    throw new Error("Expected batch to fail");
+                } catch (e: any) {
+                    expect(e.name).toBe("LibsqlBatchError");
+                    expect(e.statementIndex).toBe(3);
+                    expect(e.code).toBeDefined();
+                }
+
+                // Transaction should still be usable after batch error
+                const rs = await txn.execute("SELECT SUM(a) FROM t");
+                expect(rs.rows[0][0]).toBe(6);
+
+                await txn.commit();
+            }),
+        );
+
+        test(
+            "batch error reports statement index - error at first statement in transaction",
+            withClient(async (c) => {
+                const txn = await c.transaction("read");
+
+                try {
+                    await txn.batch([
+                        "SELECT invalid_column",
+                        "SELECT 1",
+                        "SELECT 2",
+                    ]);
+                    throw new Error("Expected batch to fail");
+                } catch (e: any) {
+                    expect(e.name).toBe("LibsqlBatchError");
+                    expect(e.statementIndex).toBe(0);
+                    expect(e.code).toBeDefined();
+                }
+
+                txn.close();
+            }),
+        );
+
+        test(
+            "batch error reports statement index - error at middle statement in transaction",
+            withClient(async (c) => {
+                const txn = await c.transaction("read");
+
+                try {
+                    await txn.batch([
+                        "SELECT 1",
+                        "SELECT 2",
+                        "SELECT invalid_column",
+                        "SELECT 3",
+                    ]);
+                    throw new Error("Expected batch to fail");
+                } catch (e: any) {
+                    expect(e.name).toBe("LibsqlBatchError");
+                    expect(e.statementIndex).toBe(2);
+                    expect(e.code).toBeDefined();
+                }
+
+                txn.close();
             }),
         );
     });
