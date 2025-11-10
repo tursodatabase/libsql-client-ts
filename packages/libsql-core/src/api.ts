@@ -504,3 +504,21 @@ export class LibsqlError extends Error {
         this.name = "LibsqlError";
     }
 }
+
+/** Error thrown by the client during batch operations. */
+export class LibsqlBatchError extends LibsqlError {
+    /** The zero-based index of the statement that failed in the batch. */
+    statementIndex: number;
+
+    constructor(
+        message: string,
+        statementIndex: number,
+        code: string,
+        rawCode?: number,
+        cause?: Error,
+    ) {
+        super(message, code, rawCode, cause);
+        this.statementIndex = statementIndex;
+        this.name = "LibsqlBatchError";
+    }
+}

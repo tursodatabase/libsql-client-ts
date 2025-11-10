@@ -15,7 +15,7 @@ import type {
     InArgs,
     Replicated,
 } from "@libsql/core/api";
-import { LibsqlError } from "@libsql/core/api";
+import { LibsqlError, LibsqlBatchError } from "@libsql/core/api";
 import type { ExpandedConfig } from "@libsql/core/config";
 import { expandConfig, isInMemoryConfig } from "@libsql/core/config";
 import {
@@ -148,18 +148,39 @@ export class Sqlite3Client implements Client {
         const db = this.#getDb();
         try {
             executeStmt(db, transactionModeToBegin(mode), this.#intMode);
-            const resultSets = stmts.map((stmt) => {
-                if (!db.inTransaction) {
-                    throw new LibsqlError(
-                        "The transaction has been rolled back",
-                        "TRANSACTION_CLOSED",
+            const resultSets = [];
+            for (let i = 0; i < stmts.length; i++) {
+                try {
+                    if (!db.inTransaction) {
+                        throw new LibsqlBatchError(
+                            "The transaction has been rolled back",
+                            i,
+                            "TRANSACTION_CLOSED",
+                        );
+                    }
+                    const stmt = stmts[i];
+                    const normalizedStmt: InStatement = Array.isArray(stmt)
+                        ? { sql: stmt[0], args: stmt[1] || [] }
+                        : stmt;
+                    resultSets.push(
+                        executeStmt(db, normalizedStmt, this.#intMode),
                     );
+                } catch (e) {
+                    if (e instanceof LibsqlBatchError) {
+                        throw e;
+                    }
+                    if (e instanceof LibsqlError) {
+                        throw new LibsqlBatchError(
+                            e.message,
+                            i,
+                            e.code,
+                            e.rawCode,
+                            e.cause instanceof Error ? e.cause : undefined,
+                        );
+                    }
+                    throw e;
                 }
-                const normalizedStmt: InStatement = Array.isArray(stmt)
-                    ? { sql: stmt[0], args: stmt[1] || [] }
-                    : stmt;
-                return executeStmt(db, normalizedStmt, this.#intMode);
-            });
+            }
             executeStmt(db, "COMMIT", this.#intMode);
             return resultSets;
         } finally {
@@ -175,15 +196,33 @@ export class Sqlite3Client implements Client {
         try {
             executeStmt(db, "PRAGMA foreign_keys=off", this.#intMode);
             executeStmt(db, transactionModeToBegin("deferred"), this.#intMode);
-            const resultSets = stmts.map((stmt) => {
-                if (!db.inTransaction) {
-                    throw new LibsqlError(
-                        "The transaction has been rolled back",
-                        "TRANSACTION_CLOSED",
-                    );
+            const resultSets = [];
+            for (let i = 0; i < stmts.length; i++) {
+                try {
+                    if (!db.inTransaction) {
+                        throw new LibsqlBatchError(
+                            "The transaction has been rolled back",
+                            i,
+                            "TRANSACTION_CLOSED",
+                        );
+                    }
+                    resultSets.push(executeStmt(db, stmts[i], this.#intMode));
+                } catch (e) {
+                    if (e instanceof LibsqlBatchError) {
+                        throw e;
+                    }
+                    if (e instanceof LibsqlError) {
+                        throw new LibsqlBatchError(
+                            e.message,
+                            i,
+                            e.code,
+                            e.rawCode,
+                            e.cause instanceof Error ? e.cause : undefined,
+                        );
+                    }
+                    throw e;
                 }
-                return executeStmt(db, stmt, this.#intMode);
-            });
+            }
             executeStmt(db, "COMMIT", this.#intMode);
             return resultSets;
         } finally {
@@ -291,13 +330,34 @@ export class Sqlite3Transaction implements Transaction {
     async batch(
         stmts: Array<InStatement | [string, InArgs?]>,
     ): Promise<Array<ResultSet>> {
-        return stmts.map((stmt) => {
-            this.#checkNotClosed();
-            const normalizedStmt: InStatement = Array.isArray(stmt)
-                ? { sql: stmt[0], args: stmt[1] || [] }
-                : stmt;
-            return executeStmt(this.#database, normalizedStmt, this.#intMode);
-        });
+        const resultSets = [];
+        for (let i = 0; i < stmts.length; i++) {
+            try {
+                this.#checkNotClosed();
+                const stmt = stmts[i];
+                const normalizedStmt: InStatement = Array.isArray(stmt)
+                    ? { sql: stmt[0], args: stmt[1] || [] }
+                    : stmt;
+                resultSets.push(
+                    executeStmt(this.#database, normalizedStmt, this.#intMode),
+                );
+            } catch (e) {
+                if (e instanceof LibsqlBatchError) {
+                    throw e;
+                }
+                if (e instanceof LibsqlError) {
+                    throw new LibsqlBatchError(
+                        e.message,
+                        i,
+                        e.code,
+                        e.rawCode,
+                        e.cause instanceof Error ? e.cause : undefined,
+                    );
+                }
+                throw e;
+            }
+        }
+        return resultSets;
     }
 
     async executeMultiple(sql: string): Promise<void> {
