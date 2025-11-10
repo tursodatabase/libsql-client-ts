@@ -1,0 +1,118 @@
+syntax = "proto3";
+package hrana.http;
+import "hrana.proto";
+
+message PipelineReqBody {
+  optional string baton = 1;
+  repeated StreamRequest requests = 2;
+}
+
+message PipelineRespBody {
+  optional string baton = 1;
+  optional string base_url = 2;
+  repeated StreamResult results = 3;
+}
+
+message StreamResult {
+  oneof result {
+    StreamResponse ok = 1;
+    Error error = 2;
+  }
+}
+
+message CursorReqBody {
+  optional string baton = 1;
+  Batch batch = 2;
+}
+
+message CursorRespBody {
+  optional string baton = 1;
+  optional string base_url = 2;
+}
+
+message StreamRequest {
+  oneof request {
+    CloseStreamReq close = 1;
+    ExecuteStreamReq execute = 2;
+    BatchStreamReq batch = 3;
+    SequenceStreamReq sequence = 4;
+    DescribeStreamReq describe = 5;
+    StoreSqlStreamReq store_sql = 6;
+    CloseSqlStreamReq close_sql = 7;
+    GetAutocommitStreamReq get_autocommit = 8;
+  }
+}
+
+message StreamResponse {
+  oneof response {
+    CloseStreamResp close = 1;
+    ExecuteStreamResp execute = 2;
+    BatchStreamResp batch = 3;
+    SequenceStreamResp sequence = 4;
+    DescribeStreamResp describe = 5;
+    StoreSqlStreamResp store_sql = 6;
+    CloseSqlStreamResp close_sql = 7;
+    GetAutocommitStreamResp get_autocommit = 8;
+  }
+}
+
+message CloseStreamReq {
+}
+
+message CloseStreamResp {
+}
+
+message ExecuteStreamReq {
+  Stmt stmt = 1;
+}
+
+message ExecuteStreamResp {
+  StmtResult result = 1;
+}
+
+message BatchStreamReq {
+  Batch batch = 1;
+}
+
+message BatchStreamResp {
+  BatchResult result = 1;
+}
+
+message SequenceStreamReq {
+  optional string sql = 1;
+  optional int32 sql_id = 2;
+}
+
+message SequenceStreamResp {
+}
+
+message DescribeStreamReq {
+  optional string sql = 1;
+  optional int32 sql_id = 2;
+}
+
+message DescribeStreamResp {
+  DescribeResult result = 1;
+}
+
+message StoreSqlStreamReq {
+  int32 sql_id = 1;
+  string sql = 2;
+}
+
+message StoreSqlStreamResp {
+}
+
+message CloseSqlStreamReq {
+  int32 sql_id = 1;
+}
+
+message CloseSqlStreamResp {
+}
+
+message GetAutocommitStreamReq {
+}
+
+message GetAutocommitStreamResp {
+  bool is_autocommit = 1;
+}
