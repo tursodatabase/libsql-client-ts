@@ -105,6 +105,130 @@ await turso.execute({
 | [encryption](examples/encryption)     | Creates and uses an encrypted SQLite database, demonstrating setup and data operations. |
 | [ollama](examples/ollama)             | Similarity search with Ollama and Mistral.                                              |
 
+## Attaching Databases
+
+libSQL supports attaching multiple SQLite databases to a single connection, allowing cross-database queries using schema prefixes.
+
+### Config-Based Attachment (Static)
+
+For databases that exist at client creation time:
+
+```typescript
+import { createClient } from "@libsql/client";
+
+const client = createClient({
+    url: "file:main.db",
+    attach: [{ alias: "analytics", path: "file:analytics.db?mode=ro" }],
+});
+
+// Query main database
+await client.execute("SELECT * FROM users");
+
+// Query attached database
+await client.execute("SELECT * FROM analytics.events");
+
+// Cross-database JOIN
+await client.execute(`
+  SELECT u.name, COUNT(e.id) as event_count
+  FROM users u
+  LEFT JOIN analytics.events e ON u.id = e.user_id
+  GROUP BY u.id
+`);
+```
+
+### Explicit Attachment (Dynamic)
+
+For databases that don't exist at client creation time:
+
+```typescript
+const client = createClient({ url: "file:main.db" });
+
+// Later, when database becomes available
+await client.attach("obs", "file:observability.db?mode=ro");
+
+// Query newly attached database
+await client.execute("SELECT * FROM obs.traces");
+
+// Detach when no longer needed
+await client.detach("obs");
+```
+
+### Read-Only Attachments
+
+Use the `file:` URI scheme with `?mode=ro` parameter to attach databases in read-only mode. This prevents write lock conflicts when another connection is writing to the attached database:
+
+```typescript
+// Config-based
+const client = createClient({
+    url: "file:main.db",
+    attach: [{ alias: "analytics", path: "file:analytics.db?mode=ro" }],
+});
+
+// Explicit
+await client.attach("obs", "file:observability.db?mode=ro");
+```
+
+**When to use read-only mode:**
+
+-   Attached database has a dedicated writer connection
+-   You only need to read from the attached database
+-   Prevents `SQLITE_BUSY` errors from lock contention
+
+### Persistence Across Transactions
+
+Both config and explicit attachments automatically persist across connection recycling (e.g., after `transaction()`):
+
+```typescript
+const client = createClient({
+    url: "file:main.db",
+    attach: [{ alias: "analytics", path: "analytics.db" }],
+});
+
+await client.attach("obs", "observability.db");
+
+// Both work before transaction
+await client.execute("SELECT * FROM analytics.events");
+await client.execute("SELECT * FROM obs.traces");
+
+// Create transaction (may recycle connection internally)
+const tx = await client.transaction();
+await tx.execute("INSERT INTO main_table VALUES (1)");
+await tx.commit();
+
+// Both still work after transaction ✅
+await client.execute("SELECT * FROM analytics.events");
+await client.execute("SELECT * FROM obs.traces");
+```
+
+This fixes a bug where ATTACH statements were lost after transactions in previous versions.
+
+### API Methods
+
+```typescript
+interface Client {
+    /**
+     * Attach a database at runtime.
+     * Persists across transaction() and connection recycling.
+     */
+    attach(alias: string, path: string): Promise<void>;
+
+    /**
+     * Detach a previously attached database.
+     * Detachment persists across transaction() and connection recycling.
+     */
+    detach(alias: string): Promise<void>;
+}
+```
+
+### Notes
+
+-   Attached databases use schema prefixes: `analytics.table_name`
+-   Config attachments applied on client creation
+-   Explicit attachments applied when `attach()` is called
+-   Both types re-applied automatically after connection recycling
+-   Failed attachments (e.g., missing file) log warnings but don't crash
+-   Duplicate aliases throw `ATTACH_DUPLICATE` error
+
 ## Documentation
 
 Visit our [official documentation](https://docs.turso.tech/sdk/ts).

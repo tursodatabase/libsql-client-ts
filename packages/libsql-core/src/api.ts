@@ -59,6 +59,45 @@ export interface Config {
      * number to increase the concurrency limit or set it to 0 to disable concurrency limits completely.
      */
     concurrency?: number | undefined;
+
+    /**
+     * Databases to attach on client creation.
+     *
+     * Attachments are automatically re-applied when the client creates
+     * new connections (e.g., after transaction()), ensuring ATTACH
+     * statements persist across connection recycling.
+     *
+     * For databases that don't exist at creation time, use client.attach()
+     * method instead.
+     *
+     * @example
+     * ```typescript
+     * createClient({
+     *   url: 'file:main.db',
+     *   attach: [
+     *     { alias: 'analytics', path: 'file:analytics.db?mode=ro' }
+     *   ]
+     * })
+     * ```
+     */
+    attach?: AttachConfig[];
+}
+
+/** Configuration for attaching databases. See {@link Config.attach}. */
+export interface AttachConfig {
+    /** Schema alias for the attached database */
+    alias: string;
+
+    /**
+     * Path to database file.
+     * Supports file: URIs with query parameters:
+     * - 'path/to/db.db' (read-write, default)
+     * - 'file:path/to/db.db?mode=ro' (read-only, recommended for readers)
+     *
+     * Read-only mode prevents write lock conflicts when another connection
+     * is writing to the attached database.
+     */
+    path: string;
 }
 
 /** Representation of integers from database as JavaScript values. See {@link Config.intMode}. */
@@ -232,6 +271,51 @@ export interface Client {
     executeMultiple(sql: string): Promise<void>;
 
     sync(): Promise<Replicated>;
+
+    /**
+     * Attach a database at runtime.
+     *
+     * The attachment persists across connection recycling (e.g., after transaction()).
+     * Use this for databases that don't exist at client creation time.
+     *
+     * @param alias - Schema prefix for queries (e.g., 'obs' → 'obs.table_name')
+     * @param path - Database path, supports file: URI with ?mode=ro
+     *
+     * @throws LibsqlError if alias is already attached or attachment fails
+     *
+     * @example
+     * ```typescript
+     * // Attach when database becomes available
+     * await client.attach('obs', 'file:observability.db?mode=ro');
+     *
+     * // Query attached database
+     * await client.execute('SELECT * FROM obs.mastra_traces');
+     *
+     * // Attachment persists after transaction
+     * const tx = await client.transaction();
+     * await tx.commit();
+     * await client.execute('SELECT * FROM obs.mastra_traces');  // Still works ✅
+     * ```
+     */
+    attach(alias: string, path: string): Promise<void>;
+
+    /**
+     * Detach a previously attached database.
+     *
+     * The detachment persists across connection recycling. The database
+     * will not be re-attached on subsequent connections.
+     *
+     * @param alias - Schema alias to detach
+     *
+     * @example
+     * ```typescript
+     * await client.detach('obs');
+     *
+     * // After detach, queries fail
+     * await client.execute('SELECT * FROM obs.traces');  // Error: no such table
+     * ```
+     */
+    detach(alias: string): Promise<void>;
 
     /** Close the client and release resources.
      *
