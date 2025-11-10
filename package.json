@@ -8,6 +8,7 @@
     "scripts": {
         "prepare": "node .husky/install.mjs",
         "build": "npm run build --workspaces",
+        "test": "./testing/test.sh",
         "typecheck": "npm run typecheck --workspaces",
         "format:check": "npm run format:check --workspaces",
         "lint-staged": "lint-staged"
