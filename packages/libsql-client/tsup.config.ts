@@ -2,7 +2,13 @@ import { defineConfig } from "tsup";
 import pkg from "./package.json";
 
 export default defineConfig({
-    entry: ["src/api.ts", "src/config.ts", "src/uri.ts", "src/util.ts"],
+    entry: [
+        "src/node.ts",
+        "src/http.ts",
+        "src/ws.ts",
+        "src/sqlite3.ts",
+        "src/web.ts",
+    ],
     splitting: true,
     sourcemap: false,
     clean: true,

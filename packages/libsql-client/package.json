@@ -23,87 +23,93 @@
     ],
     "license": "MIT",
     "type": "module",
-    "main": "lib-cjs/node.js",
-    "types": "lib-esm/node.d.ts",
+    "main": "node.js",
+    "types": "node.d.ts",
     "exports": {
         ".": {
-            "types": "./lib-esm/node.d.ts",
             "import": {
-                "workerd": "./lib-esm/web.js",
-                "deno": "./lib-esm/node.js",
-                "edge-light": "./lib-esm/web.js",
-                "netlify": "./lib-esm/web.js",
-                "node": "./lib-esm/node.js",
-                "browser": "./lib-esm/web.js",
-                "default": "./lib-esm/node.js"
+                "types": "./node.d.ts",
+                "workerd": "./web.js",
+                "deno": "./node.js",
+                "edge-light": "./web.js",
+                "netlify": "./web.js",
+                "node": "./node.js",
+                "browser": "./web.js",
+                "default": "./node.js"
             },
-            "require": "./lib-cjs/node.js"
+            "require": {
+                "types": "./node.d.cts",
+                "workerd": "./web.cjs",
+                "deno": "./node.cjs",
+                "edge-light": "./web.cjs",
+                "netlify": "./web.cjs",
+                "node": "./node.cjs",
+                "browser": "./web.cjs",
+                "default": "./node.cjs"
+            }
         },
         "./node": {
-            "types": "./lib-esm/node.d.ts",
-            "import": "./lib-esm/node.js",
-            "require": "./lib-cjs/node.js"
+            "import": {
+                "types": "./node.d.ts",
+                "default": "./node.js"
+            },
+            "require": {
+                "types": "./node.d.cts",
+                "default": "./node.cjs"
+            }
         },
         "./http": {
-            "types": "./lib-esm/http.d.ts",
-            "import": "./lib-esm/http.js",
-            "require": "./lib-cjs/http.js"
+            "import": {
+                "types": "./http.d.ts",
+                "default": "./http.js"
+            },
+            "require": {
+                "types": "./http.d.cts",
+                "default": "./http.cjs"
+            }
         },
         "./ws": {
-            "types": "./lib-esm/ws.d.ts",
-            "import": "./lib-esm/ws.js",
-            "require": "./lib-cjs/ws.js"
+            "import": {
+                "types": "./ws.d.ts",
+                "default": "./ws.js"
+            },
+            "require": {
+                "types": "./ws.d.cts",
+                "default": "./ws.cjs"
+            }
         },
         "./sqlite3": {
-            "types": "./lib-esm/sqlite3.d.ts",
-            "import": "./lib-esm/sqlite3.js",
-            "require": "./lib-cjs/sqlite3.js"
+            "import": {
+                "types": "./sqlite3.d.ts",
+                "default": "./sqlite3.js"
+            },
+            "require": {
+                "types": "./sqlite3.d.cts",
+                "default": "./sqlite3.cjs"
+            }
         },
         "./web": {
-            "types": "./lib-esm/web.d.ts",
-            "import": "./lib-esm/web.js",
-            "require": "./lib-cjs/web.js"
+            "import": {
+                "types": "./web.d.ts",
+                "default": "./web.js"
+            },
+            "require": {
+                "types": "./web.d.cts",
+                "default": "./web.cjs"
+            }
         }
     },
-    "typesVersions": {
-        "*": {
-            ".": [
-                "./lib-esm/node.d.ts"
-            ],
-            "http": [
-                "./lib-esm/http.d.ts"
-            ],
-            "hrana": [
-                "./lib-esm/hrana.d.ts"
-            ],
-            "sqlite3": [
-                "./lib-esm/sqlite3.d.ts"
-            ],
-            "web": [
-                "./lib-esm/web.d.ts"
-            ]
-        }
-    },
-    "files": [
-        "lib-cjs/**",
-        "lib-esm/**",
-        "README.md"
-    ],
     "scripts": {
         "prepublishOnly": "npm run build",
-        "prebuild": "rm -rf ./lib-cjs ./lib-esm",
-        "build": "npm run build:cjs && npm run build:esm",
-        "build:cjs": "tsc -p tsconfig.build-cjs.json",
-        "build:esm": "tsc -p tsconfig.build-esm.json",
+        "build": "rm -rf ./dist && npx tsup && cp package.json README.md ./dist",
         "format:check": "prettier --check .",
-        "postbuild": "cp package-cjs.json ./lib-cjs/package.json",
         "test": "jest --runInBand",
         "typecheck": "tsc --noEmit",
         "typedoc": "rm -rf ./docs && typedoc",
         "lint-staged": "lint-staged"
     },
     "dependencies": {
-        "@libsql/core": "^0.15.14",
+        "@libsql/core": "^0.16.0",
         "@libsql/hrana-client": "^0.7.0",
         "js-base64": "^3.7.5",
         "libsql": "^0.5.22",
@@ -117,6 +123,7 @@
         "msw": "^2.3.0",
         "prettier": "3.2.5",
         "ts-jest": "^29.0.5",
+        "tsup": "^8.5.1",
         "typedoc": "^0.23.28",
         "typescript": "^4.9.4"
     }
