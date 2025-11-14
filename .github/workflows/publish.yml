@@ -60,9 +60,9 @@ jobs:
             - name: "Publish client-wasm (pre-release)"
               if: contains(github.ref, '-pre')
               run: npm publish --tag next
-              working-directory: ./packages/libsql-client-wasm/dist
+              working-directory: ./packages/libsql-client-wasm
 
             - name: "Publish client-wasm (latest)"
               if: "!contains(github.ref, '-pre')"
               run: npm publish
-              working-directory: ./packages/libsql-client-wasm/dist
+              working-directory: ./packages/libsql-client-wasm
