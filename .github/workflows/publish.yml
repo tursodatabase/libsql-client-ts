@@ -1,70 +1,68 @@
 name: publish
 
 env:
-  NPM_REGISTRY: 'https://registry.npmjs.org'
+    NPM_REGISTRY: "https://registry.npmjs.org"
 
 on:
-  push:
-    tags:
-      - v*
+    push:
+        tags:
+            - v*
 
 jobs:
-  publish-to-npm:
-    name: "Publish new version to NPM"
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    env:
-      NODE_OPTIONS: "--trace-warnings"
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-    steps:
-        - name: "Checkout this repo"
-          uses: actions/checkout@v3
+    publish-to-npm:
+        name: "Publish new version to NPM"
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        env:
+            NODE_OPTIONS: "--trace-warnings"
+            NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        steps:
+            - name: "Checkout this repo"
+              uses: actions/checkout@v3
 
-        - name: "Setup Node.js"
-          uses: actions/setup-node@v3
-          with:
-              node-version: "18.x"
+            - name: "Setup Node.js"
+              uses: actions/setup-node@v3
+              with:
+                  node-version: "18.x"
 
-        - name: "Build core"
-          run: "npm ci && npm run build"
-          working-directory: ./packages/libsql-core
+            - name: "Build core"
+              run: "npm ci && npm run build"
+              working-directory: ./packages/libsql-core
 
-        - name: "Publish core (pre-release)"
-          if: contains(github.ref, '-pre')
-          run: npm publish --tag next
-          working-directory: ./packages/libsql-core
+            - name: "Publish core (pre-release)"
+              if: contains(github.ref, '-pre')
+              run: npm publish --tag next
+              working-directory: ./packages/libsql-core/dist
 
-        - name: "Publish core (latest)"
-          if: "!contains(github.ref, '-pre')"
-          run: npm publish
-          working-directory: ./packages/libsql-core
+            - name: "Publish core (latest)"
+              if: "!contains(github.ref, '-pre')"
+              run: npm publish
+              working-directory: ./packages/libsql-core/dist
 
+            - name: "Install npm dependencies (client)"
+              run: "npm ci"
+              working-directory: ./packages/libsql-client
 
-        - name: "Install npm dependencies (client)"
-          run: "npm ci"
-          working-directory: ./packages/libsql-client
+            - name: "Publish client (pre-release)"
+              if: contains(github.ref, '-pre')
+              run: npm publish --tag next
+              working-directory: ./packages/libsql-client/dist
 
-        - name: "Publish client (pre-release)"
-          if: contains(github.ref, '-pre')
-          run: npm publish --tag next
-          working-directory: ./packages/libsql-client
+            - name: "Publish client (latest)"
+              if: "!contains(github.ref, '-pre')"
+              run: npm publish
+              working-directory: ./packages/libsql-client/dist
 
-        - name: "Publish client (latest)"
-          if: "!contains(github.ref, '-pre')"
-          run: npm publish
-          working-directory: ./packages/libsql-client
+            - name: "Install npm dependencies (client wasm)"
+              run: "npm ci"
+              working-directory: ./packages/libsql-client-wasm
 
+            - name: "Publish client-wasm (pre-release)"
+              if: contains(github.ref, '-pre')
+              run: npm publish --tag next
+              working-directory: ./packages/libsql-client-wasm/dist
 
-        - name: "Install npm dependencies (client wasm)"
-          run: "npm ci"
-          working-directory: ./packages/libsql-client-wasm
-
-        - name: "Publish client-wasm (pre-release)"
-          if: contains(github.ref, '-pre')
-          run: npm publish --tag next
-          working-directory: ./packages/libsql-client-wasm
-
-        - name: "Publish client-wasm (latest)"
-          if: "!contains(github.ref, '-pre')"
-          run: npm publish
-          working-directory: ./packages/libsql-client-wasm
+            - name: "Publish client-wasm (latest)"
+              if: "!contains(github.ref, '-pre')"
+              run: npm publish
+              working-directory: ./packages/libsql-client-wasm/dist

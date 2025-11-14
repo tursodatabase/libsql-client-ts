@@ -67,10 +67,8 @@
     },
     "scripts": {
         "prepublishOnly": "npm run build",
-        "prebuild": "rm -rf ./dist",
-        "build": "npx tsup",
+        "build": "rm -rf ./dist && npx tsup && cp package.json ./dist/package.json",
         "format:check": "prettier --check .",
-        "postbuild": "cp package.json ./dist/package.json",
         "test": "jest --runInBand",
         "typecheck": "tsc --noEmit",
         "typedoc": "rm -rf ./docs && typedoc"
