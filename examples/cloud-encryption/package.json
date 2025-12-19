@@ -1,0 +1,10 @@
+{
+    "name": "batch",
+    "version": "1.0.0",
+    "main": "remote.mjs",
+    "author": "Turso Authors",
+    "license": "MIT",
+    "dependencies": {
+        "@libsql/client": "^0.16.0"
+    }
+}
