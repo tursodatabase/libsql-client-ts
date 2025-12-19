@@ -11,6 +11,7 @@ export interface ExpandedConfig {
     path: string;
     authToken: string | undefined;
     encryptionKey: string | undefined;
+    remoteEncryptionKey: string | undefined;
     syncUrl: string | undefined;
     syncInterval: number | undefined;
     readYourWrites: boolean | undefined;
@@ -181,6 +182,7 @@ export function expandConfig(
             fetch: config.fetch,
             authToken: undefined,
             encryptionKey: undefined,
+            remoteEncryptionKey: undefined,
             authority: undefined,
         };
     }
@@ -194,6 +196,7 @@ export function expandConfig(
         intMode,
         concurrency,
         encryptionKey: config.encryptionKey,
+        remoteEncryptionKey: config.remoteEncryptionKey,
         syncUrl: config.syncUrl,
         syncInterval: config.syncInterval,
         readYourWrites: config.readYourWrites,

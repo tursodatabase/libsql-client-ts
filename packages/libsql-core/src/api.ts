@@ -15,6 +15,9 @@ export interface Config {
     /** Encryption key for the database. */
     encryptionKey?: string;
 
+    /** Encryption key for encryption in Turso Cloud. */
+    remoteEncryptionKey?: string;
+
     /** URL of a remote server to synchronize database with. */
     syncUrl?: string;
 
