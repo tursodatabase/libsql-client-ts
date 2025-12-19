@@ -81,6 +81,7 @@ export function _createClient(config: ExpandedConfig): Client {
     const options = {
         authToken: config.authToken,
         encryptionKey: config.encryptionKey,
+        remoteEncryptionKey: config.remoteEncryptionKey,
         syncUrl: config.syncUrl,
         syncPeriod: config.syncInterval,
         readYourWrites: config.readYourWrites,
