@@ -66,6 +66,7 @@ export function _createClient(config: ExpandedConfig): Client {
         config.intMode,
         config.fetch,
         config.concurrency,
+        config.remoteEncryptionKey,
     );
 }
 
@@ -79,6 +80,7 @@ export class HttpClient implements Client {
     #customFetch: Function | undefined;
     #concurrency: number;
     #authToken: string | undefined;
+    #remoteEncryptionKey: string | undefined;
     #promiseLimitFunction: ReturnType<typeof promiseLimit<any>>;
 
     /** @private */
@@ -88,17 +90,20 @@ export class HttpClient implements Client {
         intMode: IntMode,
         customFetch: Function | undefined,
         concurrency: number,
+        remoteEncryptionKey: string | undefined,
     ) {
         this.#url = url;
         this.#authToken = authToken;
         this.#intMode = intMode;
         this.#customFetch = customFetch;
         this.#concurrency = concurrency;
+        this.#remoteEncryptionKey = remoteEncryptionKey;
 
         this.#client = hrana.openHttp(
             this.#url,
             this.#authToken,
             this.#customFetch,
+            remoteEncryptionKey,
         );
         this.#client.intMode = this.#intMode;
         this.protocol = "http";
@@ -292,6 +297,7 @@ export class HttpClient implements Client {
                 this.#url,
                 this.#authToken,
                 this.#customFetch,
+                this.#remoteEncryptionKey,
             );
             this.#client.intMode = this.#intMode;
         }
