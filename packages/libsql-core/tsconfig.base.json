@@ -6,7 +6,8 @@
         "esModuleInterop": true,
         "isolatedModules": true,
         "rootDir": "src/",
-        "strict": true
+        "strict": true,
+        "skipLibCheck": true
     },
     "include": ["src/"],
     "exclude": ["**/__tests__"]

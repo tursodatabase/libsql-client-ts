@@ -96,7 +96,7 @@ export function _createClient(config: ExpandedConfig): Client {
         config.intMode,
     );
 
-    return new Sqlite3Client(path, options, db, config.intMode);
+    return new Sqlite3Client(path, options, db, config.intMode, config.attach);
 }
 
 export class Sqlite3Client implements Client {
@@ -104,6 +104,7 @@ export class Sqlite3Client implements Client {
     #options: Database.Options;
     #db: Database.Database | null;
     #intMode: IntMode;
+    #attachConfig: import("@libsql/core/api").AttachConfig[];
     closed: boolean;
     protocol: "file";
 
@@ -113,13 +114,39 @@ export class Sqlite3Client implements Client {
         options: Database.Options,
         db: Database.Database,
         intMode: IntMode,
+        attachConfig?: import("@libsql/core/api").AttachConfig[],
     ) {
         this.#path = path;
         this.#options = options;
         this.#db = db;
         this.#intMode = intMode;
+        this.#attachConfig = attachConfig || [];
         this.closed = false;
         this.protocol = "file";
+
+        // Apply initial attachments to the initial connection
+        this.#applyAttachments(db);
+    }
+
+    /**
+     * Apply configured ATTACH statements to a database connection.
+     * Called on initial connection and after connection recycling.
+     */
+    #applyAttachments(db: Database.Database): void {
+        for (const { alias, path } of this.#attachConfig) {
+            try {
+                // Use native prepare/run to avoid recursion through execute()
+                const attachSql = `ATTACH DATABASE '${path}' AS ${alias}`;
+                const stmt = db.prepare(attachSql);
+                stmt.run();
+            } catch (err) {
+                // Log but don't throw - attached database might not exist yet
+                // This allows graceful degradation during setup
+                console.warn(
+                    `Failed to attach database '${alias}' from '${path}': ${err}`,
+                );
+            }
+        }
     }
 
     async execute(
@@ -270,6 +297,104 @@ export class Sqlite3Client implements Client {
         } finally {
             this.#db = new Database(this.#path, this.#options);
             this.closed = false;
+
+            // Re-apply attachments after reconnect
+            this.#applyAttachments(this.#db);
+        }
+    }
+
+    /**
+     * Attach a database at runtime.
+     *
+     * The attachment persists across connection recycling (e.g., after transaction()).
+     * Use this for databases that don't exist at client creation time.
+     *
+     * @param alias - Schema prefix for queries (e.g., 'obs' → 'obs.table_name')
+     * @param path - Database path, supports file: URI with ?mode=ro
+     *
+     * @throws LibsqlError if alias is already attached or attachment fails
+     *
+     * @example
+     * ```typescript
+     * // Attach when database becomes available
+     * await client.attach('obs', 'file:observability.db?mode=ro');
+     *
+     * // Query attached database
+     * await client.execute('SELECT * FROM obs.mastra_traces');
+     *
+     * // Attachment persists after transaction
+     * const tx = await client.transaction();
+     * await tx.commit();
+     * await client.execute('SELECT * FROM obs.mastra_traces');  // Still works ✅
+     * ```
+     */
+    async attach(alias: string, path: string): Promise<void> {
+        this.#checkNotClosed();
+
+        // Check for duplicate alias
+        if (this.#attachConfig.some((a) => a.alias === alias)) {
+            throw new LibsqlError(
+                `Database with alias '${alias}' is already attached`,
+                "ATTACH_DUPLICATE",
+            );
+        }
+
+        // Add to persistent config (will survive transaction())
+        this.#attachConfig.push({ alias, path });
+
+        // Apply to current connection
+        const db = this.#getDb();
+        try {
+            const attachSql = `ATTACH DATABASE '${path}' AS ${alias}`;
+            const stmt = db.prepare(attachSql);
+            stmt.run();
+        } catch (err) {
+            // Rollback config change on failure
+            this.#attachConfig = this.#attachConfig.filter(
+                (a) => a.alias !== alias,
+            );
+            throw new LibsqlError(
+                `Failed to attach database '${alias}' from '${path}': ${(err as Error).message}`,
+                "ATTACH_FAILED",
+                undefined,
+                err as Error,
+            );
+        }
+    }
+
+    /**
+     * Detach a previously attached database.
+     *
+     * The detachment persists across connection recycling. The database
+     * will not be re-attached on subsequent connections.
+     *
+     * @param alias - Schema alias to detach
+     *
+     * @example
+     * ```typescript
+     * await client.detach('obs');
+     *
+     * // After detach, queries fail
+     * await client.execute('SELECT * FROM obs.traces');  // Error: no such table
+     * ```
+     */
+    async detach(alias: string): Promise<void> {
+        this.#checkNotClosed();
+
+        // Remove from persistent config (won't re-attach on reconnection)
+        this.#attachConfig = this.#attachConfig.filter(
+            (a) => a.alias !== alias,
+        );
+
+        // Detach from current connection
+        const db = this.#getDb();
+        try {
+            const detachSql = `DETACH DATABASE ${alias}`;
+            const stmt = db.prepare(detachSql);
+            stmt.run();
+        } catch (err) {
+            // Ignore errors (already detached is fine)
+            console.warn(`Failed to detach database '${alias}': ${err}`);
         }
     }
 
@@ -291,6 +416,9 @@ export class Sqlite3Client implements Client {
     #getDb(): Database.Database {
         if (this.#db === null) {
             this.#db = new Database(this.#path, this.#options);
+
+            // Re-apply all attachments (config + explicit) to new connection
+            this.#applyAttachments(this.#db);
         }
         return this.#db;
     }
