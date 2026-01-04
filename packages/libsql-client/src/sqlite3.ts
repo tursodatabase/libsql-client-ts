@@ -299,11 +299,13 @@ export class Sqlite3Client implements Client {
 export class Sqlite3Transaction implements Transaction {
     #database: Database.Database;
     #intMode: IntMode;
+    #dbClosed: boolean;
 
     /** @private */
     constructor(database: Database.Database, intMode: IntMode) {
         this.#database = database;
         this.#intMode = intMode;
+        this.#dbClosed = false;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet>;
@@ -380,8 +382,19 @@ export class Sqlite3Transaction implements Transaction {
     }
 
     close(): void {
-        if (this.#database.inTransaction) {
-            executeStmt(this.#database, "ROLLBACK", this.#intMode);
+        try {
+            if (this.#database.inTransaction) {
+                executeStmt(this.#database, "ROLLBACK", this.#intMode);
+            }
+        } finally {
+            this.#dbClose();
+        }
+    }
+
+    #dbClose(): void {
+        if (!this.#dbClosed) {
+            this.#dbClosed = true;
+            this.#database.close();
         }
     }
 
