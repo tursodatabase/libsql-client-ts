@@ -145,6 +145,7 @@ function percentDecode(text: string): string {
                 `URL component has invalid percent encoding: ${e}`,
                 "URL_INVALID",
                 undefined,
+                undefined,
                 e,
             );
         }

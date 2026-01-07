@@ -157,6 +157,7 @@ export abstract class HranaTransaction implements Transaction {
                             mappedError.message,
                             i,
                             mappedError.code,
+                            mappedError.extendedCode,
                             mappedError.rawCode,
                             mappedError.cause instanceof Error
                                 ? mappedError.cause
@@ -338,6 +339,7 @@ export async function executeHranaBatch(
                     mappedError.message,
                     i,
                     mappedError.code,
+                    mappedError.extendedCode,
                     mappedError.rawCode,
                     mappedError.cause instanceof Error
                         ? mappedError.cause
@@ -400,7 +402,8 @@ export function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
 export function mapHranaError(e: unknown): unknown {
     if (e instanceof hrana.ClientError) {
         const code = mapHranaErrorCode(e);
-        return new LibsqlError(e.message, code, undefined, e);
+        // TODO: Parse extendedCode once the SQL over HTTP protocol supports it
+        return new LibsqlError(e.message, code, undefined, undefined, e);
     }
     return e;
 }

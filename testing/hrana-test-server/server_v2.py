@@ -12,6 +12,7 @@ import tempfile
 import aiohttp.web
 
 import c3
+from sqlite3_error_map import sqlite_error_code_to_name
 
 logger = logging.getLogger("server")
 persistent_db_file = os.getenv("PERSISTENT_DB")
@@ -521,7 +522,9 @@ class ResponseError(RuntimeError):
     def __init__(self, message, code=None):
         if isinstance(message, c3.SqliteError):
             if code is None:
-                code = message.error_name
+                # Use base error code (error_code & 0xFF) instead of extended code
+                base_code = message.error_code & 0xFF if message.error_code else None
+                code = sqlite_error_code_to_name.get(base_code)
             message = str(message)
         super().__init__(message)
         self.code = code

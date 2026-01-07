@@ -1606,6 +1606,64 @@ describe("transaction()", () => {
     }
 });
 
+// Test to verify constraint error codes
+// - code: base error code (e.g., SQLITE_CONSTRAINT) - consistent across local and remote
+// - extendedCode: extended error code (e.g., SQLITE_CONSTRAINT_PRIMARYKEY) - available when supported
+(server !== "test_v1" ? describe : describe.skip)(
+    "constraint error codes",
+    () => {
+        test(
+            "PRIMARY KEY constraint violation",
+            withClient(async (c) => {
+                await c.execute("DROP TABLE IF EXISTS t_pk_test");
+                await c.execute(
+                    "CREATE TABLE t_pk_test (id INTEGER PRIMARY KEY, name TEXT)",
+                );
+                await c.execute("INSERT INTO t_pk_test VALUES (1, 'first')");
+
+                try {
+                    await c.execute(
+                        "INSERT INTO t_pk_test VALUES (1, 'duplicate')",
+                    );
+                    throw new Error("Expected PRIMARY KEY constraint error");
+                } catch (e: any) {
+                    expect(e.code).toBe("SQLITE_CONSTRAINT");
+                    if (e.extendedCode !== undefined) {
+                        expect(e.extendedCode).toBe(
+                            "SQLITE_CONSTRAINT_PRIMARYKEY",
+                        );
+                    }
+                }
+            }),
+        );
+
+        test(
+            "UNIQUE constraint violation",
+            withClient(async (c) => {
+                await c.execute("DROP TABLE IF EXISTS t_unique_test");
+                await c.execute(
+                    "CREATE TABLE t_unique_test (id INTEGER, name TEXT UNIQUE)",
+                );
+                await c.execute(
+                    "INSERT INTO t_unique_test VALUES (1, 'unique_name')",
+                );
+
+                try {
+                    await c.execute(
+                        "INSERT INTO t_unique_test VALUES (2, 'unique_name')",
+                    );
+                    throw new Error("Expected UNIQUE constraint error");
+                } catch (e: any) {
+                    expect(e.code).toBe("SQLITE_CONSTRAINT");
+                    if (e.extendedCode !== undefined) {
+                        expect(e.extendedCode).toBe("SQLITE_CONSTRAINT_UNIQUE");
+                    }
+                }
+            }),
+        );
+    },
+);
+
 (isSqld ? test : test.skip)("embedded replica test", async () => {
     const remote = createClient(config);
     const embedded = createClient({
