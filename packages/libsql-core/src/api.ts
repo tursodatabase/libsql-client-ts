@@ -489,12 +489,15 @@ export type InArgs = Array<InValue> | Record<string, InValue>;
 export class LibsqlError extends Error {
     /** Machine-readable error code. */
     code: string;
+    /** Extended error code with more specific information (e.g., SQLITE_CONSTRAINT_PRIMARYKEY). */
+    extendedCode?: string;
     /** Raw numeric error code */
     rawCode?: number;
 
     constructor(
         message: string,
         code: string,
+        extendedCode?: string,
         rawCode?: number,
         cause?: Error,
     ) {
@@ -503,6 +506,7 @@ export class LibsqlError extends Error {
         }
         super(message, { cause });
         this.code = code;
+        this.extendedCode = extendedCode;
         this.rawCode = rawCode;
         this.name = "LibsqlError";
     }
@@ -517,10 +521,11 @@ export class LibsqlBatchError extends LibsqlError {
         message: string,
         statementIndex: number,
         code: string,
+        extendedCode?: string,
         rawCode?: number,
         cause?: Error,
     ) {
-        super(message, code, rawCode, cause);
+        super(message, code, extendedCode, rawCode, cause);
         this.statementIndex = statementIndex;
         this.name = "LibsqlBatchError";
     }
