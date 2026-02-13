@@ -447,6 +447,20 @@ export class WsClient implements Client {
         }
     }
 
+    async attach(_alias: string, _path: string): Promise<void> {
+        throw new LibsqlError(
+            "ATTACH DATABASE is not supported for remote WebSocket connections. Use local file: URLs instead.",
+            "ATTACH_NOT_SUPPORTED",
+        );
+    }
+
+    async detach(_alias: string): Promise<void> {
+        throw new LibsqlError(
+            "DETACH DATABASE is not supported for remote WebSocket connections. Use local file: URLs instead.",
+            "DETACH_NOT_SUPPORTED",
+        );
+    }
+
     close(): void {
         this.#connState.client.close();
         this.closed = true;
