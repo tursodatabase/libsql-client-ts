@@ -289,7 +289,14 @@ describe("execute()", () => {
         }),
     );
 
-    // see issue https://github.com/tursodatabase/libsql/issues/1411
+    // see issues
+    //   https://github.com/tursodatabase/libsql/issues/1411
+    //   https://github.com/tursodatabase/libsql-client-ts/issues/229
+    // Every in-memory URL form must keep schema and data alive across a
+    // client.transaction() call. An in-memory database only exists on the
+    // open connection, so for :memory: URLs the client must NOT release its
+    // handle when a transaction starts — otherwise the next client.execute()
+    // opens a fresh empty :memory: database and the table silently vanishes.
     test(
         "execute transaction against in memory database with shared cache",
         withClient(
@@ -309,7 +316,7 @@ describe("execute()", () => {
                 await c.execute("CREATE TABLE t (a)");
                 const transaction = await c.transaction();
                 transaction.close();
-                expect(() => c.execute("SELECT * FROM t")).rejects.toThrow();
+                await c.execute("SELECT * FROM t");
             },
             { url: "file::memory:?cache=private" },
         ),
@@ -321,10 +328,55 @@ describe("execute()", () => {
                 await c.execute("CREATE TABLE t (a)");
                 const transaction = await c.transaction();
                 transaction.close();
-                expect(() => c.execute("SELECT * FROM t")).rejects.toThrow();
+                await c.execute("SELECT * FROM t");
             },
             { url: ":memory:" },
         ),
+    );
+    test(
+        "in-memory database preserves schema and data across committed transaction",
+        withInMemoryClient(async (c) => {
+            await c.execute(
+                "CREATE TABLE things (id INTEGER PRIMARY KEY, name TEXT)",
+            );
+            await c.execute(
+                "INSERT INTO things (id, name) VALUES (1, 'first')",
+            );
+
+            const txn = await c.transaction("write");
+            await txn.execute(
+                "INSERT INTO things (id, name) VALUES (2, 'second')",
+            );
+            await txn.commit();
+
+            const result = await c.execute(
+                "SELECT id, name FROM things ORDER BY id",
+            );
+            expect(result.rows).toHaveLength(2);
+            expect(Array.from(result.rows[0])).toStrictEqual([1, "first"]);
+            expect(Array.from(result.rows[1])).toStrictEqual([2, "second"]);
+        }),
+    );
+    test(
+        "in-memory database rollback leaves original state intact",
+        withInMemoryClient(async (c) => {
+            await c.execute(
+                "CREATE TABLE things (id INTEGER PRIMARY KEY, name TEXT)",
+            );
+            await c.execute(
+                "INSERT INTO things (id, name) VALUES (1, 'first')",
+            );
+
+            const txn = await c.transaction("write");
+            await txn.execute(
+                "INSERT INTO things (id, name) VALUES (2, 'second')",
+            );
+            await txn.rollback();
+
+            const result = await c.execute("SELECT id, name FROM things");
+            expect(result.rows).toHaveLength(1);
+            expect(Array.from(result.rows[0])).toStrictEqual([1, "first"]);
+        }),
     );
 });
 
