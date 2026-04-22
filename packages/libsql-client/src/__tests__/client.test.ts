@@ -2,9 +2,6 @@ import console from "node:console";
 import { expect } from "@jest/globals";
 import type { MatcherFunction } from "expect";
 
-import type { Request, Response } from "@libsql/hrana-client";
-import { fetch } from "@libsql/hrana-client";
-
 import "./helpers.js";
 
 import type * as libsql from "../node.js";
