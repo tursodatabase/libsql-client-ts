@@ -16,9 +16,9 @@ await client.batch(
 const names = ["John Doe", "Mary Smith", "Alice Jones", "Mark Taylor"];
 
 let transaction, secondTransaction;
-try {
-    transaction = await client.transaction("write");
 
+transaction = await client.transaction("write");
+try{
     for (const name of names) {
         await transaction.execute({
             sql: "INSERT INTO users (name) VALUES (?)",
@@ -26,22 +26,25 @@ try {
         });
     }
     await transaction.rollback();
+}finally {
+    secondTransaction?.close();
+}
 
-    secondTransaction = await client.transaction("write");
-
+secondTransaction = await client.transaction("write");
+try{
     for (const name of names) {
         await secondTransaction.execute({
             sql: "INSERT INTO users (name) VALUES (?)",
             args: [name],
         });
     }
-
     await secondTransaction.commit();
 } catch (e) {
-    console.error(e);
-    await transaction?.rollback();
-    await secondTransaction?.rollback();
+    await secondTransaction.rollback();
+}finally {
+    secondTransaction?.close();
 }
+
 
 const result = await client.execute("SELECT * FROM users");
 
