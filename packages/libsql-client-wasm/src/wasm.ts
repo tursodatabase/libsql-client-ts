@@ -212,6 +212,7 @@ export class Sqlite3Client implements Client {
         }
     }
 
+    /** @deprecated sync() is deprecated and will be removed in a future release. Use `@tursodatabase/sync` instead. Learn more: https://tur.so/newsync */
     async sync(): Promise<Replicated> {
         throw new LibsqlError(
             "sync not supported in wasm mode",

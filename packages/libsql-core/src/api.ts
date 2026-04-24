@@ -234,6 +234,7 @@ export interface Client {
      */
     executeMultiple(sql: string): Promise<void>;
 
+    /** @deprecated sync() is deprecated and will be removed in a future release. Use `@tursodatabase/sync` instead. Learn more: https://tur.so/newsync */
     sync(): Promise<Replicated>;
 
     /** Close the client and release resources.
