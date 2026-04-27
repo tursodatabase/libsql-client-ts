@@ -96,7 +96,7 @@ export function _createClient(config: ExpandedConfig): Client {
         config.intMode,
     );
 
-    return new Sqlite3Client(path, options, db, config.intMode);
+    return new Sqlite3Client(path, options, db, config.intMode, isInMemory);
 }
 
 export class Sqlite3Client implements Client {
@@ -104,6 +104,7 @@ export class Sqlite3Client implements Client {
     #options: Database.Options;
     #db: Database.Database | null;
     #intMode: IntMode;
+    #isInMemory: boolean;
     closed: boolean;
     protocol: "file";
 
@@ -113,11 +114,13 @@ export class Sqlite3Client implements Client {
         options: Database.Options,
         db: Database.Database,
         intMode: IntMode,
+        isInMemory: boolean = false,
     ) {
         this.#path = path;
         this.#options = options;
         this.#db = db;
         this.#intMode = intMode;
+        this.#isInMemory = isInMemory;
         this.closed = false;
         this.protocol = "file";
     }
@@ -239,7 +242,18 @@ export class Sqlite3Client implements Client {
     async transaction(mode: TransactionMode = "write"): Promise<Transaction> {
         const db = this.#getDb();
         executeStmt(db, transactionModeToBegin(mode), this.#intMode);
-        this.#db = null; // A new connection will be lazily created on next use
+        // For file-backed databases we release the client's handle so a future
+        // `client.execute(...)` opens a second connection and runs outside the
+        // transaction. For in-memory databases the "database" only exists on
+        // the open connection, so releasing the handle would cause every
+        // subsequent query to open a brand-new empty `:memory:` database and
+        // silently lose all prior schema and data. Keep the handle shared for
+        // in-memory URLs; the transaction and the client then use the same
+        // connection, which is the only safe option for `:memory:`.
+        // See https://github.com/tursodatabase/libsql-client-ts/issues/229
+        if (!this.#isInMemory) {
+            this.#db = null;
+        }
         return new Sqlite3Transaction(db, this.#intMode);
     }
 
