@@ -6,6 +6,7 @@ import type {
     Client,
     Transaction,
     ResultSet,
+    Row,
     InStatement,
     InArgs,
     Replicated,
@@ -154,10 +155,10 @@ export class WsClient implements Client {
         return this.#promiseLimitFunction(fn);
     }
 
-    async execute(
+    async execute<T extends Row = Row>(
         stmtOrSql: InStatement | string,
         args?: InArgs,
-    ): Promise<ResultSet> {
+    ): Promise<ResultSet<T>> {
         let stmt: InStatement;
 
         if (typeof stmtOrSql === "string") {
@@ -169,7 +170,7 @@ export class WsClient implements Client {
             stmt = stmtOrSql;
         }
 
-        return this.limit<ResultSet>(async () => {
+        return this.limit<ResultSet<T>>(async () => {
             const streamState = await this.#openStream();
             try {
                 const hranaStmt = stmtToHrana(stmt);
@@ -182,7 +183,7 @@ export class WsClient implements Client {
 
                 const hranaRowsResult = await hranaRowsPromise;
 
-                return resultSetFromHrana(hranaRowsResult);
+                return resultSetFromHrana(hranaRowsResult) as ResultSet<T>;
             } catch (e) {
                 throw mapHranaError(e);
             } finally {
@@ -191,11 +192,11 @@ export class WsClient implements Client {
         });
     }
 
-    async batch(
+    async batch<T extends Row = Row>(
         stmts: Array<InStatement | [string, InArgs?]>,
         mode: TransactionMode = "deferred",
-    ): Promise<Array<ResultSet>> {
-        return this.limit<Array<ResultSet>>(async () => {
+    ): Promise<Array<ResultSet<T>>> {
+        return this.limit<Array<ResultSet<T>>>(async () => {
             const streamState = await this.#openStream();
             try {
                 const normalizedStmts = stmts.map((stmt) => {
@@ -224,7 +225,7 @@ export class WsClient implements Client {
 
                 const results = await resultsPromise;
 
-                return results;
+                return results as Array<ResultSet<T>>;
             } catch (e) {
                 throw mapHranaError(e);
             } finally {

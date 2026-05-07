@@ -2,6 +2,7 @@ import * as hrana from "@libsql/hrana-client";
 import type {
     InStatement,
     ResultSet,
+    Row,
     Transaction,
     TransactionMode,
     InArgs,
@@ -32,11 +33,13 @@ export abstract class HranaTransaction implements Transaction {
     abstract close(): void;
     abstract get closed(): boolean;
 
-    execute(stmt: InStatement): Promise<ResultSet> {
-        return this.batch([stmt]).then((results) => results[0]);
+    execute<T extends Row = Row>(stmt: InStatement): Promise<ResultSet<T>> {
+        return this.batch<T>([stmt]).then((results) => results[0]);
     }
 
-    async batch(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
+    async batch<T extends Row = Row>(
+        stmts: Array<InStatement>,
+    ): Promise<Array<ResultSet<T>>> {
         const stream = this._getStream();
         if (stream.closed) {
             throw new LibsqlError(
@@ -167,7 +170,7 @@ export abstract class HranaTransaction implements Transaction {
                     throw mappedError;
                 }
             }
-            return resultSets;
+            return resultSets as Array<ResultSet<T>>;
         } catch (e) {
             throw mapHranaError(e);
         }

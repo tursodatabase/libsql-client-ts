@@ -4,6 +4,7 @@ import type { Config, Client } from "@libsql/core/api";
 import type {
     InStatement,
     ResultSet,
+    Row,
     Transaction,
     IntMode,
     InArgs,
@@ -114,10 +115,10 @@ export class HttpClient implements Client {
         return this.#promiseLimitFunction(fn);
     }
 
-    async execute(
+    async execute<T extends Row = Row>(
         stmtOrSql: InStatement | string,
         args?: InArgs,
-    ): Promise<ResultSet> {
+    ): Promise<ResultSet<T>> {
         let stmt: InStatement;
 
         if (typeof stmtOrSql === "string") {
@@ -129,7 +130,7 @@ export class HttpClient implements Client {
             stmt = stmtOrSql;
         }
 
-        return this.limit<ResultSet>(async () => {
+        return this.limit<ResultSet<T>>(async () => {
             try {
                 const hranaStmt = stmtToHrana(stmt);
 
@@ -145,18 +146,18 @@ export class HttpClient implements Client {
 
                 const rowsResult = await rowsPromise;
 
-                return resultSetFromHrana(rowsResult);
+                return resultSetFromHrana(rowsResult) as ResultSet<T>;
             } catch (e) {
                 throw mapHranaError(e);
             }
         });
     }
 
-    async batch(
+    async batch<T extends Row = Row>(
         stmts: Array<InStatement | [string, InArgs?]>,
         mode: TransactionMode = "deferred",
-    ): Promise<Array<ResultSet>> {
-        return this.limit<Array<ResultSet>>(async () => {
+    ): Promise<Array<ResultSet<T>>> {
+        return this.limit<Array<ResultSet<T>>>(async () => {
             try {
                 const normalizedStmts = stmts.map((stmt) => {
                     if (Array.isArray(stmt)) {
@@ -198,7 +199,7 @@ export class HttpClient implements Client {
 
                 const results = await resultsPromise;
 
-                return results;
+                return results as Array<ResultSet<T>>;
             } catch (e) {
                 throw mapHranaError(e);
             }

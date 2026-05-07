@@ -122,10 +122,10 @@ export class Sqlite3Client implements Client {
         this.protocol = "file";
     }
 
-    async execute(
+    async execute<T extends Row = Row>(
         stmtOrSql: InStatement | string,
         args?: InArgs,
-    ): Promise<ResultSet> {
+    ): Promise<ResultSet<T>> {
         let stmt: InStatement;
 
         if (typeof stmtOrSql === "string") {
@@ -138,13 +138,13 @@ export class Sqlite3Client implements Client {
         }
 
         this.#checkNotClosed();
-        return executeStmt(this.#getDb(), stmt, this.#intMode);
+        return executeStmt(this.#getDb(), stmt, this.#intMode) as ResultSet<T>;
     }
 
-    async batch(
+    async batch<T extends Row = Row>(
         stmts: Array<InStatement | [string, InArgs?]>,
         mode: TransactionMode = "deferred",
-    ): Promise<Array<ResultSet>> {
+    ): Promise<Array<ResultSet<T>>> {
         this.#checkNotClosed();
         const db = this.#getDb();
         try {
@@ -184,7 +184,7 @@ export class Sqlite3Client implements Client {
                 }
             }
             executeStmt(db, "COMMIT", this.#intMode);
-            return resultSets;
+            return resultSets as Array<ResultSet<T>>;
         } finally {
             if (db.inTransaction) {
                 executeStmt(db, "ROLLBACK", this.#intMode);
@@ -308,13 +308,18 @@ export class Sqlite3Transaction implements Transaction {
         this.#intMode = intMode;
     }
 
-    async execute(stmt: InStatement): Promise<ResultSet>;
-    async execute(sql: string, args?: InArgs): Promise<ResultSet>;
+    async execute<T extends Row = Row>(
+        stmt: InStatement,
+    ): Promise<ResultSet<T>>;
+    async execute<T extends Row = Row>(
+        sql: string,
+        args?: InArgs,
+    ): Promise<ResultSet<T>>;
 
-    async execute(
+    async execute<T extends Row = Row>(
         stmtOrSql: InStatement | string,
         args?: InArgs,
-    ): Promise<ResultSet> {
+    ): Promise<ResultSet<T>> {
         let stmt: InStatement;
 
         if (typeof stmtOrSql === "string") {
@@ -327,12 +332,12 @@ export class Sqlite3Transaction implements Transaction {
         }
 
         this.#checkNotClosed();
-        return executeStmt(this.#database, stmt, this.#intMode);
+        return executeStmt(this.#database, stmt, this.#intMode) as ResultSet<T>;
     }
 
-    async batch(
+    async batch<T extends Row = Row>(
         stmts: Array<InStatement | [string, InArgs?]>,
-    ): Promise<Array<ResultSet>> {
+    ): Promise<Array<ResultSet<T>>> {
         const resultSets = [];
         for (let i = 0; i < stmts.length; i++) {
             try {
@@ -361,7 +366,7 @@ export class Sqlite3Transaction implements Transaction {
                 throw e;
             }
         }
-        return resultSets;
+        return resultSets as Array<ResultSet<T>>;
     }
 
     async executeMultiple(sql: string): Promise<void> {
