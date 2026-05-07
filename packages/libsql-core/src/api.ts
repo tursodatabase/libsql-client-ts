@@ -95,8 +95,11 @@ export interface Client {
      * });
      * ```
      */
-    execute(stmt: InStatement): Promise<ResultSet>;
-    execute(sql: string, args?: InArgs): Promise<ResultSet>;
+    execute<T extends Row = Row>(stmt: InStatement): Promise<ResultSet<T>>;
+    execute<T extends Row = Row>(
+        sql: string,
+        args?: InArgs,
+    ): Promise<ResultSet<T>>;
 
     /** Execute a batch of SQL statements in a transaction.
      *
@@ -131,10 +134,10 @@ export interface Client {
      * ], "write");
      * ```
      */
-    batch(
+    batch<T extends Row = Row>(
         stmts: Array<InStatement | [string, InArgs?]>,
         mode?: TransactionMode,
-    ): Promise<Array<ResultSet>>;
+    ): Promise<Array<ResultSet<T>>>;
 
     /** Execute a batch of SQL statements in a transaction with PRAGMA foreign_keys=off; before and PRAGMA foreign_keys=on; after.
      *
@@ -308,14 +311,16 @@ export interface Transaction {
      * });
      * ```
      */
-    execute(stmt: InStatement): Promise<ResultSet>;
+    execute<T extends Row = Row>(stmt: InStatement): Promise<ResultSet<T>>;
 
     /** Execute a batch of SQL statements in this transaction.
      *
      * If any of the statements in the batch fails with an error, further statements are not executed and the
      * returned promise is rejected with an error, but the transaction is not rolled back.
      */
-    batch(stmts: Array<InStatement>): Promise<Array<ResultSet>>;
+    batch<T extends Row = Row>(
+        stmts: Array<InStatement>,
+    ): Promise<Array<ResultSet<T>>>;
 
     /** Execute a sequence of SQL statements separated by semicolons.
      *
@@ -404,7 +409,7 @@ export type TransactionMode = "write" | "read" | "deferred";
  * console.log(`Deleted ${rs.rowsAffected} books`);
  * ```
  */
-export interface ResultSet {
+export interface ResultSet<T extends Row = Row> {
     /** Names of columns.
      *
      * Names of columns can be defined using the `AS` keyword in SQL:
@@ -424,7 +429,7 @@ export interface ResultSet {
     columnTypes: Array<string>;
 
     /** Rows produced by the statement. */
-    rows: Array<Row>;
+    rows: Array<T>;
 
     /** Number of rows that were affected by an UPDATE, INSERT or DELETE operation.
      *
