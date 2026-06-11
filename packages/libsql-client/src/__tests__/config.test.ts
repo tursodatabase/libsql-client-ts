@@ -198,6 +198,18 @@ describe("expandConfig - parsing of valid arguments", () => {
             },
         },
         {
+            name: "timeout",
+            config: { url: "file:local.db", timeout: 5000 },
+            expanded: {
+                scheme: "file",
+                tls: true,
+                intMode: "number",
+                path: "local.db",
+                concurrency: 20,
+                timeout: 5000,
+            },
+        },
+        {
             name: "override auth token",
             config: {
                 url: "wss://localhost/libsql/connect?authToken=new",

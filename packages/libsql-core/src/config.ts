@@ -19,6 +19,7 @@ export interface ExpandedConfig {
     intMode: IntMode;
     fetch: Function | undefined;
     concurrency: number;
+    timeout: number | undefined;
 }
 
 export type ExpandedScheme = "wss" | "ws" | "https" | "http" | "file";
@@ -180,6 +181,7 @@ export function expandConfig(
             readYourWrites: config.readYourWrites,
             offline: config.offline,
             fetch: config.fetch,
+            timeout: config.timeout,
             authToken: undefined,
             encryptionKey: undefined,
             remoteEncryptionKey: undefined,
@@ -202,5 +204,6 @@ export function expandConfig(
         readYourWrites: config.readYourWrites,
         offline: config.offline,
         fetch: config.fetch,
+        timeout: config.timeout,
     };
 }
