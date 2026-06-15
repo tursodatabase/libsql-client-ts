@@ -1592,6 +1592,79 @@ describe("transaction()", () => {
     }
 });
 
+describe("timeout option (local files)", () => {
+    const dbPath = `/tmp/libsql-client-timeout-test-${process.pid}.db`;
+    const dbUrl = `file:${dbPath}`;
+
+    afterEach(async () => {
+        const fs = await import("node:fs");
+        for (const suffix of ["", "-wal", "-shm"]) {
+            fs.rmSync(dbPath + suffix, { force: true });
+        }
+    });
+
+    test("timeout sets busy_timeout on the connection", async () => {
+        const c = createClient({ url: dbUrl, timeout: 5000 });
+        try {
+            const rs = await c.execute("PRAGMA busy_timeout");
+            expect(rs.rows[0]["timeout"]).toStrictEqual(5000);
+        } finally {
+            c.close();
+        }
+    });
+
+    // see issue https://github.com/tursodatabase/libsql-client-ts/issues/288
+    test("timeout survives connections created after transaction()", async () => {
+        const c = createClient({ url: dbUrl, timeout: 5000 });
+        try {
+            const txn = await c.transaction("write");
+            await txn.execute("CREATE TABLE t (a)");
+            await txn.commit();
+
+            // transaction() hands the client's connection to the transaction
+            // and lazily opens a new one; the timeout must apply to it too.
+            const rs = await c.execute("PRAGMA busy_timeout");
+            expect(rs.rows[0]["timeout"]).toStrictEqual(5000);
+        } finally {
+            c.close();
+        }
+    });
+
+    test("locked database waits for timeout instead of failing immediately", async () => {
+        const setup = createClient({ url: dbUrl });
+        await setup.execute("CREATE TABLE t (a)");
+        setup.close();
+
+        const lockHolder = createClient({ url: dbUrl });
+        const withTimeout = createClient({ url: dbUrl, timeout: 500 });
+        const withoutTimeout = createClient({ url: dbUrl });
+        try {
+            const lock = await lockHolder.transaction("write");
+            await lock.execute("INSERT INTO t VALUES (1)");
+
+            // Without a timeout, a locked write fails immediately.
+            let start = Date.now();
+            await expect(
+                withoutTimeout.execute("INSERT INTO t VALUES (2)"),
+            ).rejects.toBeLibsqlError("SQLITE_BUSY");
+            expect(Date.now() - start).toBeLessThan(250);
+
+            // With a timeout, the busy handler waits before giving up.
+            start = Date.now();
+            await expect(
+                withTimeout.execute("INSERT INTO t VALUES (3)"),
+            ).rejects.toBeLibsqlError("SQLITE_BUSY");
+            expect(Date.now() - start).toBeGreaterThanOrEqual(450);
+
+            await lock.rollback();
+        } finally {
+            lockHolder.close();
+            withTimeout.close();
+            withoutTimeout.close();
+        }
+    });
+});
+
 (isFile ? test : test.skip)("raw error codes", async () => {
     const c = createClient(config);
     try {

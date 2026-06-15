@@ -62,6 +62,17 @@ export interface Config {
      * number to increase the concurrency limit or set it to 0 to disable concurrency limits completely.
      */
     concurrency?: number | undefined;
+
+    /** Busy timeout in milliseconds for local `file:` databases.
+     *
+     * When another connection holds a lock on the database file, operations wait up to this many
+     * milliseconds before failing with `SQLITE_BUSY`. By default, operations fail immediately.
+     *
+     * This option is applied to every connection the client opens, including connections created
+     * internally after `transaction()`. It only takes effect for local SQLite databases; remote
+     * clients ignore it.
+     */
+    timeout?: number;
 }
 
 /** Representation of integers from database as JavaScript values. See {@link Config.intMode}. */
