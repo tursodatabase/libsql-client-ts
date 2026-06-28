@@ -35,7 +35,9 @@ const inMemoryMode = ":memory:";
 export function isInMemoryConfig(config: ExpandedConfig): boolean {
     return (
         config.scheme === "file" &&
-        (config.path === ":memory:" || config.path.startsWith(":memory:?"))
+        (config.path === ":memory:" ||
+            config.path.startsWith(":memory:?") ||
+            config.path.split("?")[1]?.includes("mode=memory"))
     );
 }
 
@@ -68,7 +70,10 @@ export function expandConfig(
     const originalUriScheme = uri.scheme.toLowerCase();
     const isInMemoryMode =
         originalUriScheme === "file" &&
-        uri.path === inMemoryMode &&
+        (uri.path === inMemoryMode ||
+            uri.query?.pairs.find(
+                ({ key, value }) => key === "mode" && value === "memory",
+            )) &&
         uri.authority === undefined;
 
     let queryParamsDef: queryParamsDef;
@@ -76,6 +81,11 @@ export function expandConfig(
         queryParamsDef = {
             cache: {
                 values: ["shared", "private"],
+                update: (key, value) =>
+                    connectionQueryParams.push(`${key}=${value}`),
+            },
+            mode: {
+                values: ["memory"],
                 update: (key, value) =>
                     connectionQueryParams.push(`${key}=${value}`),
             },
@@ -152,8 +162,8 @@ export function expandConfig(
     ) {
         throw new LibsqlError(
             'The client supports only "libsql:", "wss:", "ws:", "https:", "http:" and "file:" URLs, ' +
-                `got ${JSON.stringify(uri.scheme + ":")}. ` +
-                `For more information, please read ${supportedUrlLink}`,
+            `got ${JSON.stringify(uri.scheme + ":")}. ` +
+            `For more information, please read ${supportedUrlLink}`,
             "URL_SCHEME_NOT_SUPPORTED",
         );
     }
