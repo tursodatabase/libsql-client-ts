@@ -78,6 +78,13 @@ export function _createClient(config: ExpandedConfig): Client {
         path = `${config.scheme}:${config.path}`;
     }
 
+    // An in-memory database exists only on the connection that opened it, so a
+    // second connection would be a second, empty database rather than another
+    // way into the same one. Each connection to an embedded replica carries
+    // its own sync state. Both are therefore single-connection databases.
+    const maxConnections =
+        isInMemory || config.syncUrl ? 1 : Math.max(1, config.concurrency);
+
     const options = {
         authToken: config.authToken,
         encryptionKey: config.encryptionKey,
@@ -89,35 +96,211 @@ export function _createClient(config: ExpandedConfig): Client {
         timeout: config.timeout,
     };
 
-    const db = new Database(path, options);
+    const pool = new ConnectionPool(path, options, maxConnections);
 
-    executeStmt(
-        db,
-        "SELECT 1 AS checkThatTheDatabaseCanBeOpened",
-        config.intMode,
-    );
+    // fail fast if the database cannot be opened at all
+    const db = pool.acquireSync();
+    try {
+        executeStmt(
+            db,
+            "SELECT 1 AS checkThatTheDatabaseCanBeOpened",
+            config.intMode,
+        );
+    } catch (e) {
+        pool.close();
+        throw e;
+    }
+    pool.release(db);
 
-    return new Sqlite3Client(path, options, db, config.intMode);
+    return new Sqlite3Client(pool, config.intMode);
+}
+
+/**
+ * A client owns a small pool of connections to one database, in the same way
+ * that a remote client owns a set of hrana streams: every client operation
+ * borrows one for the duration of the call, and a transaction borrows one for
+ * its lifetime and gives it back on commit, rollback or close. Nothing is
+ * shared between an open transaction and the rest of the client.
+ *
+ * @private
+ */
+export class ConnectionPool {
+    #path: string;
+    #options: Database.Options;
+    #maxConnections: number;
+    #idle: Array<Database.Database>;
+    #borrowed: Set<Database.Database>;
+    // the subset of `#borrowed` held by an open transaction
+    #heldByTransaction: Set<Database.Database>;
+    #waiters: Array<{
+        resolve: (db: Database.Database) => void;
+        reject: (e: unknown) => void;
+    }>;
+    #closed: boolean;
+
+    constructor(
+        path: string,
+        options: Database.Options,
+        maxConnections: number,
+    ) {
+        this.#path = path;
+        this.#options = options;
+        this.#maxConnections = maxConnections;
+        this.#idle = [];
+        this.#borrowed = new Set();
+        this.#heldByTransaction = new Set();
+        this.#waiters = [];
+        this.#closed = false;
+    }
+
+    // Borrows a connection, opening one if the pool is below its limit and
+    // waiting for a release if it is not.
+    //
+    // Every borrow but a transaction's is a short synchronous call that
+    // returns the connection before the caller sees it again, so waiting for
+    // one is safe. A transaction holds its connection until the caller commits
+    // or rolls back, so if transactions hold every connection there is nothing
+    // to wait for - the caller has to act first. Say so instead of hanging.
+    acquire(forTransaction: boolean = false): Promise<Database.Database> {
+        if (!this.#closed && this.#atLimit()) {
+            if (this.#heldByTransaction.size >= this.#maxConnections) {
+                return Promise.reject(
+                    new LibsqlError(
+                        this.#maxConnections === 1
+                            ? "This client has a single connection, which an open transaction is holding. " +
+                              "In-memory databases and embedded replicas cannot have more than one. " +
+                              "Commit or roll back the transaction before using the client again."
+                            : `All ${this.#maxConnections} of this client's connections are held by open transactions. ` +
+                              "Commit or roll back one before using the client again, or raise `concurrency`.",
+                        "TRANSACTION_ACTIVE",
+                    ),
+                );
+            }
+            return new Promise((resolve, reject) =>
+                this.#waiters.push({
+                    resolve: (db) => {
+                        if (forTransaction) {
+                            this.#heldByTransaction.add(db);
+                        }
+                        resolve(db);
+                    },
+                    reject,
+                }),
+            );
+        }
+        try {
+            return Promise.resolve(this.acquireSync(forTransaction));
+        } catch (e) {
+            return Promise.reject(e);
+        }
+    }
+
+    // Borrows a connection without waiting. Only valid when the pool cannot be
+    // at its limit yet, which is why it is used for the initial probe.
+    acquireSync(forTransaction: boolean = false): Database.Database {
+        this.#checkNotClosed();
+        const idle = this.#idle.pop();
+        const db = idle ?? new Database(this.#path, this.#options);
+        this.#borrowed.add(db);
+        if (forTransaction) {
+            this.#heldByTransaction.add(db);
+        }
+        return db;
+    }
+
+    // Returns a borrowed connection to the pool, handing it straight to a
+    // waiter if there is one.
+    release(db: Database.Database): void {
+        this.#borrowed.delete(db);
+        this.#heldByTransaction.delete(db);
+
+        // A connection must never go back into the pool mid-transaction, or
+        // the next borrower would silently inherit it.
+        if (db.open && db.inTransaction) {
+            try {
+                db.prepare("ROLLBACK").run();
+            } catch {
+                // the connection is unusable; drop it rather than reuse it
+                closeQuietly(db);
+                return;
+            }
+        }
+
+        if (this.#closed || !db.open) {
+            closeQuietly(db);
+            return;
+        }
+
+        const waiter = this.#waiters.shift();
+        if (waiter !== undefined) {
+            this.#borrowed.add(db);
+            waiter.resolve(db);
+        } else {
+            this.#idle.push(db);
+        }
+    }
+
+    close(): void {
+        this.#closed = true;
+        for (const db of this.#idle) {
+            closeQuietly(db);
+        }
+        this.#idle = [];
+        for (const db of this.#borrowed) {
+            closeQuietly(db);
+        }
+        this.#borrowed.clear();
+        this.#heldByTransaction.clear();
+
+        // Anything still queued will never be served now. Reject it: dropping
+        // the callbacks would leave those operations pending forever.
+        const waiters = this.#waiters;
+        this.#waiters = [];
+        for (const waiter of waiters) {
+            waiter.reject(
+                new LibsqlError("The client is closed", "CLIENT_CLOSED"),
+            );
+        }
+    }
+
+    reopen(): void {
+        this.close();
+        this.#closed = false;
+    }
+
+    #atLimit(): boolean {
+        return (
+            this.#idle.length === 0 &&
+            this.#borrowed.size >= this.#maxConnections
+        );
+    }
+
+    #checkNotClosed(): void {
+        if (this.#closed) {
+            throw new LibsqlError("The client is closed", "CLIENT_CLOSED");
+        }
+    }
+}
+
+function closeQuietly(db: Database.Database): void {
+    try {
+        if (db.open) {
+            db.close();
+        }
+    } catch {
+        // nothing useful to do while tearing down
+    }
 }
 
 export class Sqlite3Client implements Client {
-    #path: string;
-    #options: Database.Options;
-    #db: Database.Database | null;
+    #pool: ConnectionPool;
     #intMode: IntMode;
     closed: boolean;
     protocol: "file";
 
     /** @private */
-    constructor(
-        path: string,
-        options: Database.Options,
-        db: Database.Database,
-        intMode: IntMode,
-    ) {
-        this.#path = path;
-        this.#options = options;
-        this.#db = db;
+    constructor(pool: ConnectionPool, intMode: IntMode) {
+        this.#pool = pool;
         this.#intMode = intMode;
         this.closed = false;
         this.protocol = "file";
@@ -139,7 +322,13 @@ export class Sqlite3Client implements Client {
         }
 
         this.#checkNotClosed();
-        return executeStmt(this.#getDb(), stmt, this.#intMode);
+        const db = await this.#pool.acquire();
+        try {
+            this.#checkUsable(db);
+            return executeStmt(db, stmt, this.#intMode);
+        } finally {
+            this.#pool.release(db);
+        }
     }
 
     async batch(
@@ -147,8 +336,9 @@ export class Sqlite3Client implements Client {
         mode: TransactionMode = "deferred",
     ): Promise<Array<ResultSet>> {
         this.#checkNotClosed();
-        const db = this.#getDb();
+        const db = await this.#pool.acquire();
         try {
+            this.#checkUsable(db);
             executeStmt(db, transactionModeToBegin(mode), this.#intMode);
             const resultSets = [];
             for (let i = 0; i < stmts.length; i++) {
@@ -187,16 +377,16 @@ export class Sqlite3Client implements Client {
             executeStmt(db, "COMMIT", this.#intMode);
             return resultSets;
         } finally {
-            if (db.inTransaction) {
-                executeStmt(db, "ROLLBACK", this.#intMode);
-            }
+            // `release` rolls back anything still open before reuse
+            this.#pool.release(db);
         }
     }
 
     async migrate(stmts: Array<InStatement>): Promise<Array<ResultSet>> {
         this.#checkNotClosed();
-        const db = this.#getDb();
+        const db = await this.#pool.acquire();
         try {
+            this.#checkUsable(db);
             executeStmt(db, "PRAGMA foreign_keys=off", this.#intMode);
             executeStmt(db, transactionModeToBegin("deferred"), this.#intMode);
             const resultSets = [];
@@ -234,54 +424,62 @@ export class Sqlite3Client implements Client {
                 executeStmt(db, "ROLLBACK", this.#intMode);
             }
             executeStmt(db, "PRAGMA foreign_keys=on", this.#intMode);
+            this.#pool.release(db);
         }
     }
 
     async transaction(mode: TransactionMode = "write"): Promise<Transaction> {
-        const db = this.#getDb();
-        executeStmt(db, transactionModeToBegin(mode), this.#intMode);
-        this.#db = null; // A new connection will be lazily created on next use
-        return new Sqlite3Transaction(db, this.#intMode);
+        this.#checkNotClosed();
+        const db = await this.#pool.acquire(true);
+        try {
+            this.#checkUsable(db);
+            executeStmt(db, transactionModeToBegin(mode), this.#intMode);
+        } catch (e) {
+            this.#pool.release(db);
+            throw e;
+        }
+        // The transaction owns this connection until it settles, exactly as an
+        // `HttpTransaction` owns its stream.
+        return new Sqlite3Transaction(db, this.#intMode, (used) =>
+            this.#pool.release(used),
+        );
     }
 
     async executeMultiple(sql: string): Promise<void> {
         this.#checkNotClosed();
-        const db = this.#getDb();
+        const db = await this.#pool.acquire();
         try {
+            this.#checkUsable(db);
             return executeMultiple(db, sql);
         } finally {
-            if (db.inTransaction) {
-                executeStmt(db, "ROLLBACK", this.#intMode);
-            }
+            // `release` rolls back a transaction `sql` left open
+            this.#pool.release(db);
         }
     }
 
     async sync(): Promise<Replicated> {
         this.#checkNotClosed();
-        const rep = await this.#getDb().sync();
-        return {
-            frames_synced: rep.frames_synced,
-            frame_no: rep.frame_no,
-        } as Replicated;
+        const db = await this.#pool.acquire();
+        try {
+            this.#checkUsable(db);
+            const rep = await db.sync();
+            return {
+                frames_synced: rep.frames_synced,
+                frame_no: rep.frame_no,
+            } as Replicated;
+        } finally {
+            this.#pool.release(db);
+        }
     }
 
     async reconnect(): Promise<void> {
-        try {
-            if (!this.closed && this.#db !== null) {
-                this.#db.close();
-            }
-        } finally {
-            this.#db = new Database(this.#path, this.#options);
-            this.closed = false;
-        }
+        this.#pool.reopen();
+        this.closed = false;
     }
 
     close(): void {
         this.closed = true;
-        if (this.#db !== null) {
-            this.#db.close();
-            this.#db = null;
-        }
+        this.#pool.close();
     }
 
     #checkNotClosed(): void {
@@ -290,23 +488,52 @@ export class Sqlite3Client implements Client {
         }
     }
 
-    // Lazily creates the database connection and returns it
-    #getDb(): Database.Database {
-        if (this.#db === null) {
-            this.#db = new Database(this.#path, this.#options);
+    // `close()` and `reconnect()` are synchronous and can land between a
+    // borrow and the work it was borrowed for, closing the connection under an
+    // operation that is already holding one. Without this the operation
+    // reaches libsql with a closed handle and fails with a raw TypeError.
+    #checkUsable(db: Database.Database): void {
+        this.#checkNotClosed();
+        if (!db.open) {
+            throw new LibsqlError(
+                "The connection was closed while this operation was in flight",
+                "CLIENT_CLOSED",
+            );
         }
-        return this.#db;
     }
 }
 
 export class Sqlite3Transaction implements Transaction {
-    #database: Database.Database;
+    // null once the connection has been returned to the pool
+    #database: Database.Database | null;
     #intMode: IntMode;
+    #release: (db: Database.Database) => void;
 
     /** @private */
-    constructor(database: Database.Database, intMode: IntMode) {
+    constructor(
+        database: Database.Database,
+        intMode: IntMode,
+        release: (db: Database.Database) => void,
+    ) {
         this.#database = database;
         this.#intMode = intMode;
+        this.#release = release;
+    }
+
+    // Returns the connection to the pool. Idempotent, so every exit path can
+    // call it without checking whether another already did.
+    #settle(): void {
+        const db = this.#database;
+        if (db === null) {
+            return;
+        }
+        this.#database = null;
+        this.#release(db);
+    }
+
+    #getDatabase(): Database.Database {
+        this.#checkNotClosed();
+        return this.#database!;
     }
 
     async execute(stmt: InStatement): Promise<ResultSet>;
@@ -327,8 +554,7 @@ export class Sqlite3Transaction implements Transaction {
             stmt = stmtOrSql;
         }
 
-        this.#checkNotClosed();
-        return executeStmt(this.#database, stmt, this.#intMode);
+        return executeStmt(this.#getDatabase(), stmt, this.#intMode);
     }
 
     async batch(
@@ -337,14 +563,12 @@ export class Sqlite3Transaction implements Transaction {
         const resultSets = [];
         for (let i = 0; i < stmts.length; i++) {
             try {
-                this.#checkNotClosed();
+                const db = this.#getDatabase();
                 const stmt = stmts[i];
                 const normalizedStmt: InStatement = Array.isArray(stmt)
                     ? { sql: stmt[0], args: stmt[1] || [] }
                     : stmt;
-                resultSets.push(
-                    executeStmt(this.#database, normalizedStmt, this.#intMode),
-                );
+                resultSets.push(executeStmt(db, normalizedStmt, this.#intMode));
             } catch (e) {
                 if (e instanceof LibsqlBatchError) {
                     throw e;
@@ -366,31 +590,53 @@ export class Sqlite3Transaction implements Transaction {
     }
 
     async executeMultiple(sql: string): Promise<void> {
-        this.#checkNotClosed();
-        return executeMultiple(this.#database, sql);
+        return executeMultiple(this.#getDatabase(), sql);
     }
 
     async rollback(): Promise<void> {
-        if (!this.#database.open) {
+        const db = this.#database;
+        if (db === null || !db.open) {
+            this.#settle();
             return;
         }
-        this.#checkNotClosed();
-        executeStmt(this.#database, "ROLLBACK", this.#intMode);
+        try {
+            this.#checkNotClosed();
+            executeStmt(db, "ROLLBACK", this.#intMode);
+        } finally {
+            this.#settle();
+        }
     }
 
     async commit(): Promise<void> {
-        this.#checkNotClosed();
-        executeStmt(this.#database, "COMMIT", this.#intMode);
+        try {
+            executeStmt(this.#getDatabase(), "COMMIT", this.#intMode);
+        } finally {
+            this.#settle();
+        }
     }
 
     close(): void {
-        if (this.#database.inTransaction) {
-            executeStmt(this.#database, "ROLLBACK", this.#intMode);
+        const db = this.#database;
+        if (db === null) {
+            return;
+        }
+        try {
+            // `client.close()` may have closed this connection already, and
+            // reading `inTransaction` on a closed database aborts the process.
+            if (db.open && db.inTransaction) {
+                executeStmt(db, "ROLLBACK", this.#intMode);
+            }
+        } finally {
+            this.#settle();
         }
     }
 
     get closed(): boolean {
-        return !this.#database.inTransaction;
+        const db = this.#database;
+        if (db === null || !db.open) {
+            return true;
+        }
+        return !db.inTransaction;
     }
 
     #checkNotClosed(): void {

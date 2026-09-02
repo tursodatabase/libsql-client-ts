@@ -1,4 +1,7 @@
 import console from "node:console";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { expect } from "@jest/globals";
 import type { MatcherFunction } from "expect";
 
@@ -62,6 +65,29 @@ function withInMemoryClient(
         }
     };
 }
+
+function withFileClient(
+    f: (c: libsql.Client) => Promise<void>,
+): () => Promise<void> {
+    return async () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "libsql-test-"));
+        const c = createClient({ url: `file:${path.join(dir, "test.db")}` });
+        try {
+            await f(c);
+        } finally {
+            c.close();
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    };
+}
+
+// A client owns one connection, and an open transaction runs on it. The rules
+// below must therefore hold identically for in-memory and file-backed
+// databases - that symmetry is the point, so run each test against both.
+const localClients: Array<[string, typeof withInMemoryClient]> = [
+    ["in-memory", withInMemoryClient],
+    ["file-backed", withFileClient],
+];
 
 describe("createClient()", () => {
     test("URL scheme not supported", () => {
@@ -286,7 +312,14 @@ describe("execute()", () => {
         }),
     );
 
-    // see issue https://github.com/tursodatabase/libsql/issues/1411
+    // see issues
+    //   https://github.com/tursodatabase/libsql/issues/1411
+    //   https://github.com/tursodatabase/libsql-client-ts/issues/229
+    // Every in-memory URL form must keep schema and data alive across a
+    // client.transaction() call. An in-memory database only exists on the
+    // open connection, so for :memory: URLs the client must NOT release its
+    // handle when a transaction starts — otherwise the next client.execute()
+    // opens a fresh empty :memory: database and the table silently vanishes.
     test(
         "execute transaction against in memory database with shared cache",
         withClient(
@@ -306,7 +339,7 @@ describe("execute()", () => {
                 await c.execute("CREATE TABLE t (a)");
                 const transaction = await c.transaction();
                 transaction.close();
-                expect(() => c.execute("SELECT * FROM t")).rejects.toThrow();
+                await c.execute("SELECT * FROM t");
             },
             { url: "file::memory:?cache=private" },
         ),
@@ -318,10 +351,362 @@ describe("execute()", () => {
                 await c.execute("CREATE TABLE t (a)");
                 const transaction = await c.transaction();
                 transaction.close();
-                expect(() => c.execute("SELECT * FROM t")).rejects.toThrow();
+                await c.execute("SELECT * FROM t");
             },
             { url: ":memory:" },
         ),
+    );
+    test(
+        "in-memory database preserves schema and data across committed transaction",
+        withInMemoryClient(async (c) => {
+            await c.execute(
+                "CREATE TABLE things (id INTEGER PRIMARY KEY, name TEXT)",
+            );
+            await c.execute(
+                "INSERT INTO things (id, name) VALUES (1, 'first')",
+            );
+
+            const txn = await c.transaction("write");
+            await txn.execute(
+                "INSERT INTO things (id, name) VALUES (2, 'second')",
+            );
+            await txn.commit();
+
+            const result = await c.execute(
+                "SELECT id, name FROM things ORDER BY id",
+            );
+            expect(result.rows).toHaveLength(2);
+            expect(Array.from(result.rows[0])).toStrictEqual([1, "first"]);
+            expect(Array.from(result.rows[1])).toStrictEqual([2, "second"]);
+        }),
+    );
+    test(
+        "in-memory database rollback leaves original state intact",
+        withInMemoryClient(async (c) => {
+            await c.execute(
+                "CREATE TABLE things (id INTEGER PRIMARY KEY, name TEXT)",
+            );
+            await c.execute(
+                "INSERT INTO things (id, name) VALUES (1, 'first')",
+            );
+
+            const txn = await c.transaction("write");
+            await txn.execute(
+                "INSERT INTO things (id, name) VALUES (2, 'second')",
+            );
+            await txn.rollback();
+
+            const result = await c.execute("SELECT id, name FROM things");
+            expect(result.rows).toHaveLength(1);
+            expect(Array.from(result.rows[0])).toStrictEqual([1, "first"]);
+        }),
+    );
+
+    describe.each(localClients)("%s client", (_name, withLocalClient) => {
+        // A client owns a pool of connections. Client calls borrow one for the
+        // duration of the call; a transaction borrows one for its lifetime and
+        // returns it on commit, rollback or close. Nothing is shared between an
+        // open transaction and the rest of the client - the same arrangement
+        // the hrana clients get from streams.
+        test(
+            "a bare BEGIN through client.execute does not span calls",
+            withLocalClient(async (c) => {
+                await c.execute("CREATE TABLE t (a)");
+                // the connection goes back to the pool after each call, so a
+                // transaction opened this way is rolled back, not carried over
+                await c.execute("BEGIN");
+                await c.execute("INSERT INTO t VALUES (1)");
+
+                const result = await c.execute("SELECT count(*) AS n FROM t");
+                expect(result.rows[0]["n"]).toStrictEqual(1);
+            }),
+        );
+        // Holding several transactions at once forces the pool to hand out that
+        // many distinct connections: a second BEGIN on an already-borrowed
+        // connection would fail with "cannot start a transaction within a
+        // transaction". So this asserts what the pool depends on - that every
+        // connection reaches the same database, including for `:memory:`,
+        // where that only holds because the client gives the database a name
+        // and opens it through the shared cache.
+        test(
+            "a transaction returns its connection when it commits",
+            withLocalClient(async (c) => {
+                await c.execute("CREATE TABLE t (a)");
+                // many more transactions than the pool can hold at once: this
+                // only completes if each one gives its connection back
+                for (let i = 0; i < 50; i++) {
+                    const txn = await c.transaction("write");
+                    await txn.execute(`INSERT INTO t VALUES (${i})`);
+                    await txn.commit();
+                }
+                const result = await c.execute("SELECT count(*) AS n FROM t");
+                expect(result.rows[0]["n"]).toStrictEqual(50);
+            }),
+        );
+        test(
+            "a transaction returns its connection when it rolls back or closes",
+            withLocalClient(async (c) => {
+                await c.execute("CREATE TABLE t (a)");
+                for (let i = 0; i < 25; i++) {
+                    const rolled = await c.transaction("write");
+                    await rolled.execute("INSERT INTO t VALUES (1)");
+                    await rolled.rollback();
+
+                    const closed = await c.transaction("write");
+                    await closed.execute("INSERT INTO t VALUES (2)");
+                    closed.close();
+                }
+                const result = await c.execute("SELECT count(*) AS n FROM t");
+                expect(result.rows[0]["n"]).toStrictEqual(0);
+            }),
+        );
+        test(
+            "a connection left mid-transaction is not handed on in that state",
+            withLocalClient(async (c) => {
+                await c.execute("CREATE TABLE t (a)");
+                // leaves a transaction open on the borrowed connection
+                await c.executeMultiple("BEGIN; INSERT INTO t VALUES (1);");
+
+                // the next borrower must not inherit it
+                const result = await c.execute("SELECT count(*) AS n FROM t");
+                expect(result.rows[0]["n"]).toStrictEqual(0);
+            }),
+        );
+        test(
+            "client.close() settles operations that are waiting for a connection",
+            withLocalClient(async (c) => {
+                await c.execute("CREATE TABLE t (a)");
+
+                // the first borrows a connection, the rest queue behind it
+                const inFlight = [
+                    c.execute("SELECT 1"),
+                    c.execute("SELECT 2"),
+                    c.execute("SELECT 3"),
+                ];
+                // stop them becoming unhandled rejections while we close
+                inFlight.forEach((p) => p.catch(() => {}));
+                c.close();
+
+                // none of these may hang: a queued waiter that is dropped
+                // rather than rejected never settles at all
+                for (const pending of inFlight) {
+                    await expect(
+                        Promise.race([
+                            pending,
+                            new Promise((_, reject) =>
+                                setTimeout(
+                                    () => reject(new Error("never settled")),
+                                    2000,
+                                ),
+                            ),
+                        ]),
+                    ).rejects.toBeLibsqlError("CLIENT_CLOSED");
+                }
+            }),
+        );
+        test(
+            "client.reconnect() settles operations that are waiting for a connection",
+            withLocalClient(async (c) => {
+                await c.execute("CREATE TABLE t (a)");
+
+                const inFlight = [c.execute("SELECT 1"), c.execute("SELECT 2")];
+                inFlight.forEach((p) => p.catch(() => {}));
+                await c.reconnect();
+
+                for (const pending of inFlight) {
+                    await expect(
+                        Promise.race([
+                            pending,
+                            new Promise((_, reject) =>
+                                setTimeout(
+                                    () => reject(new Error("never settled")),
+                                    2000,
+                                ),
+                            ),
+                        ]),
+                    ).rejects.toBeLibsqlError("CLIENT_CLOSED");
+                }
+
+                // the client is usable again afterwards
+                await expect(c.execute("SELECT 1")).resolves.toBeDefined();
+            }),
+        );
+        test(
+            "client.close() with an open transaction does not crash",
+            withLocalClient(async (c) => {
+                await c.execute("CREATE TABLE t (a)");
+                const txn = await c.transaction("write");
+
+                // closing the client closes the connection the transaction holds
+                c.close();
+
+                expect(txn.closed).toBe(true);
+                expect(() => txn.close()).not.toThrow();
+                await expect(txn.rollback()).resolves.toBeUndefined();
+                await expect(txn.commit()).rejects.toBeLibsqlError(
+                    "TRANSACTION_CLOSED",
+                );
+            }),
+        );
+    });
+
+    test(
+        "client.execute during a transaction runs outside it",
+        withFileClient(async (c) => {
+            await c.execute("CREATE TABLE u (b)");
+            const txn = await c.transaction("deferred");
+
+            // borrows a different connection, so this is not part of txn
+            await c.execute("INSERT INTO u VALUES (1)");
+            await txn.rollback();
+
+            // the client's write survived the transaction's rollback,
+            // because it was never part of that transaction
+            const result = await c.execute("SELECT count(*) AS n FROM u");
+            expect(result.rows[0]["n"]).toStrictEqual(1);
+        }),
+    );
+    test(
+        "connections held at the same time all see the same database",
+        withFileClient(async (c) => {
+            await c.execute("CREATE TABLE t (a)");
+            await c.execute("INSERT INTO t VALUES (1)");
+
+            const txns = await Promise.all(
+                [0, 1, 2, 3].map(() => c.transaction("deferred")),
+            );
+            try {
+                for (const txn of txns) {
+                    const result = await txn.execute(
+                        "SELECT count(*) AS n FROM t",
+                    );
+                    expect(result.rows[0]["n"]).toStrictEqual(1);
+                }
+            } finally {
+                await Promise.all(txns.map((txn) => txn.rollback()));
+            }
+        }),
+    );
+    test(
+        "a committed write is visible on the other pooled connections",
+        withFileClient(async (c) => {
+            await c.execute("CREATE TABLE t (a)");
+
+            // hold two connections so the write below cannot reuse either
+            const held = await Promise.all([
+                c.transaction("deferred"),
+                c.transaction("deferred"),
+            ]);
+            const txn = await c.transaction("write");
+            await txn.execute("INSERT INTO t VALUES (1)");
+            await txn.commit();
+            await Promise.all(held.map((h) => h.rollback()));
+
+            // every connection is back in the pool; all of them must see it
+            const seen = await Promise.all(
+                [0, 1, 2, 3].map(() =>
+                    c.execute("SELECT count(*) AS n FROM t"),
+                ),
+            );
+            for (const result of seen) {
+                expect(result.rows[0]["n"]).toStrictEqual(1);
+            }
+        }),
+    );
+
+    // Where the two kinds necessarily differ. A file gives a reader on another
+    // connection a clean pre-transaction snapshot. An in-memory database has
+    // no such isolation: connections reach it through the shared cache, whose
+    // table locks make a read of a table the transaction has written fail.
+    test(
+        "file-backed reads during a transaction see the pre-transaction state",
+        withFileClient(async (c) => {
+            await c.execute("CREATE TABLE t (a)");
+            await c.execute("INSERT INTO t VALUES (1)");
+            const txn = await c.transaction("write");
+            await txn.execute("INSERT INTO t VALUES (2)");
+
+            const result = await c.execute("SELECT count(*) AS n FROM t");
+            expect(result.rows[0]["n"]).toStrictEqual(1);
+
+            await txn.commit();
+            const after = await c.execute("SELECT count(*) AS n FROM t");
+            expect(after.rows[0]["n"]).toStrictEqual(2);
+        }),
+    );
+    // An in-memory database exists only on the connection that opened it, so
+    // an in-memory client has exactly one. A transaction holds it until it
+    // settles, and nothing else can be served in the meantime.
+    test(
+        "in-memory client calls during an open transaction are refused, not hung",
+        withInMemoryClient(async (c) => {
+            await c.execute("CREATE TABLE t (a)");
+            await c.execute("INSERT INTO t VALUES (1)");
+            const txn = await c.transaction("write");
+            await txn.execute("INSERT INTO t VALUES (2)");
+
+            await expect(c.execute("SELECT 1")).rejects.toBeLibsqlError(
+                "TRANSACTION_ACTIVE",
+            );
+            await expect(c.transaction("write")).rejects.toBeLibsqlError(
+                "TRANSACTION_ACTIVE",
+            );
+
+            // the caller's transaction is untouched by the refusal
+            expect(txn.closed).toBe(false);
+            await txn.commit();
+            const after = await c.execute("SELECT count(*) AS n FROM t");
+            expect(after.rows[0]["n"]).toStrictEqual(2);
+        }),
+    );
+    test(
+        "in-memory client calls still queue behind each other",
+        withInMemoryClient(async (c) => {
+            await c.execute("CREATE TABLE t (a)");
+            await c.execute("INSERT INTO t VALUES (1)");
+
+            // no transaction is involved, so these share the one connection by
+            // waiting for it rather than failing
+            const results = await Promise.all([
+                c.execute("SELECT count(*) AS n FROM t"),
+                c.execute("SELECT count(*) AS n FROM t"),
+                c.execute("SELECT count(*) AS n FROM t"),
+                c.execute("SELECT count(*) AS n FROM t"),
+            ]);
+            for (const result of results) {
+                expect(result.rows[0]["n"]).toStrictEqual(1);
+            }
+        }),
+    );
+    test(
+        "an in-memory database with a private cache survives a transaction",
+        withClient(
+            async (c) => {
+                await c.execute("CREATE TABLE t (a)");
+                await c.execute("INSERT INTO t VALUES (1)");
+                const txn = await c.transaction("write");
+                await txn.execute("INSERT INTO t VALUES (2)");
+                await txn.commit();
+
+                const result = await c.execute("SELECT count(*) AS n FROM t");
+                expect(result.rows[0]["n"]).toStrictEqual(2);
+            },
+            { url: "file::memory:?cache=private" },
+        ),
+    );
+    test(
+        "separate in-memory clients do not share a database",
+        withInMemoryClient(async (c) => {
+            await c.execute("CREATE TABLE isolated (a)");
+            const other = createClient({ url: ":memory:" });
+            try {
+                await expect(
+                    other.execute("SELECT * FROM isolated"),
+                ).rejects.toBeLibsqlError();
+            } finally {
+                other.close();
+            }
+        }),
     );
 });
 
