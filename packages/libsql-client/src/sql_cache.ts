@@ -31,9 +31,9 @@ export class SqlCache {
             }
             const sqlText = hranaStmt.sql;
 
-            // Stored SQL cannot exceed 5kb.
+            // Stored SQL cannot exceed 5kb, which the server measures in UTF-8 bytes.
             // https://github.com/tursodatabase/libsql/blob/e9d637e051685f92b0da43849507b5ef4232fbeb/libsql-server/src/hrana/http/request.rs#L10
-            if (sqlText.length >= 5000) {
+            if (new TextEncoder().encode(sqlText).length >= 5000) {
                 continue;
             }
 
