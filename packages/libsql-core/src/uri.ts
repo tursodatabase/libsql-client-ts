@@ -176,6 +176,13 @@ export function encodeBaseUrl(
     if (pathText !== "" && !pathText.startsWith("/")) {
         pathText = "/" + pathText;
     }
+    // The Hrana client resolves endpoint paths ("v2/pipeline", ...) against this
+    // URL with `new URL(endpointPath, baseUrl)`, which replaces the last path
+    // segment unless the base path ends with "/". Keep the trailing slash so a
+    // deployment served under a proxied sub-path does not lose that segment.
+    if (pathText !== "" && !pathText.endsWith("/")) {
+        pathText += "/";
+    }
 
     return new URL(`${schemeText}${authorityText}${pathText}`);
 }
