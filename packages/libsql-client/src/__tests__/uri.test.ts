@@ -216,13 +216,13 @@ test("encodeBaseUrl()", () => {
             scheme: "http",
             host: "localhost",
             path: "/foo/bar",
-            url: "http://localhost/foo/bar",
+            url: "http://localhost/foo/bar/",
         },
         {
             scheme: "http",
             host: "localhost",
             path: "foo/bar",
-            url: "http://localhost/foo/bar",
+            url: "http://localhost/foo/bar/",
         },
         {
             scheme: "http",
@@ -262,7 +262,7 @@ test("encodeBaseUrl()", () => {
             userinfo: { username: "alice", password: "secret" },
             port: 8080,
             path: "/some/path",
-            url: "https://alice:secret@localhost:8080/some/path",
+            url: "https://alice:secret@localhost:8080/some/path/",
         },
     ];
 
@@ -271,4 +271,28 @@ test("encodeBaseUrl()", () => {
             encodeBaseUrl(scheme, { host, port, userinfo }, path),
         ).toStrictEqual(new URL(url));
     }
+});
+
+test("encodeBaseUrl() keeps the full path when the Hrana client resolves an endpoint against it", () => {
+    // Regression for #296: a deployment proxied under a sub-path lost its last
+    // path segment because `new URL("v2/pipeline", base)` drops it unless the
+    // base path ends with "/".
+    const authority = {
+        host: "example.com",
+        port: undefined,
+        userinfo: undefined,
+    };
+
+    const base = encodeBaseUrl("https", authority, "/some/sub/path");
+    expect(new URL("v2/pipeline", base).href).toBe(
+        "https://example.com/some/sub/path/v2/pipeline",
+    );
+    expect(new URL("v3-protobuf/pipeline", base).href).toBe(
+        "https://example.com/some/sub/path/v3-protobuf/pipeline",
+    );
+
+    const root = encodeBaseUrl("https", authority, "");
+    expect(new URL("v2/pipeline", root).href).toBe(
+        "https://example.com/v2/pipeline",
+    );
 });
