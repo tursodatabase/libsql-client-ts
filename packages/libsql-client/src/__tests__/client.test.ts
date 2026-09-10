@@ -2083,6 +2083,9 @@ describe("timeout option (local files)", () => {
                     throw new Error("Expected PRIMARY KEY constraint error");
                 } catch (e: any) {
                     expect(e.code).toBe("SQLITE_CONSTRAINT");
+                    // rawCode is now populated for remote errors too (gh-117).
+                    expect(e.rawCode).toBeDefined();
+                    expect(e.rawCode & 0xff).toBe(19);
                     if (e.extendedCode !== undefined) {
                         expect(e.extendedCode).toBe(
                             "SQLITE_CONSTRAINT_PRIMARYKEY",
@@ -2110,6 +2113,9 @@ describe("timeout option (local files)", () => {
                     throw new Error("Expected UNIQUE constraint error");
                 } catch (e: any) {
                     expect(e.code).toBe("SQLITE_CONSTRAINT");
+                    // rawCode is now populated for remote errors too (gh-117).
+                    expect(e.rawCode).toBeDefined();
+                    expect(e.rawCode & 0xff).toBe(19);
                     if (e.extendedCode !== undefined) {
                         expect(e.extendedCode).toBe("SQLITE_CONSTRAINT_UNIQUE");
                     }

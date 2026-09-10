@@ -7,8 +7,9 @@ import type {
     InArgs,
 } from "@libsql/core/api";
 import { LibsqlError, LibsqlBatchError } from "@libsql/core/api";
-import type { SqlCache } from "./sql_cache.js";
 import { transactionModeToBegin, ResultSetImpl } from "@libsql/core/util";
+import type { SqlCache } from "./sql_cache.js";
+import { mapToRawCode } from "./sqlite_error_codes.js";
 
 export abstract class HranaTransaction implements Transaction {
     #mode: TransactionMode;
@@ -402,8 +403,16 @@ export function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
 export function mapHranaError(e: unknown): unknown {
     if (e instanceof hrana.ClientError) {
         const code = mapHranaErrorCode(e);
+        // The SQL-over-HTTP protocol only carries the string error code, so
+        // derive the raw numeric code from it when the code is a SQLITE_* one.
         // TODO: Parse extendedCode once the SQL over HTTP protocol supports it
-        return new LibsqlError(e.message, code, undefined, undefined, e);
+        return new LibsqlError(
+            e.message,
+            code,
+            undefined,
+            mapToRawCode(code),
+            e,
+        );
     }
     return e;
 }
