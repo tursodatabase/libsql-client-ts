@@ -23,6 +23,7 @@ import {
     transactionModeToBegin,
     ResultSetImpl,
 } from "@libsql/core/util";
+import { mapToBaseCode } from "./sqlite_error_codes.js";
 
 export * from "@libsql/core/api";
 
@@ -824,46 +825,3 @@ function mapSqliteError(e: unknown): unknown {
     }
     return e;
 }
-
-// Map SQLite raw error code to base error code string.
-// Extended error codes are (base | (extended << 8)), so base = rawCode & 0xFF
-function mapToBaseCode(rawCode: number | undefined): string {
-    if (rawCode === undefined) {
-        return "SQLITE_UNKNOWN";
-    }
-    const baseCode = rawCode & 0xff;
-    return (
-        sqliteErrorCodes[baseCode] ?? `SQLITE_UNKNOWN_${baseCode.toString()}`
-    );
-}
-
-const sqliteErrorCodes: Record<number, string> = {
-    1: "SQLITE_ERROR",
-    2: "SQLITE_INTERNAL",
-    3: "SQLITE_PERM",
-    4: "SQLITE_ABORT",
-    5: "SQLITE_BUSY",
-    6: "SQLITE_LOCKED",
-    7: "SQLITE_NOMEM",
-    8: "SQLITE_READONLY",
-    9: "SQLITE_INTERRUPT",
-    10: "SQLITE_IOERR",
-    11: "SQLITE_CORRUPT",
-    12: "SQLITE_NOTFOUND",
-    13: "SQLITE_FULL",
-    14: "SQLITE_CANTOPEN",
-    15: "SQLITE_PROTOCOL",
-    16: "SQLITE_EMPTY",
-    17: "SQLITE_SCHEMA",
-    18: "SQLITE_TOOBIG",
-    19: "SQLITE_CONSTRAINT",
-    20: "SQLITE_MISMATCH",
-    21: "SQLITE_MISUSE",
-    22: "SQLITE_NOLFS",
-    23: "SQLITE_AUTH",
-    24: "SQLITE_FORMAT",
-    25: "SQLITE_RANGE",
-    26: "SQLITE_NOTADB",
-    27: "SQLITE_NOTICE",
-    28: "SQLITE_WARNING",
-};
