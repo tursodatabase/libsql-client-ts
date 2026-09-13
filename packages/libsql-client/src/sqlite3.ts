@@ -724,8 +724,6 @@ function rowFromSql(
     intMode: IntMode,
 ): Row {
     const row = {};
-    // make sure that the "length" property is not enumerable
-    Object.defineProperty(row, "length", { value: sqlRow.length });
     for (let i = 0; i < sqlRow.length; ++i) {
         const value = valueFromSql(sqlRow[i], intMode);
         Object.defineProperty(row, i, { value });
@@ -739,6 +737,11 @@ function rowFromSql(
                 writable: true,
             });
         }
+    }
+    // make sure that the "length" property is not enumerable, unless a column
+    // is named "length", in which case the column value takes precedence
+    if (!Object.hasOwn(row, "length")) {
+        Object.defineProperty(row, "length", { value: sqlRow.length });
     }
     return row as Row;
 }

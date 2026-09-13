@@ -198,6 +198,24 @@ describe("execute()", () => {
     );
 
     test(
+        'column named "length"',
+        withClient(async (c) => {
+            const rs = await c.execute("SELECT 1 AS one, 'two' AS \"length\"");
+            expect(rs.columns).toStrictEqual(["one", "length"]);
+            expect(rs.rows.length).toStrictEqual(1);
+
+            const r = rs.rows[0];
+            expect(r[0]).toStrictEqual(1);
+            expect(r[1]).toStrictEqual("two");
+            expect(r["length"]).toStrictEqual("two");
+            expect(Object.entries(r)).toStrictEqual([
+                ["one", 1],
+                ["length", "two"],
+            ]);
+        }),
+    );
+
+    test(
         "statement that produces error",
         withClient(async (c) => {
             await expect(c.execute("SELECT foobar")).rejects.toBeLibsqlError();
@@ -991,6 +1009,16 @@ describe("ResultSet.toJSON()", () => {
             expect(json["rows"]).toStrictEqual([
                 [42, 0.5, null, "foo", "YmFy"],
             ]);
+        }),
+    );
+
+    test(
+        'column named "length"',
+        withClient(async (c) => {
+            const rs = await c.execute("SELECT 1 AS one, 'two' AS \"length\"");
+            const json = rs.toJSON();
+            expect(json["columns"]).toStrictEqual(["one", "length"]);
+            expect(json["rows"]).toStrictEqual([[1, "two"]]);
         }),
     );
 
