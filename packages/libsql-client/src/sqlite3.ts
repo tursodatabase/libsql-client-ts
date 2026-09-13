@@ -82,8 +82,12 @@ export function _createClient(config: ExpandedConfig): Client {
     // second connection would be a second, empty database rather than another
     // way into the same one. Each connection to an embedded replica carries
     // its own sync state. Both are therefore single-connection databases.
+    // A concurrency of 0 means no limit, matching the remote clients, whose
+    // promise-limit semaphore treats a falsy limit as pass-through.
     const maxConnections =
-        isInMemory || config.syncUrl ? 1 : Math.max(1, config.concurrency);
+        isInMemory || config.syncUrl
+            ? 1
+            : Math.max(1, config.concurrency || Infinity);
 
     const options = {
         authToken: config.authToken,
