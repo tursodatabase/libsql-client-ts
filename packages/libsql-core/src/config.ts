@@ -53,7 +53,7 @@ export function expandConfig(
 
     let { url, authToken, tls, intMode, concurrency } = config;
     // fill simple defaults right here
-    concurrency = Math.max(0, concurrency || 20);
+    concurrency = Math.max(0, concurrency ?? 20);
     intMode ??= "number";
 
     let connectionQueryParams: string[] = []; // recognized query parameters which we sanitize through white list of valid key-value pairs

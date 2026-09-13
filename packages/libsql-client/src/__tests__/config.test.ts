@@ -232,3 +232,40 @@ describe("expandConfig - parsing of valid arguments", () => {
         });
     }
 });
+
+describe("expandConfig - concurrency", () => {
+    const cases = [
+        {
+            name: "default",
+            config: { url: "file://local.db" },
+            concurrency: 20,
+        },
+        {
+            name: "explicit limit",
+            config: { url: "file://local.db", concurrency: 42 },
+            concurrency: 42,
+        },
+        {
+            name: "zero disables the limit",
+            config: { url: "file://local.db", concurrency: 0 },
+            concurrency: 0,
+        },
+        {
+            name: "negative clamps to zero",
+            config: { url: "file://local.db", concurrency: -5 },
+            concurrency: 0,
+        },
+        {
+            name: "in-memory zero disables the limit",
+            config: { url: ":memory:", concurrency: 0 },
+            concurrency: 0,
+        },
+    ];
+    for (const { name, config, concurrency } of cases) {
+        test(name, () => {
+            expect(expandConfig(config, false).concurrency).toEqual(
+                concurrency,
+            );
+        });
+    }
+});
