@@ -50,7 +50,7 @@ export class ResultSetImpl implements ResultSet {
         return {
             columns: this.columns,
             columnTypes: this.columnTypes,
-            rows: this.rows.map(rowToJson),
+            rows: this.rows.map((row) => rowToJson(row, this.columns.length)),
             rowsAffected: this.rowsAffected,
             lastInsertRowid:
                 this.lastInsertRowid !== undefined
@@ -60,8 +60,14 @@ export class ResultSetImpl implements ResultSet {
     }
 }
 
-function rowToJson(row: Row): unknown {
-    return Array.prototype.map.call(row, valueToJson);
+function rowToJson(row: Row, columnCount: number): unknown {
+    // a column may be named "length", in which case `row.length` is the
+    // column value rather than the number of columns
+    const values: Array<unknown> = [];
+    for (let i = 0; i < columnCount; ++i) {
+        values.push(valueToJson(row[i]));
+    }
+    return values;
 }
 
 function valueToJson(value: Value): unknown {

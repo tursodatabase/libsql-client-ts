@@ -2,6 +2,7 @@ import * as hrana from "@libsql/hrana-client";
 import type {
     InStatement,
     ResultSet,
+    Row,
     Transaction,
     TransactionMode,
     InArgs,
@@ -384,7 +385,15 @@ export function stmtToHrana(stmt: InStatement | [string, InArgs?]): hrana.Stmt {
 export function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
     const columns = hranaRows.columnNames.map((c) => c ?? "");
     const columnTypes = hranaRows.columnDecltypes.map((c) => c ?? "");
-    const rows = hranaRows.rows;
+    let rows: Array<Row> = hranaRows.rows;
+    if (columns.includes("length")) {
+        // Rows produced by @libsql/hrana-client have a non-configurable
+        // "length" property which hides a column named "length", so the rows
+        // are rebuilt to make the column value take precedence.
+        rows = hranaRows.rows.map((hranaRow) =>
+            rowFromHrana(hranaRow, hranaRows.columnNames),
+        );
+    }
     const rowsAffected = hranaRows.affectedRowCount;
     const lastInsertRowid =
         hranaRows.lastInsertRowid !== undefined
@@ -397,6 +406,33 @@ export function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
         rowsAffected,
         lastInsertRowid,
     );
+}
+
+function rowFromHrana(
+    hranaRow: hrana.Row,
+    colNames: Array<string | undefined>,
+): Row {
+    const row = {};
+    for (let i = 0; i < colNames.length; ++i) {
+        const value = hranaRow[i];
+        Object.defineProperty(row, i, { value });
+
+        const colName = colNames[i];
+        if (colName !== undefined && !Object.hasOwn(row, colName)) {
+            Object.defineProperty(row, colName, {
+                value,
+                enumerable: true,
+                configurable: true,
+                writable: true,
+            });
+        }
+    }
+    // make sure that the "length" property is not enumerable, unless a column
+    // is named "length", in which case the column value takes precedence
+    if (!Object.hasOwn(row, "length")) {
+        Object.defineProperty(row, "length", { value: colNames.length });
+    }
+    return row as Row;
 }
 
 export function mapHranaError(e: unknown): unknown {
