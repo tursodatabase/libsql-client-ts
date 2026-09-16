@@ -25,24 +25,44 @@
     "type": "module",
     "exports": {
         "./api": {
-            "types": "./lib-esm/api.d.ts",
-            "import": "./lib-esm/api.js",
-            "require": "./lib-cjs/api.js"
+            "import": {
+                "types": "./lib-esm/api.d.ts",
+                "default": "./lib-esm/api.js"
+            },
+            "require": {
+                "types": "./lib-cjs/api.d.ts",
+                "default": "./lib-cjs/api.js"
+            }
         },
         "./config": {
-            "types": "./lib-esm/config.d.ts",
-            "import": "./lib-esm/config.js",
-            "require": "./lib-cjs/config.js"
+            "import": {
+                "types": "./lib-esm/config.d.ts",
+                "default": "./lib-esm/config.js"
+            },
+            "require": {
+                "types": "./lib-cjs/config.d.ts",
+                "default": "./lib-cjs/config.js"
+            }
         },
         "./uri": {
-            "types": "./lib-esm/uri.d.ts",
-            "import": "./lib-esm/uri.js",
-            "require": "./lib-cjs/uri.js"
+            "import": {
+                "types": "./lib-esm/uri.d.ts",
+                "default": "./lib-esm/uri.js"
+            },
+            "require": {
+                "types": "./lib-cjs/uri.d.ts",
+                "default": "./lib-cjs/uri.js"
+            }
         },
         "./util": {
-            "types": "./lib-esm/util.d.ts",
-            "import": "./lib-esm/util.js",
-            "require": "./lib-cjs/util.js"
+            "import": {
+                "types": "./lib-esm/util.d.ts",
+                "default": "./lib-esm/util.js"
+            },
+            "require": {
+                "types": "./lib-cjs/util.d.ts",
+                "default": "./lib-cjs/util.js"
+            }
         }
     },
     "typesVersions": {

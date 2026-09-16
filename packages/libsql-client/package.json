@@ -27,8 +27,8 @@
     "types": "lib-esm/node.d.ts",
     "exports": {
         ".": {
-            "types": "./lib-esm/node.d.ts",
             "import": {
+                "types": "./lib-esm/node.d.ts",
                 "workerd": "./lib-esm/web.js",
                 "deno": "./lib-esm/node.js",
                 "edge-light": "./lib-esm/web.js",
@@ -37,32 +37,60 @@
                 "browser": "./lib-esm/web.js",
                 "default": "./lib-esm/node.js"
             },
-            "require": "./lib-cjs/node.js"
+            "require": {
+                "types": "./lib-cjs/node.d.ts",
+                "default": "./lib-cjs/node.js"
+            }
         },
         "./node": {
-            "types": "./lib-esm/node.d.ts",
-            "import": "./lib-esm/node.js",
-            "require": "./lib-cjs/node.js"
+            "import": {
+                "types": "./lib-esm/node.d.ts",
+                "default": "./lib-esm/node.js"
+            },
+            "require": {
+                "types": "./lib-cjs/node.d.ts",
+                "default": "./lib-cjs/node.js"
+            }
         },
         "./http": {
-            "types": "./lib-esm/http.d.ts",
-            "import": "./lib-esm/http.js",
-            "require": "./lib-cjs/http.js"
+            "import": {
+                "types": "./lib-esm/http.d.ts",
+                "default": "./lib-esm/http.js"
+            },
+            "require": {
+                "types": "./lib-cjs/http.d.ts",
+                "default": "./lib-cjs/http.js"
+            }
         },
         "./ws": {
-            "types": "./lib-esm/ws.d.ts",
-            "import": "./lib-esm/ws.js",
-            "require": "./lib-cjs/ws.js"
+            "import": {
+                "types": "./lib-esm/ws.d.ts",
+                "default": "./lib-esm/ws.js"
+            },
+            "require": {
+                "types": "./lib-cjs/ws.d.ts",
+                "default": "./lib-cjs/ws.js"
+            }
         },
         "./sqlite3": {
-            "types": "./lib-esm/sqlite3.d.ts",
-            "import": "./lib-esm/sqlite3.js",
-            "require": "./lib-cjs/sqlite3.js"
+            "import": {
+                "types": "./lib-esm/sqlite3.d.ts",
+                "default": "./lib-esm/sqlite3.js"
+            },
+            "require": {
+                "types": "./lib-cjs/sqlite3.d.ts",
+                "default": "./lib-cjs/sqlite3.js"
+            }
         },
         "./web": {
-            "types": "./lib-esm/web.d.ts",
-            "import": "./lib-esm/web.js",
-            "require": "./lib-cjs/web.js"
+            "import": {
+                "types": "./lib-esm/web.d.ts",
+                "default": "./lib-esm/web.js"
+            },
+            "require": {
+                "types": "./lib-cjs/web.d.ts",
+                "default": "./lib-cjs/web.js"
+            }
         }
     },
     "typesVersions": {
