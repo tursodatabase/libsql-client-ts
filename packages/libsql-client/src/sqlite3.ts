@@ -26,6 +26,8 @@ import {
 
 export * from "@libsql/core/api";
 
+let _syncDeprecationWarned = false;
+
 export function createClient(config: Config): Client {
     return _createClient(expandConfig(config, true));
 }
@@ -457,7 +459,12 @@ export class Sqlite3Client implements Client {
         }
     }
 
+    /** @deprecated sync() is deprecated and will be removed in a future release. Use `@tursodatabase/sync` instead. Learn more: https://tur.so/newsync */
     async sync(): Promise<Replicated> {
+        if (!_syncDeprecationWarned) {
+            console.warn("libSQL: sync() is deprecated and will be removed in a future release. Use `@tursodatabase/sync` instead. Learn more: https://tur.so/newsync");
+            _syncDeprecationWarned = true;
+        }
         this.#checkNotClosed();
         const db = await this.#pool.acquire();
         try {

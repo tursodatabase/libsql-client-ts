@@ -274,6 +274,7 @@ export class HttpClient implements Client {
         });
     }
 
+    /** @deprecated sync() is deprecated and will be removed in a future release. Use `@tursodatabase/sync` instead. Learn more: https://tur.so/newsync */
     sync(): Promise<Replicated> {
         throw new LibsqlError(
             "sync not supported in http mode",
