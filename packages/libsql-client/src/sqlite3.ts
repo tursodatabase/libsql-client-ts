@@ -218,7 +218,7 @@ export class ConnectionPool {
         // the next borrower would silently inherit it.
         if (db.open && db.inTransaction) {
             try {
-                db.prepare("ROLLBACK").run();
+                executeControl(db, "ROLLBACK");
             } catch {
                 // the connection is unusable; drop it rather than reuse it
                 closeQuietly(db);
@@ -339,7 +339,7 @@ export class Sqlite3Client implements Client {
         const db = await this.#pool.acquire();
         try {
             this.#checkUsable(db);
-            executeStmt(db, transactionModeToBegin(mode), this.#intMode);
+            executeControl(db, transactionModeToBegin(mode));
             const resultSets = [];
             for (let i = 0; i < stmts.length; i++) {
                 try {
@@ -374,7 +374,7 @@ export class Sqlite3Client implements Client {
                     throw e;
                 }
             }
-            executeStmt(db, "COMMIT", this.#intMode);
+            executeControl(db, "COMMIT");
             return resultSets;
         } finally {
             // `release` rolls back anything still open before reuse
@@ -388,7 +388,7 @@ export class Sqlite3Client implements Client {
         try {
             this.#checkUsable(db);
             executeStmt(db, "PRAGMA foreign_keys=off", this.#intMode);
-            executeStmt(db, transactionModeToBegin("deferred"), this.#intMode);
+            executeControl(db, transactionModeToBegin("deferred"));
             const resultSets = [];
             for (let i = 0; i < stmts.length; i++) {
                 try {
@@ -417,14 +417,21 @@ export class Sqlite3Client implements Client {
                     throw e;
                 }
             }
-            executeStmt(db, "COMMIT", this.#intMode);
+            executeControl(db, "COMMIT");
             return resultSets;
         } finally {
-            if (db.inTransaction) {
-                executeStmt(db, "ROLLBACK", this.#intMode);
+            try {
+                if (db.open && db.inTransaction) {
+                    executeControl(db, "ROLLBACK");
+                }
+                if (db.open) {
+                    executeStmt(db, "PRAGMA foreign_keys=on", this.#intMode);
+                }
+            } finally {
+                // always give the connection back; `release` drops it if the
+                // rollback above failed and it is still inside a transaction
+                this.#pool.release(db);
             }
-            executeStmt(db, "PRAGMA foreign_keys=on", this.#intMode);
-            this.#pool.release(db);
         }
     }
 
@@ -433,7 +440,7 @@ export class Sqlite3Client implements Client {
         const db = await this.#pool.acquire(true);
         try {
             this.#checkUsable(db);
-            executeStmt(db, transactionModeToBegin(mode), this.#intMode);
+            executeControl(db, transactionModeToBegin(mode));
         } catch (e) {
             this.#pool.release(db);
             throw e;
@@ -601,7 +608,7 @@ export class Sqlite3Transaction implements Transaction {
         }
         try {
             this.#checkNotClosed();
-            executeStmt(db, "ROLLBACK", this.#intMode);
+            executeControl(db, "ROLLBACK");
         } finally {
             this.#settle();
         }
@@ -609,7 +616,7 @@ export class Sqlite3Transaction implements Transaction {
 
     async commit(): Promise<void> {
         try {
-            executeStmt(this.#getDatabase(), "COMMIT", this.#intMode);
+            executeControl(this.#getDatabase(), "COMMIT");
         } finally {
             this.#settle();
         }
@@ -624,7 +631,7 @@ export class Sqlite3Transaction implements Transaction {
             // `client.close()` may have closed this connection already, and
             // reading `inTransaction` on a closed database aborts the process.
             if (db.open && db.inTransaction) {
-                executeStmt(db, "ROLLBACK", this.#intMode);
+                executeControl(db, "ROLLBACK");
             }
         } finally {
             this.#settle();
@@ -809,6 +816,22 @@ const minInteger = -9223372036854775808n;
 const maxInteger = 9223372036854775807n;
 
 function executeMultiple(db: Database.Database, sql: string): void {
+    try {
+        db.exec(sql);
+    } catch (e) {
+        throw mapSqliteError(e);
+    }
+}
+
+// Runs a transaction-control statement (BEGIN, COMMIT, ROLLBACK). These go
+// through `exec` rather than a prepared statement: when a prepared COMMIT
+// fails, for example with SQLITE_BUSY because another connection holds a
+// SHARED lock, libsql leaves the statement un-reset, and an un-reset statement
+// keeps the connection's lock after a successful ROLLBACK and even after
+// close(), until garbage collection finalizes it. Every later write from any
+// connection then fails with SQLITE_BUSY. `exec` finalizes its statement
+// before returning, whether it succeeded or not.
+function executeControl(db: Database.Database, sql: string): void {
     try {
         db.exec(sql);
     } catch (e) {

@@ -2048,6 +2048,73 @@ describe("timeout option (local files)", () => {
             withoutTimeout.close();
         }
     });
+
+    // A COMMIT that fails with SQLITE_BUSY must not leave the database locked:
+    // once the failed transaction is rolled back and the reader is gone, other
+    // connections must be able to write again.
+    for (const [label, failCommit] of [
+        [
+            "transaction commit()",
+            async (c: libsql.Client) => {
+                const txn = await c.transaction("deferred");
+                await txn.execute("INSERT INTO t VALUES (1)");
+                await expect(txn.commit()).rejects.toBeLibsqlError(
+                    "SQLITE_BUSY",
+                );
+            },
+        ],
+        [
+            "batch()",
+            async (c: libsql.Client) => {
+                await expect(
+                    c.batch(["INSERT INTO t VALUES (1)"], "deferred"),
+                ).rejects.toBeLibsqlError("SQLITE_BUSY");
+            },
+        ],
+        [
+            "migrate()",
+            async (c: libsql.Client) => {
+                await expect(
+                    c.migrate([{ sql: "INSERT INTO t VALUES (1)", args: [] }]),
+                ).rejects.toBeLibsqlError("SQLITE_BUSY");
+            },
+        ],
+    ] as const) {
+        test(`a COMMIT that fails with SQLITE_BUSY in ${label} releases its lock`, async () => {
+            const setup = createClient({ url: dbUrl });
+            await setup.execute("CREATE TABLE t (a)");
+            setup.close();
+
+            const writer = createClient({ url: dbUrl });
+            const reader = createClient({ url: dbUrl });
+            try {
+                // A read transaction holds a SHARED lock, so the writer's COMMIT
+                // cannot take the EXCLUSIVE lock it needs.
+                const read = await reader.transaction("read");
+                await read.execute("SELECT count(*) FROM t");
+
+                await failCommit(writer);
+                await read.rollback();
+
+                // Neither the writer's own pool nor a new connection may be left
+                // blocked by the failed COMMIT.
+                await writer.execute("INSERT INTO t VALUES (2)");
+                const other = createClient({ url: dbUrl });
+                try {
+                    await other.execute("INSERT INTO t VALUES (3)");
+                    const rs = await other.execute(
+                        "SELECT count(*) AS n FROM t",
+                    );
+                    expect(rs.rows[0]["n"]).toStrictEqual(2);
+                } finally {
+                    other.close();
+                }
+            } finally {
+                writer.close();
+                reader.close();
+            }
+        });
+    }
 });
 
 (isFile ? test : test.skip)("raw error codes", async () => {
