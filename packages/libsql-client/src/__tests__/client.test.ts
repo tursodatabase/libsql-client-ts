@@ -872,6 +872,106 @@ describe("values", () => {
                 "string",
             );
         });
+
+        describe("per-statement int mode", () => {
+            const big = 9223372036854775807n;
+
+            test(
+                "execute() uses the statement's int mode",
+                withClient(async (c) => {
+                    const sql = "SELECT ? AS v";
+                    await expect(
+                        c.execute({ sql, args: [big] }),
+                    ).rejects.toBeInstanceOf(RangeError);
+                    const rsBigint = await c.execute({
+                        sql,
+                        args: [big],
+                        intMode: "bigint",
+                    });
+                    expect(rsBigint.rows[0][0]).toStrictEqual(big);
+                    expect(rsBigint.rows[0].v).toStrictEqual(big);
+                    const rsString = await c.execute({
+                        sql,
+                        args: [big],
+                        intMode: "string",
+                    });
+                    expect(rsString.rows[0][0]).toStrictEqual(
+                        "9223372036854775807",
+                    );
+                }),
+            );
+
+            test(
+                "execute() can ask for numbers from a 'bigint' client",
+                withClient(
+                    async (c) => {
+                        const rs = await c.execute({
+                            sql: "SELECT 42",
+                            intMode: "number",
+                        });
+                        expect(rs.rows[0][0]).toStrictEqual(42);
+                    },
+                    { intMode: "bigint" },
+                ),
+            );
+
+            test(
+                "batch() uses each statement's int mode",
+                withClient(async (c) => {
+                    const rss = await c.batch(
+                        [
+                            {
+                                sql: "SELECT ? AS v, 0.5 AS f",
+                                args: [big],
+                                intMode: "bigint",
+                            },
+                            { sql: "SELECT 42 AS v, 0.5 AS f" },
+                            {
+                                sql: "SELECT ? AS v, 0.5 AS f",
+                                args: [big],
+                                intMode: "string",
+                            },
+                        ],
+                        "read",
+                    );
+                    expect(Array.from(rss[0].rows[0])).toStrictEqual([
+                        big,
+                        0.5,
+                    ]);
+                    expect(rss[0].rows[0].v).toStrictEqual(big);
+                    expect(Array.from(rss[1].rows[0])).toStrictEqual([42, 0.5]);
+                    expect(rss[1].rows[0].v).toStrictEqual(42);
+                    expect(Array.from(rss[2].rows[0])).toStrictEqual([
+                        "9223372036854775807",
+                        0.5,
+                    ]);
+                }),
+            );
+
+            test(
+                "transaction() uses each statement's int mode",
+                withClient(async (c) => {
+                    const txn = await c.transaction("read");
+                    try {
+                        const rs0 = await txn.execute("SELECT 42");
+                        expect(rs0.rows[0][0]).toStrictEqual(42);
+                        const rs1 = await txn.execute({
+                            sql: "SELECT ?",
+                            args: [big],
+                            intMode: "bigint",
+                        });
+                        expect(rs1.rows[0][0]).toStrictEqual(big);
+                        const rs2 = await txn.execute("SELECT 42");
+                        expect(rs2.rows[0][0]).toStrictEqual(42);
+                        await expect(
+                            txn.execute({ sql: "SELECT ?", args: [big] }),
+                        ).rejects.toBeInstanceOf(RangeError);
+                    } finally {
+                        txn.close();
+                    }
+                }),
+            );
+        });
     });
 
     const buf = new ArrayBuffer(256);

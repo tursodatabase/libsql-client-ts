@@ -661,6 +661,7 @@ function executeStmt(
         args = [];
     } else {
         sql = stmt.sql;
+        intMode = stmt.intMode ?? intMode;
         if (Array.isArray(stmt.args)) {
             args = stmt.args.map((value) => valueToSql(value, intMode));
         } else {
