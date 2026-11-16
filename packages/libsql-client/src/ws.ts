@@ -18,6 +18,8 @@ import {
     executeHranaBatch,
     stmtToHrana,
     resultSetFromHrana,
+    setStreamIntMode,
+    stmtIntMode,
     mapHranaError,
 } from "./hrana.js";
 import { SqlCache } from "./sql_cache.js";
@@ -177,6 +179,7 @@ export class WsClient implements Client {
                 // Schedule all operations synchronously, so they will be pipelined and executed in a single
                 // network roundtrip.
                 streamState.conn.sqlCache.apply([hranaStmt]);
+                streamState.stream.intMode = stmtIntMode(stmt, this.#intMode);
                 const hranaRowsPromise = streamState.stream.query(hranaStmt);
                 streamState.stream.closeGracefully();
 
@@ -209,17 +212,22 @@ export class WsClient implements Client {
                 });
 
                 const hranaStmts = normalizedStmts.map(stmtToHrana);
+                const intModes = normalizedStmts.map((stmt) =>
+                    stmtIntMode(stmt, this.#intMode),
+                );
                 const version = await streamState.conn.client.getVersion();
 
                 // Schedule all operations synchronously, so they will be pipelined and executed in a single
                 // network roundtrip.
                 streamState.conn.sqlCache.apply(hranaStmts);
+                setStreamIntMode(streamState.stream, intModes);
                 const batch = streamState.stream.batch(version >= 3);
                 const resultsPromise = executeHranaBatch(
                     mode,
                     version,
                     batch,
                     hranaStmts,
+                    intModes,
                 );
 
                 const results = await resultsPromise;
@@ -238,16 +246,21 @@ export class WsClient implements Client {
             const streamState = await this.#openStream();
             try {
                 const hranaStmts = stmts.map(stmtToHrana);
+                const intModes = stmts.map((stmt) =>
+                    stmtIntMode(stmt, this.#intMode),
+                );
                 const version = await streamState.conn.client.getVersion();
 
                 // Schedule all operations synchronously, so they will be pipelined and executed in a single
                 // network roundtrip.
+                setStreamIntMode(streamState.stream, intModes);
                 const batch = streamState.stream.batch(version >= 3);
                 const resultsPromise = executeHranaBatch(
                     "deferred",
                     version,
                     batch,
                     hranaStmts,
+                    intModes,
                     true,
                 );
 
@@ -471,7 +484,7 @@ export class WsTransaction extends HranaTransaction implements Transaction {
         mode: TransactionMode,
         version: hrana.ProtocolVersion,
     ) {
-        super(mode, version);
+        super(mode, version, state.stream.intMode);
         this.#client = client;
         this.#streamState = state;
     }

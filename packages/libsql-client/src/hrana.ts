@@ -1,6 +1,7 @@
 import * as hrana from "@libsql/hrana-client";
 import type {
     InStatement,
+    IntMode,
     ResultSet,
     Transaction,
     TransactionMode,
@@ -13,14 +14,20 @@ import { transactionModeToBegin, ResultSetImpl } from "@libsql/core/util";
 export abstract class HranaTransaction implements Transaction {
     #mode: TransactionMode;
     #version: hrana.ProtocolVersion;
+    #intMode: IntMode;
     // Promise that is resolved when the BEGIN statement completes, or `undefined` if we haven't executed the
     // BEGIN statement yet.
     #started: Promise<void> | undefined;
 
     /** @private */
-    constructor(mode: TransactionMode, version: hrana.ProtocolVersion) {
+    constructor(
+        mode: TransactionMode,
+        version: hrana.ProtocolVersion,
+        intMode: IntMode,
+    ) {
         this.#mode = mode;
         this.#version = version;
+        this.#intMode = intMode;
         this.#started = undefined;
     }
 
@@ -47,6 +54,10 @@ export abstract class HranaTransaction implements Transaction {
 
         try {
             const hranaStmts = stmts.map(stmtToHrana);
+            const intModes = stmts.map((stmt) =>
+                stmtIntMode(stmt, this.#intMode),
+            );
+            setStreamIntMode(stream, intModes);
 
             let rowsPromises: Array<Promise<hrana.RowsResult | undefined>>;
             if (this.#started === undefined) {
@@ -145,7 +156,7 @@ export abstract class HranaTransaction implements Transaction {
                             "TRANSACTION_CLOSED",
                         );
                     }
-                    resultSets.push(resultSetFromHrana(rows));
+                    resultSets.push(resultSetFromHrana(rows, intModes[i]));
                 } catch (e) {
                     if (e instanceof LibsqlBatchError) {
                         throw e;
@@ -275,6 +286,7 @@ export async function executeHranaBatch(
     version: hrana.ProtocolVersion,
     batch: hrana.Batch,
     hranaStmts: Array<hrana.Stmt>,
+    intModes: Array<IntMode>,
     disableForeignKeys: boolean = false,
 ): Promise<Array<ResultSet>> {
     if (disableForeignKeys) {
@@ -327,7 +339,7 @@ export async function executeHranaBatch(
                     "TRANSACTION_CLOSED",
                 );
             }
-            resultSets.push(resultSetFromHrana(hranaRows));
+            resultSets.push(resultSetFromHrana(hranaRows, intModes[i]));
         } catch (e) {
             if (e instanceof LibsqlBatchError) {
                 throw e;
@@ -381,10 +393,45 @@ export function stmtToHrana(stmt: InStatement | [string, InArgs?]): hrana.Stmt {
     return hranaStmt;
 }
 
-export function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
+/** Returns the integer mode of a statement: its own, or the client's. */
+export function stmtIntMode(
+    stmt: InStatement | [string, InArgs?],
+    intMode: IntMode,
+): IntMode {
+    if (typeof stmt === "object" && !Array.isArray(stmt)) {
+        return stmt.intMode ?? intMode;
+    }
+    return intMode;
+}
+
+/** Prepares a stream to decode the results of statements with the given integer modes.
+ *
+ * A stream decodes integers with the `intMode` it has when a response arrives. When a statement needs another
+ * mode, the stream switches to `"bigint"`, which is exact, and `resultSetFromHrana()` converts each result to
+ * the mode of its statement. A stream never switches back, so a response decoded before the switch holds no
+ * `bigint`-s, and converting it changes nothing.
+ */
+export function setStreamIntMode(
+    stream: hrana.Stream,
+    intModes: Array<IntMode>,
+): void {
+    if (intModes.some((intMode) => intMode !== stream.intMode)) {
+        stream.intMode = "bigint";
+    }
+}
+
+export function resultSetFromHrana(
+    hranaRows: hrana.RowsResult,
+    intMode?: IntMode,
+): ResultSet {
     const columns = hranaRows.columnNames.map((c) => c ?? "");
     const columnTypes = hranaRows.columnDecltypes.map((c) => c ?? "");
-    const rows = hranaRows.rows;
+    let rows = hranaRows.rows;
+    if (intMode !== undefined && intMode !== "bigint") {
+        rows = rows.map((row) =>
+            rowToIntMode(row, hranaRows.columnNames, intMode),
+        );
+    }
     const rowsAffected = hranaRows.affectedRowCount;
     const lastInsertRowid =
         hranaRows.lastInsertRowid !== undefined
@@ -397,6 +444,62 @@ export function resultSetFromHrana(hranaRows: hrana.RowsResult): ResultSet {
         rowsAffected,
         lastInsertRowid,
     );
+}
+
+// Converts the `bigint`-s of a row decoded in the `"bigint"` mode to `intMode`, building the row as
+// `hrana-client` does. A row without `bigint`-s is returned as it is.
+function rowToIntMode(
+    row: hrana.Row,
+    columnNames: Array<string | undefined>,
+    intMode: IntMode,
+): hrana.Row {
+    let hasBigint = false;
+    for (let i = 0; i < row.length; ++i) {
+        if (typeof row[i] === "bigint") {
+            hasBigint = true;
+            break;
+        }
+    }
+    if (!hasBigint) {
+        return row;
+    }
+
+    const converted = {} as hrana.Row;
+    Object.defineProperty(converted, "length", { value: row.length });
+    for (let i = 0; i < row.length; ++i) {
+        const value = valueToIntMode(row[i], intMode);
+        Object.defineProperty(converted, i, { value });
+        const colName = columnNames[i];
+        if (colName !== undefined && !Object.hasOwn(converted, colName)) {
+            Object.defineProperty(converted, colName, {
+                value,
+                enumerable: true,
+                configurable: true,
+                writable: true,
+            });
+        }
+    }
+    return converted;
+}
+
+function valueToIntMode(value: hrana.Value, intMode: IntMode): hrana.Value {
+    if (typeof value !== "bigint") {
+        return value;
+    } else if (intMode === "number") {
+        const num = Number(value);
+        if (!Number.isSafeInteger(num)) {
+            throw new RangeError(
+                "Received integer which is too large to be safely represented as a JavaScript number",
+            );
+        }
+        return num;
+    } else if (intMode === "bigint") {
+        return value;
+    } else if (intMode === "string") {
+        return "" + value;
+    } else {
+        throw new TypeError("Invalid value for IntMode");
+    }
 }
 
 export function mapHranaError(e: unknown): unknown {

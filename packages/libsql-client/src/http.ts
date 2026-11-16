@@ -17,6 +17,8 @@ import {
     executeHranaBatch,
     stmtToHrana,
     resultSetFromHrana,
+    setStreamIntMode,
+    stmtIntMode,
     mapHranaError,
 } from "./hrana.js";
 import { SqlCache } from "./sql_cache.js";
@@ -137,6 +139,7 @@ export class HttpClient implements Client {
                 // close the stream in a single HTTP request.
                 let rowsPromise: Promise<hrana.RowsResult>;
                 const stream = this.#client.openStream();
+                stream.intMode = stmtIntMode(stmt, this.#intMode);
                 try {
                     rowsPromise = stream.query(hranaStmt);
                 } finally {
@@ -169,12 +172,16 @@ export class HttpClient implements Client {
                 });
 
                 const hranaStmts = normalizedStmts.map(stmtToHrana);
+                const intModes = normalizedStmts.map((stmt) =>
+                    stmtIntMode(stmt, this.#intMode),
+                );
                 const version = await this.#client.getVersion();
 
                 // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the batch and
                 // close the stream in a single HTTP request.
                 let resultsPromise: Promise<Array<ResultSet>>;
                 const stream = this.#client.openStream();
+                setStreamIntMode(stream, intModes);
                 try {
                     // It makes sense to use a SQL cache even for a single batch, because it may contain the same
                     // statement repeated multiple times.
@@ -191,6 +198,7 @@ export class HttpClient implements Client {
                         version,
                         batch,
                         hranaStmts,
+                        intModes,
                     );
                 } finally {
                     stream.closeGracefully();
@@ -209,12 +217,16 @@ export class HttpClient implements Client {
         return this.limit<Array<ResultSet>>(async () => {
             try {
                 const hranaStmts = stmts.map(stmtToHrana);
+                const intModes = stmts.map((stmt) =>
+                    stmtIntMode(stmt, this.#intMode),
+                );
                 const version = await this.#client.getVersion();
 
                 // Pipeline all operations, so `hrana.HttpClient` can open the stream, execute the batch and
                 // close the stream in a single HTTP request.
                 let resultsPromise: Promise<Array<ResultSet>>;
                 const stream = this.#client.openStream();
+                setStreamIntMode(stream, intModes);
                 try {
                     const batch = stream.batch(false);
                     resultsPromise = executeHranaBatch(
@@ -222,6 +234,7 @@ export class HttpClient implements Client {
                         version,
                         batch,
                         hranaStmts,
+                        intModes,
                         true,
                     );
                 } finally {
@@ -318,7 +331,7 @@ export class HttpTransaction extends HranaTransaction implements Transaction {
         mode: TransactionMode,
         version: hrana.ProtocolVersion,
     ) {
-        super(mode, version);
+        super(mode, version, stream.intMode);
         this.#stream = stream;
         this.#sqlCache = new SqlCache(stream, sqlCacheCapacity);
     }
