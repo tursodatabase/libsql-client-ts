@@ -82,8 +82,13 @@ export function _createClient(config: ExpandedConfig): Client {
     // second connection would be a second, empty database rather than another
     // way into the same one. Each connection to an embedded replica carries
     // its own sync state. Both are therefore single-connection databases.
+    // A `concurrency` of 0 disables the limit, as documented in `Config`.
     const maxConnections =
-        isInMemory || config.syncUrl ? 1 : Math.max(1, config.concurrency);
+        isInMemory || config.syncUrl
+            ? 1
+            : config.concurrency === 0
+              ? Infinity
+              : Math.max(1, config.concurrency);
 
     const options = {
         authToken: config.authToken,
