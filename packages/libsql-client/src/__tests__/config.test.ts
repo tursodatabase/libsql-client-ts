@@ -232,3 +232,20 @@ describe("expandConfig - parsing of valid arguments", () => {
         });
     }
 });
+
+describe("expandConfig - concurrency", () => {
+    const cases = [
+        { name: "default", concurrency: undefined, expected: 20 },
+        { name: "custom limit", concurrency: 50, expected: 50 },
+        { name: "zero disables the limit", concurrency: 0, expected: 0 },
+        { name: "negative clamps to zero", concurrency: -5, expected: 0 },
+    ];
+    for (const { name, concurrency, expected } of cases) {
+        test(name, () => {
+            expect(
+                expandConfig({ url: "http://localhost", concurrency }, false)
+                    .concurrency,
+            ).toEqual(expected);
+        });
+    }
+});
